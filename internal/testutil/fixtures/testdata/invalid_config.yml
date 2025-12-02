@@ -1,0 +1,10 @@
+# Invalid config - missing storage type
+storages:
+  local:
+    path: /tmp/backups
+
+targets:
+  - name: test
+    conn:
+      type: invalid_type
+      database: testdb

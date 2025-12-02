@@ -1,0 +1,31 @@
+default_storage: local
+
+storages:
+  local:
+    type: local
+    path: /tmp/backups
+    keep: 5
+
+  s3:
+    type: s3
+    bucket: test-bucket
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    keep: 10
+
+targets:
+  - name: test_mysql
+    conn:
+      type: mysql
+      user: root
+      password: testpass
+      database: testdb
+      host: localhost
+      port: 3306
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: local

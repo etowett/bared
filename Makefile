@@ -1,4 +1,4 @@
-.PHONY: all build clean install uninstall test coverage validate fmt lint vet run-daemon dev help
+.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help
 
 # Default target
 all: build
@@ -54,10 +54,32 @@ install-service: install
 	@echo "  sudo systemctl enable bared"
 	@echo "  sudo systemctl start bared"
 
-# Run tests
-test:
-	@echo "Running tests..."
-	go test -v -race ./...
+# Run tests (default: unit tests only)
+test: test-unit
+
+# Run unit tests (fast, no external dependencies)
+test-unit:
+	@echo "Running unit tests..."
+	go test -v -race -short -coverprofile=coverage.out ./...
+
+# Run integration tests (requires Docker services)
+test-integration:
+	@echo "Running integration tests (requires Docker)..."
+	@echo "Starting services..."
+	docker-compose up -d mysql postgres redis minio
+	@echo "Waiting for services to be ready..."
+	sleep 15
+	go test -v -race -tags=integration ./...
+	@echo "Stopping services..."
+	docker-compose down
+
+# Run end-to-end tests
+test-e2e:
+	@echo "Running end-to-end tests..."
+	go test -v -race ./test/...
+
+# Run all tests (unit + integration + e2e)
+test-all: test-unit test-integration test-e2e
 
 # Run tests with coverage
 coverage:
@@ -66,10 +88,26 @@ coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+# Check coverage threshold (75%)
+coverage-check:
+	@echo "Checking coverage threshold (75%)..."
+	@go test -coverprofile=coverage.out ./... > /dev/null 2>&1
+	@total=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	if [ $$(echo "$$total < 75.0" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
+		echo "❌ Coverage ($$total%) is below threshold (75%)"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage ($$total%) meets threshold (75%)"; \
+	fi
+
 # Run benchmarks
 bench:
 	@echo "Running benchmarks..."
 	go test -bench=. -benchmem ./...
+
+# Pre-commit checks
+pre-commit: fmt vet lint test-unit coverage-check
+	@echo "✅ All pre-commit checks passed!"
 
 # Validate the example configuration
 validate: build
@@ -175,10 +213,16 @@ help:
 	@echo "  make install-service - Install as systemd service"
 	@echo ""
 	@echo "Testing Commands:"
-	@echo "  make test        - Run tests"
-	@echo "  make coverage    - Run tests with coverage report"
-	@echo "  make bench       - Run benchmarks"
-	@echo "  make validate    - Validate example configuration"
+	@echo "  make test             - Run unit tests (fast, default)"
+	@echo "  make test-unit        - Run unit tests only"
+	@echo "  make test-integration - Run integration tests (requires Docker)"
+	@echo "  make test-e2e         - Run end-to-end tests"
+	@echo "  make test-all         - Run all tests (unit + integration + e2e)"
+	@echo "  make coverage         - Generate HTML coverage report"
+	@echo "  make coverage-check   - Verify coverage meets 75% threshold"
+	@echo "  make bench            - Run benchmarks"
+	@echo "  make pre-commit       - Run all pre-commit checks"
+	@echo "  make validate         - Validate example configuration"
 	@echo ""
 	@echo "Code Quality Commands:"
 	@echo "  make fmt         - Format Go code"
