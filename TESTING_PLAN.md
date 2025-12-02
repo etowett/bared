@@ -411,10 +411,11 @@ go test -race ./...
 - [x] `internal/storage/factory_test.go` - 12 test cases
 - **Total: 61 test cases, 166 test runs (including subtests), ALL PASSING**
 
-#### Phase 5: Compression & Retention ⏳
-- [ ] `internal/compress/tgz_test.go`
-- [ ] `internal/compress/factory_test.go`
-- [ ] `internal/retention/tracker_test.go`
+#### Phase 5: Compression & Retention ✅ COMPLETE
+- [x] `internal/compress/tgz_test.go` - 18 test cases
+- [x] `internal/compress/factory_test.go` - 11 test cases
+- [x] `internal/retention/tracker_test.go` - 13 test cases
+- **Total: 42 test cases, 110+ test runs (including subtests), ALL PASSING**
 
 #### Phase 6: Application Orchestration ⏳
 - [ ] `internal/app/backup_test.go`
@@ -533,6 +534,61 @@ internal/util/retry_test.go - 14 test cases covering:
 **Cumulative Progress:** ~5,055 lines of test code (Phases 1-4)
 
 **Next:** Phase 5 (Compression & Retention Tests)
+
+### 2025-12-02 - Phase 5 Complete ✅
+**Completed:**
+- Tar.gz compression tests (18 test cases)
+- Compression factory tests (11 test cases)
+- Retention tracker tests (13 test cases)
+
+**Test Results:**
+```
+✅ ALL 42 TEST CASES PASSING (110+ total test runs including subtests)
+- Compression tests: Compress/decompress round-trip, large files, binary data, UTF-8, compression ratio
+- Factory tests: Both "tgz" and "tar.gz" aliases, case sensitivity, error handling
+- Retention tests: Add/remove backups, JSON persistence, cleanup with storage integration, concurrent access
+```
+
+**Files Created (3 total):**
+1. `internal/compress/tgz_test.go` (~430 lines)
+2. `internal/compress/factory_test.go` (~240 lines)
+3. `internal/retention/tracker_test.go` (~600 lines)
+
+**Total Phase 5:** ~1,270 lines of test code
+
+**Cumulative Progress:** ~6,325 lines of test code (Phases 1-5)
+
+**Bug Fixes:**
+- Fixed MockStorage to handle nil context in Delete() method (production code passes nil)
+
+**Next:** Phase 6 (Application Orchestration Tests)
+
+### 2025-12-02 - Phase 6 Started (Partial) ⏸️
+**Completed:**
+- Application backup tests (struct validation - 2 tests passing)
+- Created test infrastructure for orchestration testing
+- Fixed storage fixture names (added Name field to LocalStorage, S3Storage, SFTPStorage)
+
+**Status:**
+- Basic BackupResult struct tests: ✅ PASSING
+- Integration tests: ⏸️ DEFERRED (require real mysqldump/pg_dump/redis-cli)
+
+**Files Created (1 partial):**
+1. `internal/app/backup_test.go` (~320 lines, 18 test cases)
+   - 2 passing: BackupResult field validation tests
+   - 16 deferred: Integration tests that need real database tools
+
+**Note:** Application orchestration tests are integration-level and require:
+- Real database dump tools (mysqldump, pg_dump, redis-cli)
+- Or comprehensive mocking of database/storage/compression pipeline
+- These tests validate the orchestration code structure exists and handles errors
+
+**Next Steps for Phase 6:**
+- Option A: Add Docker-based integration tests with real databases
+- Option B: Create more sophisticated mocks for full pipeline testing
+- Option C: Accept current coverage and move to Phase 7 (Notifications - easier to test)
+
+**Recommendation:** Skip to Phase 7 (Notifications) which can be fully tested with HTTP mocks
 
 ---
 

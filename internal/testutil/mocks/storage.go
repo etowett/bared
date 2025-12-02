@@ -190,11 +190,13 @@ func (m *MockStorage) Delete(ctx context.Context, path string) error {
 		return m.DeleteFunc(ctx, path)
 	}
 
-	// Check for context cancellation
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	// Check for context cancellation (handle nil context)
+	if ctx != nil {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 	}
 
 	// Return configured error

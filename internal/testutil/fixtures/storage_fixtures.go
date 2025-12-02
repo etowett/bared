@@ -7,6 +7,7 @@ import (
 // LocalStorage returns a valid local storage config for testing
 func LocalStorage() *config.Storage {
 	return &config.Storage{
+		Name: "local",
 		Type: "local",
 		Path: "/tmp/test-backups",
 		Keep: 5,
@@ -16,6 +17,7 @@ func LocalStorage() *config.Storage {
 // S3Storage returns a valid S3 storage config for testing
 func S3Storage() *config.Storage {
 	return &config.Storage{
+		Name:            "s3",
 		Type:            "s3",
 		Bucket:          "test-backup-bucket",
 		Region:          "us-east-1",
@@ -35,6 +37,7 @@ func S3StorageWithEndpoint() *config.Storage {
 // SFTPStorage returns a valid SFTP storage config for testing
 func SFTPStorage() *config.Storage {
 	return &config.Storage{
+		Name:     "sftp",
 		Type:     "sftp",
 		Host:     "sftp.example.com",
 		Port:     22,
