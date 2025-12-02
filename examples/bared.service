@@ -1,0 +1,25 @@
+[Unit]
+Description=BareD - Backup and Restore Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=backup
+Group=backup
+WorkingDirectory=/etc/bared
+ExecStart=/usr/local/bin/brd daemon --config /etc/bared/bared.yml
+Restart=on-failure
+RestartSec=10s
+
+# Security options
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/backups /var/log/bared
+
+# Environment
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+[Install]
+WantedBy=multi-user.target

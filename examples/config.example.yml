@@ -1,0 +1,97 @@
+# BareD Configuration Example
+
+# Default storage backend for all targets
+default_storage: s3
+
+# Storage backend definitions
+storages:
+  # Local filesystem storage
+  local_disk:
+    type: local
+    path: /data/backups
+    keep: 20
+
+  # S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.)
+  s3:
+    type: s3
+    bucket: my-backup-bucket
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    # endpoint_url: https://s3.example.com  # For S3-compatible services
+    path: backups/
+    keep: 30
+
+  # SFTP remote storage
+  offsite:
+    type: sftp
+    host: backup.example.com
+    port: 22
+    username: backup
+    password: ${SFTP_PASSWORD}
+    path: /backups/
+    keep: 90
+
+# Notification definitions
+notifiers:
+  slack:
+    type: slack
+    url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+    on_success: false  # Only notify on failure
+
+# Backup targets
+targets:
+  # MySQL/MariaDB example
+  - name: mysql_production
+    conn:
+      type: mysql
+      user: backup_user
+      password: ${MYSQL_PASSWORD}
+      database: myapp_db
+      host: localhost
+      port: 3306
+    exclude_tables:
+      - temp_logs
+      - session_data
+    additional_args:
+      - --single-transaction
+      - --quick
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    schedule: "0 2 * * *"  # Daily at 2 AM
+
+  # PostgreSQL example
+  - name: postgres_analytics
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: analytics
+      host: localhost
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: local_disk
+    schedule: "0 3 * * *"  # Daily at 3 AM
+
+  # Redis example
+  - name: redis_cache
+    conn:
+      type: redis
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: offsite
+    schedule: "0 4 * * 0"  # Weekly on Sunday at 4 AM

@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # BareD daemon
+  bared:
+    build: .
+    container_name: bared
+    volumes:
+      - ./examples/config.example.yml:/etc/bared/bared.yml:ro
+      - backups:/backups
+      - tracker:/home/backup/.bared
+    environment:
+      - MYSQL_PASSWORD=testpass
+      - POSTGRES_PASSWORD=testpass
+      - REDIS_PASSWORD=testpass
+    command: daemon --config /etc/bared/bared.yml
+    depends_on:
+      - mysql
+      - postgres
+      - redis
+    networks:
+      - bared-network
+
+  # MySQL for testing
+  mysql:
+    image: mysql:8.0
+    container_name: bared-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: backup
+      MYSQL_PASSWORD: testpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - bared-network
+
+  # PostgreSQL for testing
+  postgres:
+    image: postgres:15-alpine
+    container_name: bared-postgres
+    environment:
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_USER: backup
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - bared-network
+
+  # Redis for testing
+  redis:
+    image: redis:7-alpine
+    container_name: bared-redis
+    command: redis-server --requirepass testpass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - bared-network
+
+  # MinIO (S3-compatible storage) for testing
+  minio:
+    image: minio/minio:latest
+    container_name: bared-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - bared-network
+
+volumes:
+  mysql-data:
+  postgres-data:
+  redis-data:
+  minio-data:
+  backups:
+  tracker:
+
+networks:
+  bared-network:
+    driver: bridge

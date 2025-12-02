@@ -1,0 +1,59 @@
+# Binaries
+brd
+bared
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Configuration files with secrets
+bared.yml
+config.yml
+*.local.yml
+
+# Backup data (for testing)
+/backups/
+/tmp/
+
+# Log files
+*.log
+logs/
+
+# Tracker files (generated at runtime)
+.bared/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
