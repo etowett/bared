@@ -397,17 +397,19 @@ go test -race ./...
 - [x] `internal/util/shell_test.go` - 10 test cases, all passing
 - [x] `internal/util/retry_test.go` - 14 test cases, all passing
 
-#### Phase 3: Database Layer ⏳
-- [ ] `internal/database/mysql_test.go`
-- [ ] `internal/database/postgres_test.go`
-- [ ] `internal/database/redis_test.go`
-- [ ] `internal/database/factory_test.go`
+#### Phase 3: Database Layer ✅ COMPLETE
+- [x] `internal/database/mysql_test.go` - 21 test cases
+- [x] `internal/database/postgres_test.go` - 19 test cases
+- [x] `internal/database/redis_test.go` - 16 test cases
+- [x] `internal/database/factory_test.go` - 15 test cases
+- **Total: 71 test cases, 118 test runs (including subtests), ALL PASSING**
 
-#### Phase 4: Storage Layer ⏳
-- [ ] `internal/storage/local_test.go`
-- [ ] `internal/storage/s3_test.go`
-- [ ] `internal/storage/sftp_test.go`
-- [ ] `internal/storage/factory_test.go`
+#### Phase 4: Storage Layer ✅ COMPLETE
+- [x] `internal/storage/local_test.go` - 22 test cases
+- [x] `internal/storage/s3_test.go` - 14 test cases
+- [x] `internal/storage/sftp_test.go` - 13 test cases
+- [x] `internal/storage/factory_test.go` - 12 test cases
+- **Total: 61 test cases, 166 test runs (including subtests), ALL PASSING**
 
 #### Phase 5: Compression & Retention ⏳
 - [ ] `internal/compress/tgz_test.go`
@@ -475,6 +477,62 @@ internal/util/retry_test.go - 14 test cases covering:
 **Total:** ~1,839 lines of test infrastructure and tests
 
 **Next:** Ready for Phase 3 (Database Layer Tests)
+
+### 2025-12-02 - Phase 3 Complete ✅
+**Completed:**
+- MySQL driver tests (21 test cases)
+- PostgreSQL driver tests (19 test cases)
+- Redis driver tests (16 test cases)
+- Database factory tests (15 test cases)
+
+**Test Results:**
+```
+✅ ALL 71 TEST CASES PASSING (118 total test runs including subtests)
+- MySQL tests: Full coverage of dump/restore, arg building, validation
+- Postgres tests: PGPASSWORD env var, --no-password flag, username vs user
+- Redis tests: RDB dumps, password handling, restore not implemented
+- Factory tests: All database types, error cases, nil handling
+```
+
+**Files Created (4 total):**
+1. `internal/database/mysql_test.go` (~450 lines)
+2. `internal/database/postgres_test.go` (~360 lines)
+3. `internal/database/redis_test.go` (~280 lines)
+4. `internal/database/factory_test.go` (~240 lines)
+
+**Total Phase 3:** ~1,330 lines of test code
+
+**Cumulative Progress:** ~3,169 lines of test code (Phases 1-3)
+
+**Next:** Phase 4 (Storage Layer Tests)
+
+### 2025-12-02 - Phase 4 Complete ✅
+**Completed:**
+- Local storage tests (22 test cases)
+- S3 storage tests (14 test cases)
+- SFTP storage tests (13 test cases)
+- Storage factory tests (12 test cases)
+
+**Test Results:**
+```
+✅ ALL 61 TEST CASES PASSING (166 total test runs including subtests)
+- Local tests: Store/Retrieve/List/Delete, directory creation, round-trip validation
+- S3 tests: Configuration validation for AWS S3, MinIO, DigitalOcean Spaces, Wasabi
+- SFTP tests: Host/port/auth configuration, path handling, lazy initialization
+- Factory tests: Creating all storage types, error handling, case sensitivity
+```
+
+**Files Created (4 total):**
+1. `internal/storage/local_test.go` (~570 lines)
+2. `internal/storage/s3_test.go` (~478 lines)
+3. `internal/storage/sftp_test.go` (~468 lines)
+4. `internal/storage/factory_test.go` (~370 lines)
+
+**Total Phase 4:** ~1,886 lines of test code
+
+**Cumulative Progress:** ~5,055 lines of test code (Phases 1-4)
+
+**Next:** Phase 5 (Compression & Retention Tests)
 
 ---
 

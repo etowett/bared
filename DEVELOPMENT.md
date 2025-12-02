@@ -227,6 +227,7 @@ ls -lh backups/test/test_mysql/
 ### VS Code
 
 The repository includes VS Code debug configurations. Press F5 to:
+
 - Run BareD with different commands
 - Set breakpoints
 - Inspect variables
@@ -395,6 +396,7 @@ if storage.NewOption == "" {
 ### Creating a Release
 
 1. **Update version**:
+
 ```bash
 # Tag the release
 git tag -a v1.0.0 -m "Release v1.0.0"
@@ -503,6 +505,7 @@ type Dumper interface {
 ### Updating Documentation
 
 When making changes, update:
+
 - Code comments
 - README.md (user-facing changes)
 - CONTRIBUTING.md (developer changes)
@@ -512,11 +515,13 @@ When making changes, update:
 ## Resources
 
 ### Go Resources
+
 - [Effective Go](https://golang.org/doc/effective_go)
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
 - [Go Proverbs](https://go-proverbs.github.io/)
 
 ### Project Resources
+
 - Architecture: See `plan.md`
 - Contributing: See `CONTRIBUTING.md`
 - Examples: See `examples/` directory

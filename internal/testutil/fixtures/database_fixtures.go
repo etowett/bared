@@ -86,25 +86,25 @@ func RedisTarget() *config.Target {
 	}
 }
 
-// MySQLConnectionWithExcludeTables returns MySQL connection with table exclusions
-func MySQLConnectionWithExcludeTables() *config.Connection {
-	conn := MySQLConnection()
-	conn.ExcludeTables = []string{"temp_table", "cache_table"}
-	return conn
+// MySQLTargetWithExcludeTables returns MySQL target with table exclusions
+func MySQLTargetWithExcludeTables() *config.Target {
+	target := MySQLTarget()
+	target.ExcludeTables = []string{"temp_table", "cache_table"}
+	return target
 }
 
-// MySQLConnectionWithAdditionalArgs returns MySQL connection with additional args
-func MySQLConnectionWithAdditionalArgs() *config.Connection {
-	conn := MySQLConnection()
-	conn.AdditionalArgs = []string{"--single-transaction", "--quick"}
-	return conn
+// MySQLTargetWithAdditionalArgs returns MySQL target with additional args
+func MySQLTargetWithAdditionalArgs() *config.Target {
+	target := MySQLTarget()
+	target.AdditionalArgs = []string{"--single-transaction", "--quick"}
+	return target
 }
 
-// PostgresConnectionWithAdditionalArgs returns Postgres connection with additional args
-func PostgresConnectionWithAdditionalArgs() *config.Connection {
-	conn := PostgresConnection()
-	conn.AdditionalArgs = []string{"--format=custom", "--compress=9"}
-	return conn
+// PostgresTargetWithAdditionalArgs returns Postgres target with additional args
+func PostgresTargetWithAdditionalArgs() *config.Target {
+	target := PostgresTarget()
+	target.AdditionalArgs = []string{"--format=custom", "--compress=9"}
+	return target
 }
 
 // MockDumpData returns sample database dump data for testing

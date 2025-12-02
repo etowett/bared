@@ -15,6 +15,7 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 ### ✅ All Core Phases Complete! (v1.0-ready)
 
 **Phase 1: Foundation** ✓
+
 - Go module initialized
 - Project structure created
 - Configuration system (YAML parsing, validation, env vars)
@@ -22,6 +23,7 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 - Example configuration file
 
 **Phase 2: Database Dumpers** ✓
+
 - Database interfaces (Dumper, Restorer)
 - MySQL/MariaDB implementation (mysqldump/mysql)
 - PostgreSQL implementation (pg_dump/psql)
@@ -29,11 +31,13 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 - Database factory for type dispatch
 
 **Phase 3: Compression** ✓
+
 - Compressor interface
 - tar.gz implementation using stdlib
 - Streaming compression support
 
 **Phase 4: Storage Backends** ✓
+
 - Storage interface with retry logic
 - Local filesystem storage
 - S3 storage (with S3-compatible support: MinIO, DigitalOcean Spaces, etc.)
@@ -41,28 +45,33 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 - Storage factory
 
 **Phase 5: Backup Pipeline** ✓
+
 - Streaming backup pipeline (dump → compress → upload)
 - Path generation utilities
 - Backup command implementation
 - Progress logging
 
 **Phase 6: Restore Workflow** ✓
+
 - Restore pipeline (retrieve → decompress → restore)
 - List backups command
 - "Latest" backup detection
 - Full restore command implementation
 
 **Phase 7: Daemon & Scheduler** ✓
+
 - Daemon mode with signal handling (SIGTERM, SIGINT, SIGHUP)
 - Cron scheduling integration
 - systemd service file example
 
 **Phase 8: Retention & Notifications** ✓
+
 - Backup tracking (JSON metadata in ~/.bared/trackers/)
 - Automatic cleanup based on `keep` setting
 - Slack notifications with success/failure support
 
 **Phase 9: Polish & Documentation** ✓
+
 - Comprehensive README
 - Makefile for common tasks
 - Complete example configuration
@@ -133,6 +142,7 @@ targets:
 ### Pipeline Flow
 
 **Backup:**
+
 ```
 [Database Dump] → [Compress] → [Storage Upload] → [Cleanup]
          ↓              ↓              ↓
@@ -140,6 +150,7 @@ targets:
 ```
 
 **Restore:**
+
 ```
 [Storage Retrieve] → [Decompress] → [Database Restore] → [Cleanup]
          ↓                ↓                ↓

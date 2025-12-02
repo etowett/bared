@@ -28,7 +28,7 @@ func S3Storage() *config.Storage {
 // S3StorageWithEndpoint returns S3 storage with custom endpoint (MinIO)
 func S3StorageWithEndpoint() *config.Storage {
 	storage := S3Storage()
-	storage.Endpoint = "http://localhost:9000"
+	storage.EndpointURL = "http://localhost:9000"
 	return storage
 }
 
@@ -128,13 +128,11 @@ func ConfigWithNotifications() *config.Config {
 	cfg := ConfigWithLocalStorage()
 	cfg.Notifiers = map[string]*config.Notifier{
 		"slack": {
-			Type:           "slack",
-			URL:            "https://hooks.slack.com/services/TEST/WEBHOOK/URL",
-			NotifyOnSuccess: true,
+			Type:      "slack",
+			URL:       "https://hooks.slack.com/services/TEST/WEBHOOK/URL",
+			OnSuccess: true,
 		},
 	}
-	// Add notifiers to target
-	cfg.Targets[0].Notifiers = []string{"slack"}
 	return cfg
 }
 

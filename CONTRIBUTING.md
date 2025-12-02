@@ -14,22 +14,26 @@ Thank you for your interest in contributing to BareD! This document provides gui
 ### Development Setup
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd bared
 ```
 
 2. Set up the development environment:
+
 ```bash
 make dev
 ```
 
 3. Build the project:
+
 ```bash
 make build
 ```
 
 4. Run tests:
+
 ```bash
 make test
 ```
@@ -57,6 +61,7 @@ bared/
 ### Making Changes
 
 1. Create a new branch:
+
 ```bash
 git checkout -b feature/your-feature-name
 ```
@@ -64,16 +69,19 @@ git checkout -b feature/your-feature-name
 2. Make your changes following the code style guidelines below
 
 3. Format your code:
+
 ```bash
 make fmt
 ```
 
 4. Run all checks:
+
 ```bash
 make check
 ```
 
 5. Test your changes:
+
 ```bash
 make test
 make validate
@@ -140,6 +148,7 @@ func TestMyDB(t *testing.T) {
 ```
 
 Run tests:
+
 ```bash
 make test
 ```
@@ -261,16 +270,19 @@ type MyInterface interface {
 ### Debugging
 
 Enable verbose logging:
+
 ```bash
 ./brd backup --config config.yml --target mydb 2>&1 | tee backup.log
 ```
 
 Use Go's race detector:
+
 ```bash
 go test -race ./...
 ```
 
 Profile the application:
+
 ```bash
 go test -cpuprofile=cpu.prof -memprofile=mem.prof -bench=.
 go tool pprof cpu.prof

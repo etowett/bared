@@ -5,6 +5,7 @@
 BareD is a production-ready backup/restore daemon to be built from scratch in Go, inspired by gobackup but simplified for your specific needs. Target: ~2-3K lines of clean, maintainable code.
 
 **Core Features:**
+
 - Database backup/restore: MySQL/MariaDB, PostgreSQL, Redis
 - Storage backends: Local filesystem, S3 (and S3-compatible), SFTP
 - Daemon mode with cron scheduling
@@ -13,6 +14,7 @@ BareD is a production-ready backup/restore daemon to be built from scratch in Go
 - Streaming architecture (no temp files between stages)
 
 **Design Principles:**
+
 - Minimal dependencies (avoid heavy frameworks)
 - Interface-driven architecture (easy extensibility)
 - Streaming by default (handle multi-GB dumps)
@@ -118,6 +120,7 @@ require (
 ```
 
 **Why these choices:**
+
 - **yaml.v3**: Lightweight, no Viper overhead (saves 500KB+ in binary)
 - **aws-sdk-go-v2**: Modern, modular, better performance than v1
 - **pkg/sftp**: Standard SFTP library in Go ecosystem
@@ -127,6 +130,7 @@ require (
 ### Standard Library Usage
 
 Maximize stdlib where possible:
+
 - `archive/tar`: Tar operations
 - `compress/gzip`: Gzip compression
 - `context`: Cancellation and timeouts
@@ -140,6 +144,7 @@ Maximize stdlib where possible:
 ### Key Interfaces
 
 **Database Interface:**
+
 ```go
 // internal/database/database.go
 type Dumper interface {
@@ -155,6 +160,7 @@ type Restorer interface {
 ```
 
 **Storage Interface:**
+
 ```go
 // internal/storage/storage.go
 type Storage interface {
@@ -168,6 +174,7 @@ type Storage interface {
 ```
 
 **Compressor Interface:**
+
 ```go
 // internal/compress/compress.go
 type Compressor interface {
@@ -178,6 +185,7 @@ type Compressor interface {
 ```
 
 **Notifier Interface:**
+
 ```go
 // internal/notify/notifier.go
 type Notifier interface {
@@ -190,6 +198,7 @@ type Notifier interface {
 ### Pipeline Architecture
 
 **Backup Pipeline (Streaming):**
+
 ```
 [Database Dump] → [Compress] → [Storage Upload] → [Cleanup] → [Notify]
                       ↓
@@ -197,6 +206,7 @@ type Notifier interface {
 ```
 
 **Restore Pipeline (Streaming):**
+
 ```
 [Storage Retrieve] → [Decompress] → [Database Restore] → [Cleanup] → [Notify]
                          ↓
@@ -204,6 +214,7 @@ type Notifier interface {
 ```
 
 **Key Design Decisions:**
+
 1. **Streaming**: Use `io.Pipe()` to connect stages - no disk I/O between steps
 2. **Context Propagation**: Pass `context.Context` for cancellation
 3. **Parallel Uploads**: Multiple storages upload concurrently
@@ -341,6 +352,7 @@ brd verify --config config.yml --target athena --backup latest
 **Goal**: Working CLI with config parsing
 
 **Tasks:**
+
 1. Initialize Go module: `go mod init bared`
 2. Implement config package (parser, validator, structs with `targets` array)
 3. Set up Cobra CLI with command stubs
@@ -349,6 +361,7 @@ brd verify --config config.yml --target athena --backup latest
 6. Basic logging setup
 
 **Critical Files:**
+
 - `cmd/brd/main.go` - CLI entry point with Cobra setup
 - `internal/config/config.go` - Configuration structs (with `targets` as array)
 - `internal/config/parser.go` - YAML parsing with env var expansion
@@ -364,6 +377,7 @@ brd verify --config config.yml --target athena --backup latest
 **Goal**: Can dump MySQL, PostgreSQL, Redis to stdout
 
 **Tasks:**
+
 1. Define database interfaces (Dumper, Restorer)
 2. Implement MySQL dumper (execute `mysqldump`)
 3. Implement PostgreSQL dumper (execute `pg_dump`)
@@ -373,6 +387,7 @@ brd verify --config config.yml --target athena --backup latest
 7. Unit tests with mocked commands
 
 **Critical Files:**
+
 - `internal/database/database.go` - Interfaces and shared types
 - `internal/database/mysql.go` - MySQL implementation
 - `internal/database/postgres.go` - PostgreSQL implementation
@@ -383,6 +398,7 @@ brd verify --config config.yml --target athena --backup latest
 **Deliverable**: Can execute dumps for all three databases, stream to io.Writer
 
 **Note on Redis**: Redis backup can be done via:
+
 - RDB file copy (if local and file accessible)
 - `redis-cli --rdb dump.rdb` (remote backup)
 - `BGSAVE` command then wait and copy RDB file
@@ -394,6 +410,7 @@ brd verify --config config.yml --target athena --backup latest
 **Goal**: Can compress dumps to tar.gz format
 
 **Tasks:**
+
 1. Define compressor interface
 2. Implement tar.gz compressor using stdlib
 3. Create compressor factory
@@ -401,6 +418,7 @@ brd verify --config config.yml --target athena --backup latest
 5. Unit tests for compression/decompression
 
 **Critical Files:**
+
 - `internal/compress/compress.go` - Interface definition
 - `internal/compress/tgz.go` - tar.gz implementation
 - `internal/compress/factory.go` - Factory function
@@ -414,6 +432,7 @@ brd verify --config config.yml --target athena --backup latest
 **Goal**: Can store backups in local, S3, and SFTP
 
 **Tasks:**
+
 1. Define storage interface
 2. Implement local storage with path management
 3. Implement S3 storage with aws-sdk-go-v2
@@ -424,6 +443,7 @@ brd verify --config config.yml --target athena --backup latest
 8. Unit tests with mocked backends
 
 **Critical Files:**
+
 - `internal/storage/storage.go` - Interface and shared types
 - `internal/storage/local.go` - Local filesystem implementation
 - `internal/storage/s3.go` - S3 implementation (handles S3-compatible too)
@@ -440,6 +460,7 @@ brd verify --config config.yml --target athena --backup latest
 **Goal**: End-to-end backup workflow
 
 **Tasks:**
+
 1. Implement pipeline orchestration
 2. Create unique backup path generator
 3. Wire dump → compress → upload pipeline
@@ -449,12 +470,14 @@ brd verify --config config.yml --target athena --backup latest
 7. Integration tests with Docker databases
 
 **Critical Files:**
+
 - `internal/app/pipeline.go` - Pipeline coordination
 - `internal/app/backup.go` - Backup workflow
 - `internal/util/paths.go` - Path generation
 - `cmd/brd/backup.go` - Backup command
 
 **Path Format:**
+
 ```
 {target}/{dbtype}/{timestamp}/{database}.{extension}
 Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
@@ -469,6 +492,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 **Goal**: Can restore from backups
 
 **Tasks:**
+
 1. Implement restore methods in database implementations
 2. Implement reverse pipeline (retrieve → decompress → restore)
 3. Implement `brd restore` command
@@ -477,6 +501,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 6. Integration tests for restore
 
 **Critical Files:**
+
 - `internal/app/restore.go` - Restore workflow
 - `internal/app/list.go` - List backups logic
 - `cmd/brd/restore.go` - Restore command
@@ -491,6 +516,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 **Goal**: Can run as daemon with cron scheduling
 
 **Tasks:**
+
 1. Implement daemon mode with signal handling
 2. Integrate robfig/cron for scheduling
 3. Add schedule field parsing from config
@@ -499,6 +525,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 6. Create systemd service file example
 
 **Critical Files:**
+
 - `internal/daemon/daemon.go` - Daemon mode logic
 - `internal/daemon/scheduler.go` - Cron integration
 - `cmd/brd/daemon.go` - Daemon command
@@ -513,6 +540,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 **Goal**: Automatic cleanup and notifications
 
 **Tasks:**
+
 1. Implement retention tracker (JSON metadata)
 2. Implement cleanup logic based on `keep` setting
 3. Define notifier interface
@@ -521,6 +549,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 6. Integrate notifications into pipeline (async)
 
 **Critical Files:**
+
 - `internal/retention/tracker.go` - Backup tracking with JSON
 - `internal/retention/cleaner.go` - Cleanup logic
 - `internal/notify/notifier.go` - Interface definition
@@ -528,6 +557,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 - `internal/notify/factory.go` - Factory function
 
 **Tracker Format (JSON):**
+
 ```json
 {
   "storage": "s3_main",
@@ -551,6 +581,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 **Goal**: Production-ready release
 
 **Tasks:**
+
 1. Comprehensive README with examples
 2. Add `--dry-run` flag
 3. Add `--verbose` flag for debugging
@@ -571,6 +602,7 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 **Why**: Database dumps can be GBs - never load fully into memory
 
 **Implementation**: Use `io.Pipe()` to connect stages
+
 ```go
 pr, pw := io.Pipe()
 
@@ -587,6 +619,7 @@ compressor.Compress(ctx, pr, compressedWriter)
 ### 2. Parallel Operations
 
 **Multiple Targets**: Use worker pool with `runtime.NumCPU()` limit
+
 ```go
 sem := make(chan struct{}, runtime.NumCPU())
 for _, target := range targets {
@@ -599,6 +632,7 @@ for _, target := range targets {
 ```
 
 **Multiple Storages**: Upload to all storages concurrently
+
 - Track partial failures
 - Continue if at least one storage succeeds
 - Report all failures in notification
@@ -606,18 +640,21 @@ for _, target := range targets {
 ### 3. Retry Logic
 
 **Exponential Backoff**:
+
 - Initial delay: 1s
 - Max delay: 30s
 - Multiplier: 2x
 - Max attempts: 3
 
 **Retry-able errors**:
+
 - Network errors
 - 5xx HTTP responses
 - Temporary S3 errors
 - SFTP connection timeouts
 
 **Don't retry**:
+
 - Authentication errors (401, 403)
 - Invalid config
 - Missing database binaries
@@ -630,6 +667,7 @@ for _, target := range targets {
 **Example**: `athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz`
 
 **Benefits**:
+
 - Clear hierarchy
 - Easy to find latest (sort by timestamp)
 - No collisions
@@ -638,11 +676,13 @@ for _, target := range targets {
 ### 5. Retention Policy
 
 **Tracking**: JSON file per storage+target combination
+
 - Local: `{backup_root}/.bared/tracker-{target}.json`
 - S3: `.bared/tracker-{target}.json` in bucket
 - SFTP: Same as S3
 
 **Cleanup**: After successful backup
+
 1. Add new backup to tracker
 2. Sort by timestamp (newest first)
 3. Keep first N backups (based on `keep` setting)
@@ -652,12 +692,14 @@ for _, target := range targets {
 ### 6. Error Handling
 
 **Principles**:
+
 1. Wrapped errors with context: `fmt.Errorf("upload to S3: %w", err)`
 2. Partial success tracking: Continue if some operations succeed
 3. Graceful degradation: Notification failures don't fail backup
 4. Proper cleanup: Defer blocks ensure cleanup on error
 
 **Partial Failure Example**:
+
 ```
 Backup athena:
   ✓ Dump successful (2.3 GB, 45s)
@@ -700,6 +742,7 @@ Backup athena:
 ## Future Extensibility (Document, Don't Implement)
 
 ### Hooks System
+
 ```yaml
 athena:
   hooks:
@@ -709,29 +752,34 @@ athena:
 ```
 
 ### Verify Command
+
 ```bash
 brd verify --config config.yml --target athena --backup latest
 # Checks: file exists, archive integrity, decompression, SQL syntax
 ```
 
 ### Additional Databases
+
 - MongoDB (mongodump/mongorestore)
 - Elasticsearch (snapshot API)
 - Cassandra (nodetool)
 - InfluxDB
 
 ### Additional Storage
+
 - Google Cloud Storage
 - Azure Blob Storage
 - Backblaze B2 native API
 
 ### Additional Notifiers
+
 - Discord
 - Email (SMTP)
 - PagerDuty
 - Generic webhooks
 
 ### Web UI
+
 - REST API in BareD (optional)
 - Separate frontend (React/Vue)
 - View history, trigger backups, monitor status
@@ -741,16 +789,19 @@ brd verify --config config.yml --target athena --backup latest
 ## Testing Strategy
 
 ### Unit Tests
+
 - Mock external commands using interfaces
 - Test each component in isolation
 - Coverage target: >80%
 
 ### Integration Tests
+
 - Use Docker containers for databases
 - Test real backup/restore cycles
 - Use MinIO for S3 testing
 
 ### End-to-End Tests
+
 - Bash script that runs full workflow
 - Docker Compose for complete environment
 - Verify data integrity after restore
@@ -760,6 +811,7 @@ brd verify --config config.yml --target athena --backup latest
 ## Production Readiness Checklist
 
 ### Security
+
 - [ ] Never log credentials
 - [ ] Support environment variable expansion
 - [ ] Validate config file permissions (warn if world-readable)
@@ -767,12 +819,14 @@ brd verify --config config.yml --target athena --backup latest
 - [ ] Support IAM roles for S3 (no hardcoded credentials)
 
 ### Observability
+
 - [ ] Structured logging with levels
 - [ ] Log backup size, duration, success/failure
 - [ ] Include operation context in all errors
 - [ ] Metrics for monitoring (backup size, duration, failures)
 
 ### Reliability
+
 - [ ] Graceful shutdown (SIGTERM/SIGINT)
 - [ ] Context cancellation propagated
 - [ ] Cleanup temp files on error
@@ -780,12 +834,14 @@ brd verify --config config.yml --target athena --backup latest
 - [ ] Idempotent backup operations
 
 ### Performance
+
 - [ ] Streaming (no temp files for data)
 - [ ] Parallel operations
 - [ ] Connection pooling for S3/SFTP
 - [ ] Efficient tar creation
 
 ### Usability
+
 - [ ] Helpful error messages with suggestions
 - [ ] `--dry-run` mode
 - [ ] `--verbose` flag
