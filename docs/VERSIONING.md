@@ -35,6 +35,7 @@ curl http://localhost:8080/api/health
 ```
 
 Response:
+
 ```json
 {
   "status": "ok",
@@ -53,6 +54,7 @@ make build
 ```
 
 This automatically sets:
+
 - **VERSION**: From `git describe --tags --always --dirty`
 - **COMMIT**: From `git rev-parse --short HEAD`
 - **BUILD_DATE**: Current UTC timestamp
@@ -195,7 +197,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Fetch all tags
 
@@ -262,21 +264,25 @@ if currentVersion.LessThan(minVersion) {
 ## Best Practices
 
 1. **Always use annotated tags** for releases:
+
    ```bash
    git tag -a v1.0.0 -m "Release v1.0.0"
    ```
 
 2. **Build with Makefile** to ensure version is injected:
+
    ```bash
    make build
    ```
 
 3. **Verify version** after building:
+
    ```bash
    ./bin/brd --version
    ```
 
 4. **Include version in logs** for debugging:
+
    ```go
    log.Printf("Starting BareD %s", version.GetFullVersion())
    ```

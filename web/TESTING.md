@@ -154,10 +154,10 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
 
@@ -245,6 +245,7 @@ make build
 ### Issue: `npm install` fails
 
 **Solution**:
+
 ```bash
 # Clear npm cache
 npm cache clean --force
@@ -259,6 +260,7 @@ npm install
 ### Issue: TypeScript errors
 
 **Solution**:
+
 ```bash
 # Run type checker with verbose output
 npm run type-check
@@ -270,6 +272,7 @@ cat tsconfig.json
 ### Issue: ESLint fails
 
 **Solution**:
+
 ```bash
 # Auto-fix what can be fixed
 npm run lint:fix
@@ -281,12 +284,14 @@ npm run lint
 ### Issue: Build succeeds but page is blank
 
 **Check**:
+
 1. Browser console for errors
 2. Network tab for 404s
 3. Vite config proxy settings
 4. API endpoint availability
 
 **Solution**:
+
 ```bash
 # Verify API is running
 curl http://localhost:8080/api/health
@@ -299,6 +304,7 @@ curl http://localhost:8080/api/health
 ### Issue: Hot reload not working
 
 **Solution**:
+
 1. Check dev server is running
 2. Verify file is in `src/` directory
 3. Restart dev server
@@ -363,26 +369,31 @@ ls -lh dist/assets/
 ## Best Practices
 
 1. **Always validate before committing**:
+
    ```bash
    npm run validate
    ```
 
 2. **Use ESLint auto-fix for simple issues**:
+
    ```bash
    npm run lint:fix
    ```
 
 3. **Format code automatically**:
+
    ```bash
    npm run format
    ```
 
 4. **Check types frequently**:
+
    ```bash
    npm run type-check
    ```
 
 5. **Test in production mode before deploying**:
+
    ```bash
    npm run build && npm run preview
    ```
@@ -411,6 +422,7 @@ ls -lh dist/assets/
 ## Support
 
 For issues or questions:
+
 - Check existing GitHub issues
 - Create a new issue with:
   - Steps to reproduce

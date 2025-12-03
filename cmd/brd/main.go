@@ -16,20 +16,6 @@ import (
 	"bared/internal/version"
 )
 
-// formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
 var (
 	cfgFile string
 	cfg     *config.Config
@@ -353,4 +339,18 @@ func init() {
 	daemonCmd.Flags().String("http", "", "HTTP server address (e.g., :8080)")
 	daemonCmd.Flags().String("http-user", "", "HTTP basic auth username")
 	daemonCmd.Flags().String("http-pass", "", "HTTP basic auth password")
+}
+
+// formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

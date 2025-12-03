@@ -12,6 +12,10 @@ on:
       - 'web/**'
       - '.github/workflows/web-ci.yml'
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   validate:
     name: Validate Frontend
@@ -19,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -62,7 +66,7 @@ jobs:
           ls -lh web/dist/
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: web-dist
           path: web/dist
@@ -80,7 +84,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Statistics" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          du -sh web/dist/ >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          find web/dist/assets -type f -name "*.js" -o -name "*.css" | xargs ls -lh >> $GITHUB_STEP_SUMMARY
+          if [ -d "web/dist" ]; then
+            du -sh web/dist/ >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ -d "web/dist/assets" ]; then
+              find web/dist/assets -type f \( -name "*.js" -o -name "*.css" \) 2>/dev/null | xargs ls -lh >> $GITHUB_STEP_SUMMARY || echo "No assets found" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "No assets directory found" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "Build output directory not found" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
