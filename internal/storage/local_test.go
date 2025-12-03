@@ -300,10 +300,10 @@ func TestLocal_Retrieve_ReturnsCorrectContent(t *testing.T) {
 
 func TestLocal_List(t *testing.T) {
 	tests := []struct {
-		name        string
-		setupFiles  func(tmpDir string)
-		wantCount   int
-		validate    func(*testing.T, []*BackupInfo)
+		name       string
+		setupFiles func(tmpDir string)
+		wantCount  int
+		validate   func(*testing.T, []*BackupInfo)
 	}{
 		{
 			name: "list empty directory",

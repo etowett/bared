@@ -35,4 +35,5 @@ type DumpMetadata struct {
 	Size         int64
 	Duration     time.Duration
 	Timestamp    time.Time
+	StoragePath  string // Path where the backup is stored
 }

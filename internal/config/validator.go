@@ -64,6 +64,11 @@ func validateStorage(name string, storage *Storage) error {
 		return fmt.Errorf("storage '%s': type is required", name)
 	}
 
+	// Validate keep value
+	if storage.Keep < 0 {
+		return fmt.Errorf("storage '%s': keep must be non-negative", name)
+	}
+
 	switch storage.Type {
 	case "local":
 		if storage.Path == "" {
@@ -134,6 +139,11 @@ func validateTarget(target *Target, cfg *Config) error {
 func validateConnection(targetName string, conn *Connection) error {
 	if conn.Type == "" {
 		return fmt.Errorf("target '%s': connection type is required", targetName)
+	}
+
+	// Validate port range for all connection types
+	if conn.Port != 0 && (conn.Port < 1 || conn.Port > 65535) {
+		return fmt.Errorf("target '%s': port must be between 1 and 65535", targetName)
 	}
 
 	switch conn.Type {

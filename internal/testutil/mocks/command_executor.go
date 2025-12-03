@@ -25,10 +25,10 @@ type CommandExecutor struct {
 	ExecuteWithStdinFunc  func(ctx context.Context, r io.Reader, name string, args ...string) error
 
 	// Simple response configuration
-	ExecuteOutput      string        // What to write to writer
-	ExecuteError       error         // Error to return
-	CheckCommandError  error         // Error for CheckCommandExists
-	CommandsAvailable  map[string]bool // Which commands exist
+	ExecuteOutput     string          // What to write to writer
+	ExecuteError      error           // Error to return
+	CheckCommandError error           // Error for CheckCommandExists
+	CommandsAvailable map[string]bool // Which commands exist
 }
 
 // ExecuteCall records details about an ExecuteCommand call

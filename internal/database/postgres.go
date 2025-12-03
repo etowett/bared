@@ -45,7 +45,19 @@ func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
 
 	args := p.buildDumpArgs()
 
-	if err := util.ExecuteCommand(ctx, w, "pg_dump", args...); err != nil {
+	env := make(map[string]string)
+	if p.conn.Password != "" {
+		env["PGPASSWORD"] = p.conn.Password
+	}
+
+	var err error
+	if len(env) > 0 {
+		err = util.ExecuteCommandWithEnv(ctx, w, env, "pg_dump", args...)
+	} else {
+		err = util.ExecuteCommand(ctx, w, "pg_dump", args...)
+	}
+
+	if err != nil {
 		return nil, fmt.Errorf("pg_dump failed: %w", err)
 	}
 
@@ -63,7 +75,19 @@ func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
 func (p *Postgres) Restore(ctx context.Context, r io.Reader) error {
 	args := p.buildRestoreArgs()
 
-	if err := util.ExecuteCommandWithStdin(ctx, r, "psql", args...); err != nil {
+	env := make(map[string]string)
+	if p.conn.Password != "" {
+		env["PGPASSWORD"] = p.conn.Password
+	}
+
+	var err error
+	if len(env) > 0 {
+		err = util.ExecuteCommandWithStdinAndEnv(ctx, r, env, "psql", args...)
+	} else {
+		err = util.ExecuteCommandWithStdin(ctx, r, "psql", args...)
+	}
+
+	if err != nil {
 		return fmt.Errorf("psql restore failed: %w", err)
 	}
 

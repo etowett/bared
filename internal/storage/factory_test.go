@@ -425,8 +425,8 @@ func TestNew_MultipleInstances(t *testing.T) {
 	}
 
 	cfg3 := &config.Storage{
-		Name: "storage3",
-		Type: "s3",
+		Name:   "storage3",
+		Type:   "s3",
 		Bucket: "bucket3",
 		Region: "us-east-1",
 	}

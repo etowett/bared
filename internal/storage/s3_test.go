@@ -351,8 +351,8 @@ func TestS3_EndpointConfiguration(t *testing.T) {
 
 func TestS3_PathPrefix(t *testing.T) {
 	tests := []struct {
-		name   string
-		path   string
+		name string
+		path string
 	}{
 		{
 			name: "no prefix",

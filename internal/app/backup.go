@@ -27,6 +27,22 @@ type BackupResult struct {
 	StorageName string
 }
 
+// countingWriter wraps an io.Writer and tracks the number of bytes written
+type countingWriter struct {
+	w     io.Writer
+	count int64
+}
+
+func (cw *countingWriter) Write(p []byte) (int, error) {
+	n, err := cw.w.Write(p)
+	cw.count += int64(n)
+	return n, err
+}
+
+func (cw *countingWriter) Size() int64 {
+	return cw.count
+}
+
 // BackupTarget performs a backup for a single target
 func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target) (*BackupResult, error) {
 	startTime := time.Now()
@@ -89,15 +105,22 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	log.Printf("[%s] Backup path: %s", target.Name, backupPath)
 
 	// Execute backup pipeline
+	var dumpMetadata *database.DumpMetadata
 	if target.Compress != nil && target.Compress.Enabled {
-		err = backupWithCompression(ctx, target, dumper, stor, backupPath)
+		dumpMetadata, err = backupWithCompression(ctx, target, dumper, stor, backupPath)
 	} else {
-		err = backupWithoutCompression(ctx, dumper, stor, backupPath)
+		dumpMetadata, err = backupWithoutCompression(ctx, dumper, stor, backupPath)
 	}
 
 	if err != nil {
 		result.Error = fmt.Errorf("backup failed: %w", err)
 		return result, result.Error
+	}
+
+	// Populate result with metadata
+	if dumpMetadata != nil {
+		result.Size = dumpMetadata.Size
+		// StoragePath is already set in result.BackupPath
 	}
 
 	result.Success = true
@@ -108,7 +131,7 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	if err != nil {
 		log.Printf("Warning: failed to create tracker: %v", err)
 	} else {
-		if err := tracker.AddBackup(backupPath, 0); err != nil {
+		if err := tracker.AddBackup(backupPath, result.Size); err != nil {
 			log.Printf("Warning: failed to update tracker: %v", err)
 		}
 
@@ -166,19 +189,26 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 }
 
 // backupWithCompression performs backup with compression
-func backupWithCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) error {
+func backupWithCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
 	// Create pipes for streaming
 	dumpReader, dumpWriter := io.Pipe()
 	compressReader, compressWriter := io.Pipe()
 
 	var dumpErr, compressErr, storeErr error
+	var dumpMetadata *database.DumpMetadata
+
+	// Wrap compressWriter to count bytes (final size after compression)
+	counter := &countingWriter{w: compressWriter}
 
 	// Start dump in goroutine
 	go func() {
 		defer dumpWriter.Close()
-		_, dumpErr = dumper.Dump(ctx, dumpWriter)
-		if dumpErr != nil {
-			log.Printf("Dump error: %v", dumpErr)
+		meta, err := dumper.Dump(ctx, dumpWriter)
+		if err != nil {
+			dumpErr = err
+			log.Printf("Dump error: %v", err)
+		} else {
+			dumpMetadata = meta
 		}
 	}()
 
@@ -190,7 +220,7 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 			compressErr = err
 			return
 		}
-		compressErr = compressor.Compress(ctx, dumpReader, compressWriter)
+		compressErr = compressor.Compress(ctx, dumpReader, counter)
 		if compressErr != nil {
 			log.Printf("Compress error: %v", compressErr)
 		}
@@ -199,31 +229,47 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	// Store compressed data (this blocks until all data is written)
 	storeErr = stor.Store(ctx, backupPath, compressReader, -1)
 	if storeErr != nil {
-		return fmt.Errorf("store failed: %w", storeErr)
+		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
 	// Check for errors in pipeline
 	if dumpErr != nil {
-		return fmt.Errorf("dump failed: %w", dumpErr)
+		return nil, fmt.Errorf("dump failed: %w", dumpErr)
 	}
 	if compressErr != nil {
-		return fmt.Errorf("compress failed: %w", compressErr)
+		return nil, fmt.Errorf("compress failed: %w", compressErr)
 	}
 
-	return nil
+	// Populate metadata with file information
+	if dumpMetadata == nil {
+		dumpMetadata = &database.DumpMetadata{}
+	}
+	dumpMetadata.Size = counter.Size()
+	dumpMetadata.StoragePath = backupPath
+
+	return dumpMetadata, nil
 }
 
 // backupWithoutCompression performs backup without compression
-func backupWithoutCompression(ctx context.Context, dumper database.Dumper, stor storage.Storage, backupPath string) error {
+func backupWithoutCompression(ctx context.Context, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
 	// Create pipe for streaming
 	reader, writer := io.Pipe()
 
 	var dumpErr, storeErr error
+	var dumpMetadata *database.DumpMetadata
+
+	// Wrap writer to count bytes (final size)
+	counter := &countingWriter{w: writer}
 
 	// Start dump in goroutine
 	go func() {
 		defer writer.Close()
-		_, dumpErr = dumper.Dump(ctx, writer)
+		meta, err := dumper.Dump(ctx, counter)
+		if err != nil {
+			dumpErr = err
+		} else {
+			dumpMetadata = meta
+		}
 	}()
 
 	// Store data (this blocks until all data is written)
@@ -231,11 +277,18 @@ func backupWithoutCompression(ctx context.Context, dumper database.Dumper, stor 
 
 	// Check for errors
 	if dumpErr != nil {
-		return fmt.Errorf("dump failed: %w", dumpErr)
+		return nil, fmt.Errorf("dump failed: %w", dumpErr)
 	}
 	if storeErr != nil {
-		return fmt.Errorf("store failed: %w", storeErr)
+		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
-	return nil
+	// Populate metadata with file information
+	if dumpMetadata == nil {
+		dumpMetadata = &database.DumpMetadata{}
+	}
+	dumpMetadata.Size = counter.Size()
+	dumpMetadata.StoragePath = backupPath
+
+	return dumpMetadata, nil
 }
