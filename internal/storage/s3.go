@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -122,7 +123,15 @@ func (s *S3) Retrieve(ctx context.Context, filePath string, w io.Writer) error {
 		return err
 	}
 
-	key := path.Join(s.cfg.Path, filePath)
+	// Check if filePath already includes the storage path prefix
+	var key string
+	if s.cfg.Path != "" && strings.HasPrefix(filePath, s.cfg.Path+"/") {
+		// Path already includes storage prefix, use as-is
+		key = filePath
+	} else {
+		// Path is relative, prepend storage path
+		key = path.Join(s.cfg.Path, filePath)
+	}
 
 	result, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.cfg.Bucket),
@@ -180,7 +189,15 @@ func (s *S3) Delete(ctx context.Context, filePath string) error {
 		return err
 	}
 
-	key := path.Join(s.cfg.Path, filePath)
+	// Check if filePath already includes the storage path prefix
+	var key string
+	if s.cfg.Path != "" && strings.HasPrefix(filePath, s.cfg.Path+"/") {
+		// Path already includes storage prefix, use as-is
+		key = filePath
+	} else {
+		// Path is relative, prepend storage path
+		key = path.Join(s.cfg.Path, filePath)
+	}
 
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.cfg.Bucket),

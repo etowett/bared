@@ -9,6 +9,7 @@ All 9 phases of the BareD implementation plan have been successfully completed. 
 ### Core Functionality (100% Complete)
 
 **✅ Backup Operations**
+
 - Stream database dumps directly to compressed archives
 - Support for MySQL/MariaDB, PostgreSQL, and Redis
 - tar.gz compression with no intermediate temp files
@@ -17,18 +18,21 @@ All 9 phases of the BareD implementation plan have been successfully completed. 
 - Slack notifications on success/failure
 
 **✅ Restore Operations**
+
 - Stream backups directly from storage to database
 - Automatic decompression
 - "Latest" backup detection
 - Support for all configured storage backends
 
 **✅ Scheduling & Automation**
+
 - Daemon mode with cron scheduling
 - Signal handling (SIGTERM, SIGINT, SIGHUP)
 - systemd service file included
 - Automatic scheduled backups per target
 
 **✅ Storage Management**
+
 - Backup listing and browsing
 - JSON-based retention tracking
 - Automatic cleanup of old backups
@@ -45,15 +49,19 @@ All 9 phases of the BareD implementation plan have been successfully completed. 
 ## Architecture Highlights
 
 ### Streaming Pipeline
+
 No temporary files are created during backup/restore operations. Data flows directly from database → compression → storage using Go's `io.Pipe()`.
 
 ### Interface-Driven Design
+
 Every major component (database, storage, compression, notification) uses interfaces, making it trivial to add:
+
 - New database types (MongoDB, Elasticsearch, etc.)
 - New storage backends (GCS, Azure, Backblaze B2, etc.)
 - New notification channels (Discord, Email, PagerDuty, etc.)
 
 ### Production-Ready Features
+
 - **Retry Logic**: Exponential backoff for all network operations
 - **Error Handling**: Graceful degradation with detailed logging
 - **Security**: Environment variable expansion for credentials
@@ -152,12 +160,14 @@ All dependencies are well-maintained, widely-used, and lightweight:
 ## Testing Readiness
 
 The codebase is structured for easy testing:
+
 - Interface-driven design allows mocking
 - Small, focused functions
 - Clear separation of concerns
 - No global state
 
 Integration tests can be added using:
+
 - Docker containers for real databases
 - MinIO for S3 testing
 - Test SFTP servers
@@ -167,21 +177,25 @@ Integration tests can be added using:
 The architecture supports easy addition of:
 
 **Additional Databases**
+
 - MongoDB (mongodump/mongorestore)
 - Elasticsearch (snapshot API)
 - Cassandra, InfluxDB, etc.
 
 **Additional Storage**
+
 - Google Cloud Storage
 - Azure Blob Storage
 - Backblaze B2 native API
 
 **Additional Notifiers**
+
 - Discord, Email (SMTP)
 - PagerDuty, Webhooks
 - Multiple notification channels
 
 **Advanced Features**
+
 - Pre/post backup hooks
 - Backup verification command
 - Incremental backups
@@ -215,18 +229,21 @@ From the original plan, all v1.0 criteria achieved:
 ## Deployment Options
 
 **Manual Execution**
+
 ```bash
 # Run backups manually
 ./brd backup --config /etc/bared/config.yml --target production_db
 ```
 
 **Cron Job**
+
 ```bash
 # /etc/cron.d/bared
 0 2 * * * backup /usr/local/bin/brd backup --config /etc/bared/config.yml --target prod_db
 ```
 
 **Systemd Service** (Recommended)
+
 ```bash
 # Copy service file
 sudo cp examples/bared.service /etc/systemd/system/
@@ -237,8 +254,9 @@ sudo systemctl start bared
 ```
 
 **Docker Container**
+
 ```dockerfile
-FROM golang:1.21-alpine
+FROM golang:1.24-alpine
 WORKDIR /app
 COPY . .
 RUN go build -o brd ./cmd/brd
@@ -248,6 +266,7 @@ ENTRYPOINT ["./brd"]
 ## Conclusion
 
 BareD is complete and ready for production use. The implementation follows all best practices:
+
 - Clean architecture with clear separation of concerns
 - Streaming for memory efficiency
 - Retry logic for reliability

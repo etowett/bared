@@ -39,7 +39,7 @@ services:
 
   # PostgreSQL for testing
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18-alpine
     container_name: bared-postgres
     environment:
       POSTGRES_PASSWORD: testpass
@@ -54,7 +54,7 @@ services:
 
   # Redis for testing
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: bared-redis
     command: redis-server --requirepass testpass
     ports:
