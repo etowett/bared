@@ -119,3 +119,43 @@ func ExecuteCommandWithStdinAndEnv(ctx context.Context, r io.Reader, env map[str
 
 	return nil
 }
+
+// ExecuteCommandOutput runs a command and returns its stdout output
+func ExecuteCommandOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return ExecuteCommandOutputWithEnv(ctx, nil, name, args...)
+}
+
+// ExecuteCommandOutputWithEnv runs a command with environment variables and returns stdout output
+func ExecuteCommandOutputWithEnv(ctx context.Context, env map[string]string, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+
+	// Set environment variables if provided
+	if env != nil {
+		cmd.Env = os.Environ()
+		for key, value := range env {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	// Capture both stdout and stderr
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	if err := cmd.Run(); err != nil {
+		exitCode := 1
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		}
+
+		stderrOutput := stderrBuf.String()
+		if stderrOutput != "" {
+			return nil, fmt.Errorf("command failed: %s %v (exit code %d): %s: %w",
+				name, args, exitCode, stderrOutput, err)
+		}
+		return nil, fmt.Errorf("command failed: %s %v (exit code %d): %w",
+			name, args, exitCode, err)
+	}
+
+	return stdoutBuf.Bytes(), nil
+}

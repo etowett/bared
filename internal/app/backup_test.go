@@ -33,7 +33,7 @@ func TestBackupTarget_StructureAndErrorHandling(t *testing.T) {
 	target := cfg.Targets[0]
 
 	// Will fail because mysqldump doesn't exist, but tests orchestration
-	result, err := BackupTarget(context.Background(), cfg, target)
+	result, err := BackupTarget(context.Background(), cfg, target, nil)
 
 	// Verify result structure exists (even if operation failed)
 	require.NotNil(t, result)
@@ -54,7 +54,7 @@ func TestBackupTarget_WithCompression(t *testing.T) {
 		Type:    "tgz",
 	}
 
-	result, _ := BackupTarget(context.Background(), cfg, target)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 	require.NotNil(t, result)
 	assert.Contains(t, result.BackupPath, ".tar.gz", "compressed backup should have .tar.gz extension")
@@ -65,7 +65,7 @@ func TestBackupTarget_WithoutCompression(t *testing.T) {
 	target := cfg.Targets[0]
 	target.Compress = nil
 
-	result, _ := BackupTarget(context.Background(), cfg, target)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 	require.NotNil(t, result)
 	assert.Contains(t, result.BackupPath, ".sql", "uncompressed backup should have .sql extension")
@@ -91,7 +91,7 @@ func TestBackupTarget_StorageNotFound(t *testing.T) {
 		Name:    "nonexistent-storage",
 	}
 
-	result, err := BackupTarget(context.Background(), cfg, target)
+	result, err := BackupTarget(context.Background(), cfg, target, nil)
 
 	assert.Error(t, err)
 	require.NotNil(t, result)
@@ -106,7 +106,7 @@ func TestBackupTarget_InvalidCompressionType(t *testing.T) {
 		Type:    "unsupported",
 	}
 
-	result, err := BackupTarget(context.Background(), cfg, target)
+	result, err := BackupTarget(context.Background(), cfg, target, nil)
 
 	assert.Error(t, err)
 	require.NotNil(t, result)
@@ -186,7 +186,7 @@ func TestBackupTarget_StorageNameRecorded(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0])
+	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0], nil)
 
 	require.NotNil(t, result)
 	assert.Equal(t, "test-storage", result.StorageName)
@@ -198,7 +198,7 @@ func TestBackupTarget_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	result, err := BackupTarget(ctx, cfg, cfg.Targets[0])
+	result, err := BackupTarget(ctx, cfg, cfg.Targets[0], nil)
 
 	// Should handle cancelled context gracefully
 	require.NotNil(t, result)
@@ -211,7 +211,7 @@ func TestBackupTarget_PathContainsTargetInfo(t *testing.T) {
 	cfg := createTestConfig()
 	target := cfg.Targets[0]
 
-	result, _ := BackupTarget(context.Background(), cfg, target)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 	require.NotNil(t, result)
 	path := strings.ToLower(result.BackupPath)
@@ -225,7 +225,7 @@ func TestBackupTarget_PathContainsTargetInfo(t *testing.T) {
 func TestBackupTarget_DurationMeasured(t *testing.T) {
 	cfg := createTestConfig()
 
-	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0])
+	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0], nil)
 
 	require.NotNil(t, result)
 	assert.GreaterOrEqual(t, result.Duration, time.Duration(0))
@@ -249,7 +249,7 @@ func TestBackupTarget_ExcludeTablesConfiguration(t *testing.T) {
 	target := fixtures.MySQLTargetWithExcludeTables()
 	cfg.Targets = []*config.Target{target}
 
-	result, _ := BackupTarget(context.Background(), cfg, target)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 	require.NotNil(t, result)
 	assert.Equal(t, target.Name, result.Target)
@@ -260,7 +260,7 @@ func TestBackupTarget_AdditionalArgsConfiguration(t *testing.T) {
 	target := cfg.Targets[0]
 	target.AdditionalArgs = []string{"--single-transaction", "--quick"}
 
-	result, _ := BackupTarget(context.Background(), cfg, target)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 	require.NotNil(t, result)
 	assert.Equal(t, target.Name, result.Target)
@@ -302,7 +302,7 @@ func TestBackupTarget_CompressionExtensions(t *testing.T) {
 				target.Compress = nil
 			}
 
-			result, _ := BackupTarget(context.Background(), cfg, target)
+			result, _ := BackupTarget(context.Background(), cfg, target, nil)
 
 			require.NotNil(t, result)
 			assert.Contains(t, result.BackupPath, tt.wantExtension)
@@ -313,7 +313,7 @@ func TestBackupTarget_CompressionExtensions(t *testing.T) {
 func TestBackupTarget_ResultInitialization(t *testing.T) {
 	cfg := createTestConfig()
 
-	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0])
+	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0], nil)
 
 	// All fields should be initialized
 	require.NotNil(t, result)

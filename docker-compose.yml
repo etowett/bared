@@ -13,13 +13,29 @@ services:
       - MYSQL_PASSWORD=testpass
       - POSTGRES_PASSWORD=testpass
       - REDIS_PASSWORD=testpass
-    command: daemon --config /etc/bared/bared.yml
+    ports:
+      - "8080:8080"  # HTTP API and Web UI
+    command: >
+      daemon
+      --config /etc/bared/bared.yml
+      --http :8080
+      --http-user admin
+      --http-pass changeme
     depends_on:
       - mysql
       - postgres
       - redis
+      - minio
     networks:
       - bared-network
+    restart: unless-stopped
+    stop_grace_period: 1h  # Allow long-running backups to complete
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # MySQL for testing
   mysql:

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -27,7 +28,12 @@ type Logger struct {
 var (
 	globalLogger *Logger
 	once         sync.Once
+	globalHook   LogHook
+	hookMu       sync.RWMutex
 )
+
+// LogHook is a function that intercepts log messages
+type LogHook func(level LogLevel, message string)
 
 // InitLogger initializes the global logger with the specified level
 func InitLogger(level LogLevel) {
@@ -65,31 +71,46 @@ func (l *Logger) GetLevel() LogLevel {
 	return l.level
 }
 
+// log is the internal logging method that calls the hook
+func (l *Logger) log(level LogLevel, format string, v ...interface{}) {
+	l.logger.Printf(format, v...)
+
+	// Call hook if set
+	hookMu.RLock()
+	hook := globalHook
+	hookMu.RUnlock()
+
+	if hook != nil {
+		msg := fmt.Sprintf(format, v...)
+		hook(level, msg)
+	}
+}
+
 // Debug logs a debug message
 func (l *Logger) Debug(format string, v ...interface{}) {
 	if l.GetLevel() <= DEBUG {
-		l.logger.Printf("[DEBUG] "+format, v...)
+		l.log(DEBUG, "[DEBUG] "+format, v...)
 	}
 }
 
 // Info logs an info message
 func (l *Logger) Info(format string, v ...interface{}) {
 	if l.GetLevel() <= INFO {
-		l.logger.Printf(format, v...)
+		l.log(INFO, format, v...)
 	}
 }
 
 // Warn logs a warning message
 func (l *Logger) Warn(format string, v ...interface{}) {
 	if l.GetLevel() <= WARN {
-		l.logger.Printf("[WARN] "+format, v...)
+		l.log(WARN, "[WARN] "+format, v...)
 	}
 }
 
 // Error logs an error message
 func (l *Logger) Error(format string, v ...interface{}) {
 	if l.GetLevel() <= ERROR {
-		l.logger.Printf("[ERROR] "+format, v...)
+		l.log(ERROR, "[ERROR] "+format, v...)
 	}
 }
 
@@ -129,4 +150,18 @@ func Warn(format string, v ...interface{}) {
 // Error logs an error message using the global logger
 func Error(format string, v ...interface{}) {
 	GetLogger().Error(format, v...)
+}
+
+// SetLogHook sets a hook function to intercept log messages
+func SetLogHook(hook LogHook) {
+	hookMu.Lock()
+	defer hookMu.Unlock()
+	globalHook = hook
+}
+
+// GetLogHook returns the current log hook
+func GetLogHook() LogHook {
+	hookMu.RLock()
+	defer hookMu.RUnlock()
+	return globalHook
 }

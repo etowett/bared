@@ -114,7 +114,7 @@ var backupCmd = &cobra.Command{
 
 		// Execute backup
 		ctx := context.Background()
-		result, err := app.BackupTarget(ctx, cfg, target)
+		result, err := app.BackupTarget(ctx, cfg, target, nil) // nil = no progress tracking for CLI
 		if err != nil {
 			return fmt.Errorf("backup failed: %w", err)
 		}
@@ -225,7 +225,7 @@ var restoreCmd = &cobra.Command{
 		}
 
 		// Execute restore
-		result, err := app.RestoreTarget(ctx, cfg, target, backupPath)
+		result, err := app.RestoreTarget(ctx, cfg, target, backupPath, nil) // nil = no progress tracking for CLI
 		if err != nil {
 			return fmt.Errorf("restore failed: %w", err)
 		}
@@ -325,8 +325,28 @@ var daemonCmd = &cobra.Command{
 			return err
 		}
 
+		// Get HTTP flags
+		httpAddr, _ := cmd.Flags().GetString("http")
+		authUser, _ := cmd.Flags().GetString("http-user")
+		authPass, _ := cmd.Flags().GetString("http-pass")
+
+		// Prepare daemon options
+		var opts []daemon.Option
+		if httpAddr != "" {
+			if authUser == "" || authPass == "" {
+				return fmt.Errorf("--http-user and --http-pass are required when --http is set")
+			}
+			opts = append(opts, daemon.WithHTTP(httpAddr, authUser, authPass))
+		}
+
 		// Create and start daemon
-		d := daemon.New(cfg)
+		d := daemon.New(cfg, opts...)
 		return d.Start()
 	},
+}
+
+func init() {
+	daemonCmd.Flags().String("http", "", "HTTP server address (e.g., :8080)")
+	daemonCmd.Flags().String("http-user", "", "HTTP basic auth username")
+	daemonCmd.Flags().String("http-pass", "", "HTTP basic auth password")
 }

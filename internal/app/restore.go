@@ -25,11 +25,15 @@ type RestoreResult struct {
 }
 
 // RestoreTarget performs a restore for a single target
-func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string) (*RestoreResult, error) {
+func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string, progress Progress) (*RestoreResult, error) {
 	startTime := time.Now()
 	result := &RestoreResult{
 		Target:     target.Name,
 		BackupPath: backupPath,
+	}
+
+	if progress != nil {
+		progress.SetStage("validating", 0)
 	}
 
 	log.Printf("[%s] Starting restore from: %s", target.Name, backupPath)
