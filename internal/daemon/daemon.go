@@ -7,36 +7,118 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/robfig/cron/v3"
 
-	"bared/internal/app"
+	"bared/internal/api"
 	"bared/internal/config"
+	"bared/internal/jobs"
 )
 
 // Daemon represents the backup daemon
 type Daemon struct {
-	cfg       *config.Config
-	scheduler *cron.Cron
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg        *config.Config
+	scheduler  *cron.Cron
+	jobManager *jobs.Manager
+	ctx        context.Context
+	cancel     context.CancelFunc
+
+	// HTTP server configuration (optional)
+	httpAddr  string
+	authUser  string
+	authPass  string
+	apiServer *api.Server
+
+	// Job configuration
+	maxConcurrentJobs int
+	jobHistorySize    int
+	shutdownTimeout   time.Duration
+}
+
+// Option is a functional option for configuring the daemon
+type Option func(*Daemon)
+
+// WithHTTP enables the HTTP server
+func WithHTTP(addr, user, pass string) Option {
+	return func(d *Daemon) {
+		d.httpAddr = addr
+		d.authUser = user
+		d.authPass = pass
+	}
+}
+
+// WithMaxConcurrentJobs sets the maximum number of concurrent jobs
+func WithMaxConcurrentJobs(n int) Option {
+	return func(d *Daemon) {
+		d.maxConcurrentJobs = n
+	}
+}
+
+// WithJobHistorySize sets the job history size per target
+func WithJobHistorySize(n int) Option {
+	return func(d *Daemon) {
+		d.jobHistorySize = n
+	}
+}
+
+// WithShutdownTimeout sets the graceful shutdown timeout
+func WithShutdownTimeout(timeout time.Duration) Option {
+	return func(d *Daemon) {
+		d.shutdownTimeout = timeout
+	}
 }
 
 // New creates a new daemon instance
-func New(cfg *config.Config) *Daemon {
+func New(cfg *config.Config, opts ...Option) *Daemon {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Daemon{
-		cfg:       cfg,
-		scheduler: cron.New(),
-		ctx:       ctx,
-		cancel:    cancel,
+	// Create daemon with defaults
+	d := &Daemon{
+		cfg:               cfg,
+		scheduler:         cron.New(),
+		ctx:               ctx,
+		cancel:            cancel,
+		maxConcurrentJobs: 3,
+		jobHistorySize:    10,
+		shutdownTimeout:   1 * time.Hour,
 	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	// Create job manager
+	d.jobManager = jobs.NewManager(cfg, d.maxConcurrentJobs, d.jobHistorySize)
+
+	// Initialize HTTP server if configured
+	if d.httpAddr != "" {
+		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg)
+	}
+
+	return d
 }
 
 // Start starts the daemon and scheduler
 func (d *Daemon) Start() error {
 	log.Println("Starting BareD daemon...")
+
+	// Start job manager worker pool
+	d.jobManager.Start()
+
+	// Start cleanup routine for old jobs (every hour, remove jobs older than 24h)
+	d.jobManager.StartCleanupRoutine(1*time.Hour, 24*time.Hour)
+
+	// Start HTTP server if configured
+	if d.apiServer != nil {
+		go func() {
+			if err := d.apiServer.Start(); err != nil {
+				log.Printf("HTTP server error: %v", err)
+			}
+		}()
+		log.Printf("HTTP server started on %s", d.httpAddr)
+	}
 
 	// Schedule all targets that have a schedule configured
 	scheduledCount := 0
@@ -82,13 +164,38 @@ func (d *Daemon) Start() error {
 
 // Stop stops the daemon gracefully
 func (d *Daemon) Stop() error {
+	log.Println("Stopping daemon gracefully...")
+
+	// 1. Stop scheduler (wait for running cron jobs to complete)
 	log.Println("Stopping scheduler...")
 	ctx := d.scheduler.Stop()
-
-	// Wait for running jobs to complete
 	<-ctx.Done()
+	log.Println("Scheduler stopped")
 
-	// Cancel context
+	// 2. Shutdown HTTP server
+	if d.apiServer != nil {
+		log.Println("Stopping HTTP server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := d.apiServer.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+		log.Println("HTTP server stopped")
+	}
+
+	// 3. Shutdown job manager (wait for running jobs with timeout)
+	log.Printf("Waiting for running jobs to complete (timeout: %v)...", d.shutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), d.shutdownTimeout)
+	defer cancel()
+
+	if err := d.jobManager.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Warning: Job manager shutdown timed out: %v", err)
+		log.Println("Some jobs may have been terminated")
+	} else {
+		log.Println("All jobs completed successfully")
+	}
+
+	// 4. Cancel daemon context
 	d.cancel()
 
 	log.Println("Daemon stopped")
@@ -97,9 +204,12 @@ func (d *Daemon) Stop() error {
 
 // Reload reloads the configuration and reschedules targets
 func (d *Daemon) Reload() error {
-	// Load new configuration
-	// Note: We'd need to pass the config file path here
-	// For now, this is a placeholder
+	// TODO: Implement configuration reload
+	// This would involve:
+	// 1. Loading new configuration
+	// 2. Stopping scheduler
+	// 3. Rescheduling targets with new config
+	// 4. Starting scheduler
 	log.Println("Configuration reload not yet fully implemented")
 	return nil
 }
@@ -111,15 +221,14 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 	job := func() {
 		log.Printf("[%s] Starting scheduled backup", targetCopy.Name)
 
-		result, err := app.BackupTarget(d.ctx, d.cfg, targetCopy)
+		// Submit job to job manager
+		jobID, err := d.jobManager.SubmitBackup(d.ctx, targetCopy, false)
 		if err != nil {
-			log.Printf("[%s] Scheduled backup failed: %v", targetCopy.Name, err)
+			log.Printf("[%s] Failed to submit scheduled backup: %v", targetCopy.Name, err)
 			return
 		}
 
-		if result.Success {
-			log.Printf("[%s] Scheduled backup completed successfully (duration: %v)", targetCopy.Name, result.Duration)
-		}
+		log.Printf("[%s] Scheduled backup submitted as job %s", targetCopy.Name, jobID)
 	}
 
 	// Add job to scheduler
@@ -129,4 +238,9 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 	}
 
 	return nil
+}
+
+// GetJobManager returns the job manager (useful for API access)
+func (d *Daemon) GetJobManager() *jobs.Manager {
+	return d.jobManager
 }

@@ -1,19 +1,22 @@
-.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help
+.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format build-with-web validate-all
 
 # Default target
 all: build
 
 # Build variables
 BINARY_NAME=brd
+BIN_DIR=bin
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
+LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
 # Build the binary
 build:
 	@echo "Building ${BINARY_NAME}..."
-	go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd/brd
-	@echo "Build complete: ./${BINARY_NAME}"
+	@mkdir -p ${BIN_DIR}
+	go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
 # Build for multiple platforms
 build-all:
@@ -28,6 +31,7 @@ build-all:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f ${BINARY_NAME}
+	rm -rf ${BIN_DIR}/
 	rm -rf dist/
 	rm -f coverage.out coverage.html
 	@echo "Clean complete"
@@ -35,7 +39,7 @@ clean:
 # Install to /usr/local/bin
 install: build
 	@echo "Installing ${BINARY_NAME} to /usr/local/bin..."
-	sudo cp ${BINARY_NAME} /usr/local/bin/
+	sudo cp ${BIN_DIR}/${BINARY_NAME} /usr/local/bin/
 	sudo chmod +x /usr/local/bin/${BINARY_NAME}
 	@echo "Installation complete. Run 'brd --help' to get started."
 
@@ -112,7 +116,7 @@ pre-commit: fmt vet lint test-unit coverage-check
 # Validate the example configuration
 validate: build
 	@echo "Validating example configuration..."
-	./${BINARY_NAME} validate-config --config examples/config.example.yml
+	./${BIN_DIR}/${BINARY_NAME} validate-config --config examples/config.example.yml
 
 # Format code
 fmt:
@@ -142,7 +146,7 @@ check: fmt vet lint
 # Run the daemon in development mode
 run-daemon: build
 	@echo "Starting daemon in development mode..."
-	./${BINARY_NAME} daemon --config examples/config.example.yml
+	./${BIN_DIR}/${BINARY_NAME} daemon --config examples/config.example.yml
 
 # Development setup
 dev:
@@ -190,7 +194,7 @@ docker-build:
 release: build
 	@echo "Creating release archive..."
 	mkdir -p dist
-	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz ${BINARY_NAME} README.md examples/ plan.md
+	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ plan.md
 	@echo "Release archive created: dist/${BINARY_NAME}-${VERSION}.tar.gz"
 
 # Show Go environment
@@ -244,3 +248,40 @@ help:
 	@echo "  make env         - Show Go environment"
 	@echo "  make mod-info    - Show module information"
 	@echo "  make help        - Show this help message"
+
+# Web Frontend Commands
+web-install:
+	@echo "Installing web frontend dependencies..."
+	cd web && npm install
+
+web-build: web-install
+	@echo "Building web frontend..."
+	cd web && npm run build
+
+web-dev:
+	@echo "Starting web frontend development server..."
+	cd web && npm run dev
+
+web-lint:
+	@echo "Linting web frontend..."
+	cd web && npm run lint
+
+web-format:
+	@echo "Formatting web frontend code..."
+	cd web && npm run format
+
+web-validate: web-install
+	@echo "Validating web frontend..."
+	cd web && npm run validate
+
+web-clean:
+	@echo "Cleaning web frontend..."
+	rm -rf web/dist web/node_modules
+
+# Build with web frontend
+build-with-web: web-build build
+	@echo "Build complete with embedded web UI"
+
+# Validate everything (Go + Web)
+validate-all: validate web-validate
+	@echo "✅ All validation passed (Go + Web)!"

@@ -43,11 +43,22 @@ func (cw *countingWriter) Size() int64 {
 	return cw.count
 }
 
+// Progress is an interface for progress tracking
+type Progress interface {
+	SetStage(stage string, estimatedBytes int64)
+	Update(percent float64, message string)
+	UpdateBytes(processed, total int64)
+}
+
 // BackupTarget performs a backup for a single target
-func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target) (*BackupResult, error) {
+func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target, progress Progress) (*BackupResult, error) {
 	startTime := time.Now()
 	result := &BackupResult{
 		Target: target.Name,
+	}
+
+	if progress != nil {
+		progress.SetStage("validating", 0)
 	}
 
 	log.Printf("[%s] Starting backup", target.Name)

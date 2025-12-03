@@ -1,5 +1,5 @@
 # Binaries
-brd
+bin/
 bared
 *.exe
 *.exe~
