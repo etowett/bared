@@ -8,23 +8,25 @@ BINARY_NAME=brd
 BIN_DIR=bin
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
-BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
+BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
 # Build the binary
 build:
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BIN_DIR}
-	go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	CGO_ENABLED=0 go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
 	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
 # Build for multiple platforms
 build-all:
 	@echo "Building for multiple platforms..."
-	GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
-	GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-amd64 ./cmd/brd
-	GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-arm64 ./cmd/brd
-	GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-windows-amd64.exe ./cmd/brd
+	@mkdir -p dist
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-arm64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-amd64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-arm64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-windows-amd64.exe ./cmd/brd
 	@echo "Cross-platform builds complete in ./dist/"
 
 # Clean build artifacts
@@ -184,11 +186,70 @@ setup-test-env:
 	mkdir -p backups/test
 	@echo "Test environment created in ./backups/"
 
-# Docker build
+# Docker build (local, single platform)
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t bared:latest .
+	docker build -t bared:latest \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		.
 	@echo "Docker image built: bared:latest"
+
+# Docker build with version tag
+docker-build-version:
+	@echo "Building Docker image with version ${VERSION}..."
+	docker build -t bared:${VERSION} -t bared:latest \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		.
+	@echo "Docker image built: bared:${VERSION}, bared:latest"
+
+# Docker build multi-platform (requires buildx)
+docker-buildx:
+	@echo "Building multi-platform Docker image..."
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		-t bared:latest \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		--load \
+		.
+	@echo "Multi-platform Docker image built: bared:latest"
+
+# Docker push to registry (ektowett/bared)
+docker-push:
+	@echo "Tagging and pushing Docker image to ektowett/bared..."
+	docker tag bared:latest ektowett/bared:latest
+	docker tag bared:latest ektowett/bared:${VERSION}
+	docker push ektowett/bared:latest
+	docker push ektowett/bared:${VERSION}
+	@echo "Docker images pushed: ektowett/bared:latest, ektowett/bared:${VERSION}"
+
+# Docker push latest only
+docker-push-latest:
+	@echo "Tagging and pushing Docker image to ektowett/bared:latest..."
+	docker tag bared:latest ektowett/bared:latest
+	docker push ektowett/bared:latest
+	@echo "Docker image pushed: ektowett/bared:latest"
+
+# Docker build and push (complete workflow)
+docker-release: docker-build-version docker-push
+	@echo "Docker release complete!"
+
+# Docker build multi-platform and push
+docker-release-multiplatform:
+	@echo "Building and pushing multi-platform Docker image..."
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		-t ektowett/bared:latest \
+		-t ektowett/bared:${VERSION} \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		--push \
+		.
+	@echo "Multi-platform Docker images pushed: ektowett/bared:latest, ektowett/bared:${VERSION}"
 
 # Create release archive
 release: build
@@ -242,7 +303,13 @@ help:
 	@echo "  make setup-test-env - Create test directory structure"
 	@echo ""
 	@echo "Docker Commands:"
-	@echo "  make docker-build - Build Docker image"
+	@echo "  make docker-build                - Build Docker image locally (single platform)"
+	@echo "  make docker-build-version        - Build Docker image with version tag"
+	@echo "  make docker-buildx               - Build multi-platform image (amd64, arm64)"
+	@echo "  make docker-push                 - Push to ektowett/bared (latest + version)"
+	@echo "  make docker-push-latest          - Push to ektowett/bared:latest only"
+	@echo "  make docker-release              - Build and push (single platform)"
+	@echo "  make docker-release-multiplatform - Build and push (multi-platform)"
 	@echo ""
 	@echo "Info Commands:"
 	@echo "  make env         - Show Go environment"
