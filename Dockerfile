@@ -30,8 +30,13 @@ COPY . .
 COPY --from=frontend-builder /app/web/dist ./internal/web/dist
 
 # Build the binary with embedded frontend
+ARG VERSION=dev
+ARG COMMIT=none
+ARG BUILD_DATE=unknown
+
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
-    -ldflags '-extldflags "-static"' -o brd ./cmd/brd
+    -ldflags "-extldflags '-static' -X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_DATE}" \
+    -o brd ./cmd/brd
 
 # Stage 3: Runtime
 FROM alpine:latest

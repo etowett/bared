@@ -38,11 +38,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="app">
-        {authenticated ? (
-          <Dashboard onLogout={handleLogout} />
-        ) : (
-          <Login onLogin={handleLogin} />
-        )}
+        {authenticated ? <Dashboard onLogout={handleLogout} /> : <Login onLogin={handleLogin} />}
       </div>
     </QueryClientProvider>
   )

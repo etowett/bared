@@ -1,7 +1,7 @@
 import type { Job, Target, Dashboard, LogEntry } from '../types'
 
 // Get auth from sessionStorage (set on login)
-const getAuthHeader = (): string => {
+export const getAuthHeader = (): string => {
   const auth = sessionStorage.getItem('bared_auth')
   return auth ? `Basic ${auth}` : ''
 }
@@ -53,7 +53,7 @@ const apiFetch = async (url: string, options: RequestInit = {}) => {
 export const apiClient = {
   // Health check
   async health(): Promise<{ status: string; version: string }> {
-    return fetch('/api/health').then(r => r.json())
+    return fetch('/api/health').then((r) => r.json())
   },
 
   // Dashboard
@@ -67,7 +67,10 @@ export const apiClient = {
   },
 
   // Jobs
-  async getJobs(filters?: { status?: string; target?: string }): Promise<{ jobs: Job[]; total: number }> {
+  async getJobs(filters?: {
+    status?: string
+    target?: string
+  }): Promise<{ jobs: Job[]; total: number }> {
     const params = new URLSearchParams()
     if (filters?.status) params.set('status', filters.status)
     if (filters?.target) params.set('target', filters.target)
@@ -87,7 +90,10 @@ export const apiClient = {
     })
   },
 
-  async triggerRestore(target: string, backup_path: string): Promise<{ job_id: string; message: string }> {
+  async triggerRestore(
+    target: string,
+    backup_path: string
+  ): Promise<{ job_id: string; message: string }> {
     return apiFetch('/api/jobs/restore', {
       method: 'POST',
       body: JSON.stringify({ target, backup_path }),

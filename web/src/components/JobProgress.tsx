@@ -47,10 +47,7 @@ export function JobProgress({ progress, compact = false }: JobProgressProps) {
     return (
       <div className="job-progress-compact">
         <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${Math.min(progress.percent, 100)}%` }}
-          />
+          <div className="progress-fill" style={{ width: `${Math.min(progress.percent, 100)}%` }} />
         </div>
         <span className="progress-text">{progress.percent.toFixed(1)}%</span>
       </div>
@@ -65,10 +62,7 @@ export function JobProgress({ progress, compact = false }: JobProgressProps) {
       </div>
 
       <div className="progress-bar">
-        <div
-          className="progress-fill"
-          style={{ width: `${Math.min(progress.percent, 100)}%` }}
-        />
+        <div className="progress-fill" style={{ width: `${Math.min(progress.percent, 100)}%` }} />
       </div>
 
       <div className="progress-details">
@@ -77,14 +71,10 @@ export function JobProgress({ progress, compact = false }: JobProgressProps) {
             {formatBytes(progress.bytes_processed)} / {formatBytes(progress.bytes_total)}
           </div>
         )}
-        {progress.eta && (
-          <div className="progress-eta">ETA: {formatETA(progress.eta)}</div>
-        )}
+        {progress.eta && <div className="progress-eta">ETA: {formatETA(progress.eta)}</div>}
       </div>
 
-      {progress.message && (
-        <div className="progress-message">{progress.message}</div>
-      )}
+      {progress.message && <div className="progress-message">{progress.message}</div>}
     </div>
   )
 }

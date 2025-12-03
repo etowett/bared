@@ -1,4 +1,4 @@
-.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help
+.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format build-with-web validate-all
 
 # Default target
 all: build
@@ -7,8 +7,9 @@ all: build
 BINARY_NAME=brd
 BIN_DIR=bin
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
+LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
 # Build the binary
 build:
@@ -247,3 +248,40 @@ help:
 	@echo "  make env         - Show Go environment"
 	@echo "  make mod-info    - Show module information"
 	@echo "  make help        - Show this help message"
+
+# Web Frontend Commands
+web-install:
+	@echo "Installing web frontend dependencies..."
+	cd web && npm install
+
+web-build: web-install
+	@echo "Building web frontend..."
+	cd web && npm run build
+
+web-dev:
+	@echo "Starting web frontend development server..."
+	cd web && npm run dev
+
+web-lint:
+	@echo "Linting web frontend..."
+	cd web && npm run lint
+
+web-format:
+	@echo "Formatting web frontend code..."
+	cd web && npm run format
+
+web-validate: web-install
+	@echo "Validating web frontend..."
+	cd web && npm run validate
+
+web-clean:
+	@echo "Cleaning web frontend..."
+	rm -rf web/dist web/node_modules
+
+# Build with web frontend
+build-with-web: web-build build
+	@echo "Build complete with embedded web UI"
+
+# Validate everything (Go + Web)
+validate-all: validate web-validate
+	@echo "✅ All validation passed (Go + Web)!"

@@ -4,7 +4,7 @@ import type { Job } from '../types'
 
 interface JobListProps {
   jobs: Job[]
-  onSelectJob: (job: Job) => void
+  onSelectJob: (_job: Job) => void
   selectedJobId?: string
 }
 
@@ -94,9 +94,7 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
               <td className="job-type">{job.type}</td>
               <td className="job-target">{job.target}</td>
               <td>
-                <span className={`status-badge ${getStatusClass(job.status)}`}>
-                  {job.status}
-                </span>
+                <span className={`status-badge ${getStatusClass(job.status)}`}>{job.status}</span>
                 {job.manual && <span className="manual-badge">Manual</span>}
               </td>
               <td className="job-progress">
@@ -109,7 +107,9 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
               <td className="job-created">{formatDate(job.created_at)}</td>
               <td className="job-duration">{formatDuration(job.duration_seconds)}</td>
               <td className="job-actions">
-                {(job.status === 'running' || job.status === 'queued') && (
+                {(job.status === 'running' ||
+                  job.status === 'queued' ||
+                  job.status === 'cancelling') && (
                   <button
                     onClick={(e) => handleCancel(e, job.id)}
                     disabled={cancelJob.isPending || job.status === 'cancelling'}

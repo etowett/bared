@@ -10,18 +10,14 @@ interface UseWebSocketOptions {
 
 // WebSocket hook with auto-reconnect
 export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
-  const {
-    enabled = true,
-    maxReconnectDelay = 30000,
-    initialReconnectDelay = 1000,
-  } = options
+  const { enabled = true, maxReconnectDelay = 30000, initialReconnectDelay = 1000 } = options
 
   const [messages, setMessages] = useState<LogEntry[]>([])
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>()
+  const reconnectTimeoutRef = useRef<number>()
   const reconnectDelayRef = useRef(initialReconnectDelay)
   const mountedRef = useRef(true)
 
@@ -83,10 +79,7 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
         // Exponential backoff reconnection
         if (enabled) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectDelayRef.current = Math.min(
-              reconnectDelayRef.current * 2,
-              maxReconnectDelay
-            )
+            reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay)
             connect()
           }, reconnectDelayRef.current)
         }

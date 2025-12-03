@@ -13,6 +13,7 @@ import (
 	"bared/internal/config"
 	"bared/internal/daemon"
 	"bared/internal/util"
+	"bared/internal/version"
 )
 
 // formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)
@@ -50,6 +51,9 @@ It supports MySQL, PostgreSQL, and Redis with multiple storage backends.`,
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "bared.yml", "config file path")
+
+	// Set version info (cobra automatically adds -v/--version flag)
+	rootCmd.Version = version.GetFullVersion()
 
 	rootCmd.AddCommand(backupCmd)
 	rootCmd.AddCommand(restoreCmd)

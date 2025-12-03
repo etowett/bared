@@ -110,9 +110,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
         </div>
       </div>
 
-      {selectedJob && (
-        <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} />
-      )}
+      {selectedJob && <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} />}
     </div>
   )
 }

@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"bared/internal/jobs"
+	"bared/internal/version"
 )
 
 // handleHealth returns the API health status
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, HealthResponse{
 		Status:  "ok",
-		Version: "1.0.0",
+		Version: version.GetVersion(),
 	})
 }
 

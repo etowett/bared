@@ -34,7 +34,7 @@ export function Login({ onLogin }: LoginProps) {
         setUsername('')
         setPassword('')
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to server')
     } finally {
       setLoading(false)

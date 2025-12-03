@@ -137,12 +137,11 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
           <div className="logs-section">
             <div className="logs-header">
               <h3>Logs</h3>
-              {connected && (
-                <span className="ws-status ws-connected">● Live</span>
-              )}
-              {!connected && (currentJob.status === 'running' || currentJob.status === 'queued') && (
-                <span className="ws-status ws-disconnected">● Connecting...</span>
-              )}
+              {connected && <span className="ws-status ws-connected">● Live</span>}
+              {!connected &&
+                (currentJob.status === 'running' || currentJob.status === 'queued') && (
+                  <span className="ws-status ws-disconnected">● Connecting...</span>
+                )}
             </div>
 
             <div className="logs-viewer">
