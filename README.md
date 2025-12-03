@@ -82,7 +82,11 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 ### Installation
 
 ```bash
-go build -o brd ./cmd/brd
+# Build the binary
+make build
+
+# Or manually with Go
+go build -o bin/brd ./cmd/brd
 ```
 
 ### Configuration
@@ -119,22 +123,22 @@ targets:
 
 ```bash
 # Validate configuration
-./brd validate-config --config bared.yml
+./bin/brd validate-config --config bared.yml
 
 # Backup a target
-./brd backup --config bared.yml --target my_mysql_db
+./bin/brd backup --config bared.yml --target my_mysql_db
 
 # List backups
-./brd list --config bared.yml --target my_mysql_db
+./bin/brd list --config bared.yml --target my_mysql_db
 
 # Restore latest backup
-./brd restore --config bared.yml --target my_mysql_db --backup latest
+./bin/brd restore --config bared.yml --target my_mysql_db --backup latest
 
 # Restore specific backup
-./brd restore --config bared.yml --target my_mysql_db --backup path/to/backup.tar.gz
+./bin/brd restore --config bared.yml --target my_mysql_db --backup path/to/backup.tar.gz
 
 # Run as daemon with scheduler
-./brd daemon --config bared.yml
+./bin/brd daemon --config bared.yml
 ```
 
 ## Architecture
@@ -207,7 +211,14 @@ See `plan.md` for the complete implementation plan and architectural details.
 ### Building
 
 ```bash
-go build -o brd ./cmd/brd
+# Using Makefile (outputs to bin/brd)
+make build
+
+# Or manually with Go
+go build -o bin/brd ./cmd/brd
+
+# Cross-platform builds (outputs to dist/)
+make build-all
 ```
 
 ### Testing (Coming in Phase 9)

@@ -5,6 +5,7 @@ all: build
 
 # Build variables
 BINARY_NAME=brd
+BIN_DIR=bin
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
@@ -12,8 +13,9 @@ LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}"
 # Build the binary
 build:
 	@echo "Building ${BINARY_NAME}..."
-	go build ${LDFLAGS} -o ${BINARY_NAME} ./cmd/brd
-	@echo "Build complete: ./${BINARY_NAME}"
+	@mkdir -p ${BIN_DIR}
+	go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
 # Build for multiple platforms
 build-all:
@@ -28,6 +30,7 @@ build-all:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f ${BINARY_NAME}
+	rm -rf ${BIN_DIR}/
 	rm -rf dist/
 	rm -f coverage.out coverage.html
 	@echo "Clean complete"
@@ -35,7 +38,7 @@ clean:
 # Install to /usr/local/bin
 install: build
 	@echo "Installing ${BINARY_NAME} to /usr/local/bin..."
-	sudo cp ${BINARY_NAME} /usr/local/bin/
+	sudo cp ${BIN_DIR}/${BINARY_NAME} /usr/local/bin/
 	sudo chmod +x /usr/local/bin/${BINARY_NAME}
 	@echo "Installation complete. Run 'brd --help' to get started."
 
@@ -112,7 +115,7 @@ pre-commit: fmt vet lint test-unit coverage-check
 # Validate the example configuration
 validate: build
 	@echo "Validating example configuration..."
-	./${BINARY_NAME} validate-config --config examples/config.example.yml
+	./${BIN_DIR}/${BINARY_NAME} validate-config --config examples/config.example.yml
 
 # Format code
 fmt:
@@ -142,7 +145,7 @@ check: fmt vet lint
 # Run the daemon in development mode
 run-daemon: build
 	@echo "Starting daemon in development mode..."
-	./${BINARY_NAME} daemon --config examples/config.example.yml
+	./${BIN_DIR}/${BINARY_NAME} daemon --config examples/config.example.yml
 
 # Development setup
 dev:
@@ -190,7 +193,7 @@ docker-build:
 release: build
 	@echo "Creating release archive..."
 	mkdir -p dist
-	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz ${BINARY_NAME} README.md examples/ plan.md
+	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ plan.md
 	@echo "Release archive created: dist/${BINARY_NAME}-${VERSION}.tar.gz"
 
 # Show Go environment

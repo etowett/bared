@@ -114,15 +114,20 @@ bared/
 ### Local Build
 
 ```bash
-# Simple build
+# Simple build (outputs to bin/brd)
 make build
 
 # Build with version info
 VERSION=v1.0.0 make build
 
-# Cross-platform builds
+# Manual build with Go
+go build -o bin/brd ./cmd/brd
+
+# Cross-platform builds (outputs to dist/)
 make build-all
 ```
+
+**Note**: Development builds go to `bin/` directory, while cross-platform release builds go to `dist/` directory.
 
 ### Docker Build
 
@@ -170,13 +175,13 @@ sleep 10
 docker-compose exec mysql mysql -uroot -ptestpass -e "CREATE DATABASE IF NOT EXISTS testdb;"
 
 # Run backup test
-./brd backup --config test-config.yml --target test_mysql
+./bin/brd backup --config test-config.yml --target test_mysql
 
 # Verify backup exists
-./brd list --config test-config.yml --target test_mysql
+./bin/brd list --config test-config.yml --target test_mysql
 
 # Test restore
-./brd restore --config test-config.yml --target test_mysql --backup latest
+./bin/brd restore --config test-config.yml --target test_mysql --backup latest
 
 # Cleanup
 docker-compose down -v
@@ -216,7 +221,7 @@ targets:
 EOF
 
 # Test backup
-./brd backup --config test-config.yml --target test_mysql
+./bin/brd backup --config test-config.yml --target test_mysql
 
 # Check results
 ls -lh backups/test/test_mysql/
