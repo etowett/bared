@@ -51,26 +51,68 @@ func (s *S3) Validate(ctx context.Context) error {
 // Store writes data from reader to S3
 func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64) error {
 	if err := s.initClient(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize S3 client: %w", err)
 	}
 
 	// Combine path prefix with file path
 	key := path.Join(s.cfg.Path, filePath)
 
+	// Check if reader is seekable for retry support
+	seeker, isSeekable := r.(io.ReadSeeker)
+	if !isSeekable {
+		util.Warn("[S3:%s] Reader is not seekable - retries may fail", s.cfg.Name)
+	} else {
+		util.Debug("[S3:%s] Reader is seekable - retry support enabled", s.cfg.Name)
+	}
+
+	util.Info("[S3:%s] Uploading to bucket '%s' key '%s' (%s)",
+		s.cfg.Name, s.cfg.Bucket, key, util.FormatBytes(size))
+
 	// Upload with retry
+	attempt := 0
 	err := util.Retry(ctx, util.DefaultRetryConfig(), func() error {
-		_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+		attempt++
+
+		// Seek to beginning for retry attempts
+		if isSeekable && attempt > 1 {
+			util.Debug("[S3:%s] Seeking to start for retry attempt %d", s.cfg.Name, attempt)
+			if _, err := seeker.Seek(0, 0); err != nil {
+				return fmt.Errorf("failed to seek reader for retry: %w", err)
+			}
+		}
+
+		// Prepare upload input
+		input := &s3.PutObjectInput{
 			Bucket: aws.String(s.cfg.Bucket),
 			Key:    aws.String(key),
 			Body:   r,
-		})
-		return err
+		}
+
+		// Set ContentLength if size is known (CRITICAL for Hetzner and S3-compatible services)
+		if size > 0 {
+			input.ContentLength = aws.Int64(size)
+			util.Debug("[S3:%s] Setting ContentLength: %d bytes", s.cfg.Name, size)
+		}
+
+		util.Debug("[S3:%s] Starting upload attempt %d", s.cfg.Name, attempt)
+
+		// Execute upload
+		_, err := s.client.PutObject(ctx, input)
+		if err != nil {
+			util.Warn("[S3:%s] Upload attempt %d failed: %v", s.cfg.Name, attempt, err)
+			return fmt.Errorf("failed to upload to S3: %w", err)
+		}
+
+		util.Debug("[S3:%s] Upload attempt %d succeeded", s.cfg.Name, attempt)
+		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to upload to S3: %w", err)
+		util.Error("[S3:%s] Upload failed after all retries: %v", s.cfg.Name, err)
+		return fmt.Errorf("failed to upload to S3 with retry: %w", err)
 	}
 
+	util.Info("[S3:%s] Upload completed successfully", s.cfg.Name)
 	return nil
 }
 
@@ -160,21 +202,30 @@ func (s *S3) initClient(ctx context.Context) error {
 	var cfg aws.Config
 	var err error
 
+	// Build config options
+	configOptions := []func(*config.LoadOptions) error{
+		config.WithRegion(s.cfg.Region),
+	}
+
+	// Enable SDK debug logging if log level is DEBUG
+	if util.GetLogger().GetLevel() == util.DEBUG {
+		util.Debug("[S3:%s] Enabling AWS SDK debug logging", s.cfg.Name)
+		configOptions = append(configOptions, config.WithClientLogMode(
+			aws.LogRequestWithBody|aws.LogResponseWithBody|aws.LogRetries,
+		))
+	}
+
 	// If access keys are provided, use them
 	if s.cfg.AccessKeyID != "" && s.cfg.SecretAccessKey != "" {
-		cfg, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(s.cfg.Region),
-			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
-				s.cfg.AccessKeyID,
-				s.cfg.SecretAccessKey,
-				"",
-			)),
-		)
+		configOptions = append(configOptions, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			s.cfg.AccessKeyID,
+			s.cfg.SecretAccessKey,
+			"",
+		)))
+		cfg, err = config.LoadDefaultConfig(ctx, configOptions...)
 	} else {
 		// Otherwise use default credential chain (IAM role, env vars, etc.)
-		cfg, err = config.LoadDefaultConfig(ctx,
-			config.WithRegion(s.cfg.Region),
-		)
+		cfg, err = config.LoadDefaultConfig(ctx, configOptions...)
 	}
 
 	if err != nil {

@@ -3,6 +3,7 @@ package config
 // Config represents the entire configuration file
 type Config struct {
 	DefaultStorage string               `yaml:"default_storage"`
+	LogLevel       string               `yaml:"log_level,omitempty"`
 	Storages       map[string]*Storage  `yaml:"storages"`
 	Notifiers      map[string]*Notifier `yaml:"notifiers"`
 	Targets        []*Target            `yaml:"targets"`

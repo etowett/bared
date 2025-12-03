@@ -102,14 +102,31 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
 	result.BackupPath = backupPath
 
-	log.Printf("[%s] Backup path: %s", target.Name, backupPath)
+	log.Printf("[%s] Backup details:", target.Name)
+	log.Printf("\tStorage: %s", stor.Name())
+	if storageCfg.Path != "" {
+		log.Printf("\t\tStorage path: %s/%s", storageCfg.Path, backupPath)
+	} else if storageCfg.Bucket != "" {
+		log.Printf("\t\tStorage path: s3://%s/%s", storageCfg.Bucket, backupPath)
+	} else if storageCfg.Host != "" {
+		log.Printf("\t\tStorage path: sftp://%s@%s:%d%s/%s",
+			storageCfg.Username, storageCfg.Host, storageCfg.Port, storageCfg.Path, backupPath)
+	}
+	log.Printf("[%s] Database: %s (type: %s, host: %s:%d, user: %s)",
+		target.Name,
+		target.Conn.Database,
+		target.Conn.Type,
+		target.Conn.Host,
+		target.Conn.Port,
+		target.Conn.User)
+	log.Printf("[%s] Backup file: %s", target.Name, backupPath)
 
 	// Execute backup pipeline
 	var dumpMetadata *database.DumpMetadata
 	if target.Compress != nil && target.Compress.Enabled {
 		dumpMetadata, err = backupWithCompression(ctx, target, dumper, stor, backupPath)
 	} else {
-		dumpMetadata, err = backupWithoutCompression(ctx, dumper, stor, backupPath)
+		dumpMetadata, err = backupWithoutCompression(ctx, target, dumper, stor, backupPath)
 	}
 
 	if err != nil {
@@ -120,7 +137,6 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	// Populate result with metadata
 	if dumpMetadata != nil {
 		result.Size = dumpMetadata.Size
-		// StoragePath is already set in result.BackupPath
 	}
 
 	result.Success = true
@@ -190,104 +206,143 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 
 // backupWithCompression performs backup with compression
 func backupWithCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
-	// Create pipes for streaming
+	// Create temp file for compressed backup
+	tmpFile, cleanup, err := util.CreateBackupTempFile(target.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer cleanup()
+
+	util.Debug("[%s] Created temp file for compression", target.Name)
+
+	// Create pipe for streaming from dump to compression
 	dumpReader, dumpWriter := io.Pipe()
-	compressReader, compressWriter := io.Pipe()
 
-	var dumpErr, compressErr, storeErr error
+	var dumpErr, compressErr error
 	var dumpMetadata *database.DumpMetadata
+	var uncompressedSize int64
 
-	// Wrap compressWriter to count bytes (final size after compression)
-	counter := &countingWriter{w: compressWriter}
+	// Wrap dumpWriter to count uncompressed bytes
+	dumpCounter := &countingWriter{w: dumpWriter}
 
 	// Start dump in goroutine
 	go func() {
 		defer dumpWriter.Close()
-		meta, err := dumper.Dump(ctx, dumpWriter)
+		util.Debug("[%s] Starting database dump", target.Name)
+		meta, err := dumper.Dump(ctx, dumpCounter)
 		if err != nil {
 			dumpErr = err
-			log.Printf("Dump error: %v", err)
+			util.Error("[%s] Dump error: %v", target.Name, err)
 		} else {
 			dumpMetadata = meta
+			uncompressedSize = dumpCounter.Size()
+			util.Info("[%s] Database dump completed: %s", target.Name, util.FormatBytes(uncompressedSize))
 		}
 	}()
 
-	// Start compression in goroutine
-	go func() {
-		defer compressWriter.Close()
-		compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
-		if err != nil {
-			compressErr = err
-			return
-		}
-		compressErr = compressor.Compress(ctx, dumpReader, counter)
-		if compressErr != nil {
-			log.Printf("Compress error: %v", compressErr)
-		}
-	}()
+	// Compress to temp file (blocking operation)
+	util.Debug("[%s] Starting compression (type: %s)", target.Name, target.Compress.Type)
+	compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compressor: %w", err)
+	}
 
-	// Store compressed data (this blocks until all data is written)
-	storeErr = stor.Store(ctx, backupPath, compressReader, -1)
+	compressErr = compressor.Compress(ctx, dumpReader, tmpFile)
+	if compressErr != nil {
+		util.Error("[%s] Compress error: %v", target.Name, compressErr)
+		return nil, fmt.Errorf("compress failed: %w", compressErr)
+	}
+
+	// Check for dump errors
+	if dumpErr != nil {
+		return nil, fmt.Errorf("dump failed: %w", dumpErr)
+	}
+
+	// Get compressed file size
+	compressedSize, err := util.GetFileSize(tmpFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compressed file size: %w", err)
+	}
+
+	compressionRatio := 0.0
+	if uncompressedSize > 0 {
+		compressionRatio = (1.0 - float64(compressedSize)/float64(uncompressedSize)) * 100
+	}
+	util.Info("[%s] Compression completed: %s -> %s (%.1f%% reduction)",
+		target.Name, util.FormatBytes(uncompressedSize), util.FormatBytes(compressedSize), compressionRatio)
+
+	// Seek to beginning of temp file for upload
+	if _, err := tmpFile.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to seek temp file: %w", err)
+	}
+
+	util.Debug("[%s] Uploading compressed backup to storage", target.Name)
+
+	// Store compressed data from temp file (seekable, known size)
+	storeErr := stor.Store(ctx, backupPath, tmpFile, compressedSize)
 	if storeErr != nil {
 		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
-	// Check for errors in pipeline
-	if dumpErr != nil {
-		return nil, fmt.Errorf("dump failed: %w", dumpErr)
-	}
-	if compressErr != nil {
-		return nil, fmt.Errorf("compress failed: %w", compressErr)
-	}
+	util.Info("[%s] Upload completed successfully", target.Name)
 
 	// Populate metadata with file information
 	if dumpMetadata == nil {
 		dumpMetadata = &database.DumpMetadata{}
 	}
-	dumpMetadata.Size = counter.Size()
+	dumpMetadata.Size = compressedSize
 	dumpMetadata.StoragePath = backupPath
 
 	return dumpMetadata, nil
 }
 
 // backupWithoutCompression performs backup without compression
-func backupWithoutCompression(ctx context.Context, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
-	// Create pipe for streaming
-	reader, writer := io.Pipe()
-
-	var dumpErr, storeErr error
-	var dumpMetadata *database.DumpMetadata
-
-	// Wrap writer to count bytes (final size)
-	counter := &countingWriter{w: writer}
-
-	// Start dump in goroutine
-	go func() {
-		defer writer.Close()
-		meta, err := dumper.Dump(ctx, counter)
-		if err != nil {
-			dumpErr = err
-		} else {
-			dumpMetadata = meta
-		}
-	}()
-
-	// Store data (this blocks until all data is written)
-	storeErr = stor.Store(ctx, backupPath, reader, -1)
-
-	// Check for errors
-	if dumpErr != nil {
-		return nil, fmt.Errorf("dump failed: %w", dumpErr)
+func backupWithoutCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
+	// Create temp file for backup
+	tmpFile, cleanup, err := util.CreateBackupTempFile(target.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
+	defer cleanup()
+
+	util.Debug("[%s] Created temp file for uncompressed backup", target.Name)
+
+	// Dump directly to temp file (no goroutine needed - linear flow)
+	util.Debug("[%s] Starting database dump", target.Name)
+	dumpMetadata, err := dumper.Dump(ctx, tmpFile)
+	if err != nil {
+		util.Error("[%s] Dump error: %v", target.Name, err)
+		return nil, fmt.Errorf("dump failed: %w", err)
+	}
+
+	// Get file size
+	backupSize, err := util.GetFileSize(tmpFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get backup file size: %w", err)
+	}
+
+	util.Info("[%s] Database dump completed: %s", target.Name, util.FormatBytes(backupSize))
+
+	// Seek to beginning of temp file for upload
+	if _, err := tmpFile.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to seek temp file: %w", err)
+	}
+
+	util.Debug("[%s] Uploading uncompressed backup to storage", target.Name)
+
+	// Store data from temp file (seekable, known size)
+	storeErr := stor.Store(ctx, backupPath, tmpFile, backupSize)
 	if storeErr != nil {
 		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
+
+	util.Info("[%s] Upload completed successfully", target.Name)
 
 	// Populate metadata with file information
 	if dumpMetadata == nil {
 		dumpMetadata = &database.DumpMetadata{}
 	}
-	dumpMetadata.Size = counter.Size()
+	dumpMetadata.Size = backupSize
 	dumpMetadata.StoragePath = backupPath
 
 	return dumpMetadata, nil
