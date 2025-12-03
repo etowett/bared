@@ -1,0 +1,62 @@
+# Git files
+.git
+.gitignore
+.github
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Claude files
+.claude
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test and coverage files
+coverage.out
+coverage.html
+*.test
+
+# Backup directories
+backups/
+
+# Documentation (except README.md which is used by Docker Hub)
+*.md
+!README.md
+docs/
+
+# Configuration files (examples will be in image, but not user configs)
+config.yml
+restore-config.local.yml
+bared.yml
+
+# Compose files
+compose.yml
+docker-compose.yml
+
+# Web frontend intermediate files
+web/node_modules
+web/dist
+web/.vite
+web/.eslintcache
+
+# Go module cache
+vendor/
+
+# Development and planning files
+plan.md
+TESTING_PLAN.md
+TOOLING.md
+IMPLEMENTATION_COMPLETE.md
+CONTRIBUTING.md
+DEVELOPMENT.md
