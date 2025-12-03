@@ -20,7 +20,7 @@ make validate
 
 ### Required Tools
 
-- **Go 1.21+**: Primary language
+- **Go 1.24+**: Primary language
 - **Make**: Build automation
 - **Git**: Version control
 

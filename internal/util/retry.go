@@ -33,6 +33,10 @@ func Retry(ctx context.Context, config *RetryConfig, fn func() error) error {
 		// Execute the function
 		err := fn()
 		if err == nil {
+			// Log success if this wasn't the first attempt
+			if attempt > 1 {
+				Info("Operation succeeded after %d attempts", attempt)
+			}
 			return nil
 		}
 
@@ -40,14 +44,19 @@ func Retry(ctx context.Context, config *RetryConfig, fn func() error) error {
 
 		// Don't retry on last attempt
 		if attempt == config.MaxAttempts {
+			Error("Operation failed after %d attempts: %v", attempt, err)
 			break
 		}
+
+		// Log retry with delay info
+		Warn("Attempt %d/%d failed: %v - retrying in %v", attempt, config.MaxAttempts, err, delay)
 
 		// Wait before retrying
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("retry cancelled: %w", ctx.Err())
 		case <-time.After(delay):
+			Debug("Delay elapsed, starting attempt %d", attempt+1)
 		}
 
 		// Increase delay for next attempt (exponential backoff)

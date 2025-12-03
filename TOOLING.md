@@ -54,6 +54,7 @@ make help           # Show all commands
 ### All Commands
 
 #### Build Commands
+
 ```bash
 make build          # Build brd binary
 make build-all      # Cross-compile for Linux, macOS, Windows
@@ -62,6 +63,7 @@ make release        # Create release archive
 ```
 
 #### Installation Commands
+
 ```bash
 make install        # Install to /usr/local/bin
 make uninstall      # Remove from /usr/local/bin
@@ -69,6 +71,7 @@ make install-service # Install as systemd service
 ```
 
 #### Testing Commands
+
 ```bash
 make test           # Run all tests with race detector
 make coverage       # Generate HTML coverage report
@@ -77,6 +80,7 @@ make validate       # Validate example configuration
 ```
 
 #### Code Quality Commands
+
 ```bash
 make fmt            # Format Go code with gofmt
 make vet            # Run go vet static analysis
@@ -85,6 +89,7 @@ make check          # Run fmt + vet + lint
 ```
 
 #### Development Commands
+
 ```bash
 make dev            # Install dev tools (golangci-lint, etc.)
 make run-daemon     # Run daemon with example config
@@ -94,6 +99,7 @@ make setup-test-env # Create test directory structure
 ```
 
 #### Info Commands
+
 ```bash
 make env            # Show Go environment variables
 make mod-info       # Show Go module dependencies
@@ -105,15 +111,18 @@ make help           # Show all available commands
 ### Dockerfile
 
 Multi-stage build that:
+
 1. **Build stage**: Compiles Go binary with static linking
 2. **Runtime stage**: Minimal Alpine image with database clients
 
 Features:
+
 - Non-root user (backup:1000)
 - Database client tools pre-installed (mysql-client, postgresql-client, redis)
 - Volumes for `/backups` and `/etc/bared`
 
 Usage:
+
 ```bash
 # Build image
 docker build -t bared:latest .
@@ -128,6 +137,7 @@ docker run --rm \
 ### Docker Compose
 
 Complete development stack with:
+
 - **BareD daemon**: Main application
 - **MySQL 8.0**: Test database
 - **PostgreSQL 15**: Test database
@@ -135,6 +145,7 @@ Complete development stack with:
 - **MinIO**: S3-compatible storage for testing
 
 Usage:
+
 ```bash
 # Start all services
 docker-compose up -d
@@ -157,6 +168,7 @@ docker-compose down -v
 ### .golangci.yml
 
 Enabled linters:
+
 - **errcheck**: Unchecked errors
 - **gosimple**: Code simplification
 - **govet**: Static analysis
@@ -172,10 +184,12 @@ Enabled linters:
 - **gosec**: Security vulnerabilities
 
 Custom exclusions:
+
 - G204: Subprocess with variable (needed for database commands)
 - G401: Weak crypto primitives (not doing cryptography)
 
 Run with:
+
 ```bash
 make lint
 
@@ -193,7 +207,8 @@ golangci-lint run --fix
 Runs on: Push and pull requests to `main` and `develop`
 
 Jobs:
-1. **Test**: Matrix testing on Ubuntu + macOS with Go 1.21 & 1.22
+
+1. **Test**: Matrix testing on Ubuntu + macOS with Go 1.24 & 1.25
    - Run tests with race detector
    - Generate coverage report
    - Upload to Codecov
@@ -205,6 +220,7 @@ Jobs:
 Triggers on: Git tags matching `v*.*.*`
 
 Automatically:
+
 1. Build binaries for:
    - Linux (amd64, arm64)
    - macOS (amd64, arm64)
@@ -215,6 +231,7 @@ Automatically:
 5. Create GitHub release with all artifacts
 
 Create a release:
+
 ```bash
 git tag -a v1.0.0 -m "Release v1.0.0"
 git push origin v1.0.0
@@ -226,6 +243,7 @@ git push origin v1.0.0
 ### Settings (.vscode/settings.json)
 
 Features:
+
 - Go language server enabled
 - golangci-lint integration
 - Format on save
@@ -236,6 +254,7 @@ Features:
 ### Launch Configurations (.vscode/launch.json)
 
 Debug configurations for:
+
 - General BareD execution
 - Backup command
 - List backups
@@ -251,6 +270,7 @@ Usage: Press F5 in VS Code and select a configuration
 ### .gitignore
 
 Ignores:
+
 - **Binaries**: `brd`, `*.exe`, `*.dll`, etc.
 - **Build artifacts**: `dist/`, `coverage.out`
 - **IDE files**: `.vscode/`, `.idea/`, `.DS_Store`
@@ -260,6 +280,7 @@ Ignores:
 - **Environment**: `.env*`
 
 Safe to commit:
+
 - Example configs (`examples/*.yml`)
 - VS Code settings (`.vscode/`)
 - Source code (`cmd/`, `internal/`)
@@ -271,6 +292,7 @@ Safe to commit:
 The repository structure follows Go best practices:
 
 **Add a new database:**
+
 ```bash
 # 1. Create implementation
 touch internal/database/mongodb.go
@@ -286,6 +308,7 @@ vim examples/config.example.yml
 ```
 
 **Add a new storage backend:**
+
 ```bash
 touch internal/storage/gcs.go
 vim internal/storage/factory.go
@@ -293,6 +316,7 @@ touch internal/storage/gcs_test.go
 ```
 
 **Add a new notifier:**
+
 ```bash
 touch internal/notify/discord.go
 vim internal/notify/factory.go
@@ -330,6 +354,7 @@ make mod-info      # Show all dependencies
 ### Unit Tests
 
 Run with:
+
 ```bash
 make test
 
@@ -344,6 +369,7 @@ open coverage.html
 ### Integration Tests
 
 Use Docker Compose:
+
 ```bash
 # Start test services
 docker-compose up -d
@@ -462,6 +488,7 @@ go tool pprof mem.prof
 ### Live Profiling
 
 Add to main.go:
+
 ```go
 import _ "net/http/pprof"
 
@@ -470,7 +497,7 @@ go func() {
 }()
 ```
 
-Then visit: http://localhost:6060/debug/pprof/
+Then visit: <http://localhost:6060/debug/pprof/>
 
 ## 🎯 Best Practices
 
@@ -547,15 +574,16 @@ make test
 
 ## 📚 Additional Resources
 
-- **Go Documentation**: https://golang.org/doc/
-- **Make Documentation**: https://www.gnu.org/software/make/manual/
-- **Docker Docs**: https://docs.docker.com/
-- **golangci-lint**: https://golangci-lint.run/
-- **GitHub Actions**: https://docs.github.com/en/actions
+- **Go Documentation**: <https://golang.org/doc/>
+- **Make Documentation**: <https://www.gnu.org/software/make/manual/>
+- **Docker Docs**: <https://docs.docker.com/>
+- **golangci-lint**: <https://golangci-lint.run/>
+- **GitHub Actions**: <https://docs.github.com/en/actions>
 
 ## Summary
 
 This repository includes comprehensive tooling for:
+
 - ✅ Building (Makefile, Dockerfile, cross-compilation)
 - ✅ Testing (unit tests, integration tests, coverage)
 - ✅ Code quality (linting, formatting, static analysis)

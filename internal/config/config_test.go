@@ -146,10 +146,10 @@ func TestGetStorageForTarget(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		target         *Target
+		name            string
+		target          *Target
 		wantStorageName string
-		wantNil        bool
+		wantNil         bool
 	}{
 		{
 			name:            "target with explicit storage",

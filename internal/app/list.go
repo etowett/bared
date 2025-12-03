@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -22,6 +23,8 @@ func ListBackups(ctx context.Context, cfg *config.Config, target *config.Target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage: %w", err)
 	}
+
+	log.Printf("Listing backups for target: %s", target.Name)
 
 	// List all backups
 	allBackups, err := stor.List(ctx)

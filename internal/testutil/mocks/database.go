@@ -23,11 +23,11 @@ type MockDumper struct {
 	ValidateFunc func(ctx context.Context) error
 
 	// Simple response configuration
-	NameValue      string
-	DumpOutput     string // Data to write when Dump is called
-	DumpMetadata   *database.DumpMetadata
-	DumpError      error
-	ValidateError  error
+	NameValue     string
+	DumpOutput    string // Data to write when Dump is called
+	DumpMetadata  *database.DumpMetadata
+	DumpError     error
+	ValidateError error
 }
 
 // DumpCall records details about a Dump call
@@ -46,8 +46,8 @@ type MockRestorer struct {
 	RestoreFunc func(ctx context.Context, r io.Reader) error
 
 	// Simple response configuration
-	NameValue     string
-	RestoreError  error
+	NameValue    string
+	RestoreError error
 }
 
 // RestoreCall records details about a Restore call

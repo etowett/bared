@@ -93,9 +93,9 @@ targets:
 			},
 		},
 		{
-			name:        "empty config",
-			configData:  "",
-			wantErr:     false,
+			name:       "empty config",
+			configData: "",
+			wantErr:    false,
 			validate: func(t *testing.T, cfg *Config) {
 				assert.NotNil(t, cfg)
 			},
@@ -128,7 +128,7 @@ targets:
       type: mysql
       database: db2
 `,
-			wantErr:     false, // Parsing succeeds, validation would fail
+			wantErr: false, // Parsing succeeds, validation would fail
 			validate: func(t *testing.T, cfg *Config) {
 				assert.Len(t, cfg.Targets, 2)
 				// Both targets have same name (validation will catch this)

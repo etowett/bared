@@ -174,12 +174,16 @@ func TestBackupTarget_StorageNameRecorded(t *testing.T) {
 	localStorage := fixtures.LocalStorage()
 	localStorage.Name = "test-storage"
 
+	target := fixtures.MySQLTarget()
+	// Use default storage instead of target-specific storage
+	target.Storage = nil
+
 	cfg := &config.Config{
 		DefaultStorage: localStorage.Name,
 		Storages: map[string]*config.Storage{
 			localStorage.Name: localStorage,
 		},
-		Targets: []*config.Target{fixtures.MySQLTarget()},
+		Targets: []*config.Target{target},
 	}
 
 	result, _ := BackupTarget(context.Background(), cfg, cfg.Targets[0])

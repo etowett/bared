@@ -12,11 +12,11 @@ import (
 
 func TestNewDumper(t *testing.T) {
 	tests := []struct {
-		name         string
-		target       *config.Target
-		wantType     string
-		wantErr      bool
-		errContains  string
+		name        string
+		target      *config.Target
+		wantType    string
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name:     "create mysql dumper",
@@ -84,11 +84,11 @@ func TestNewDumper(t *testing.T) {
 
 func TestNewRestorer(t *testing.T) {
 	tests := []struct {
-		name         string
-		target       *config.Target
-		wantType     string
-		wantErr      bool
-		errContains  string
+		name        string
+		target      *config.Target
+		wantType    string
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name:     "create mysql restorer",
@@ -278,24 +278,24 @@ func TestNewRestorer_NilTarget(t *testing.T) {
 
 func TestNewDumper_CaseSensitivity(t *testing.T) {
 	tests := []struct {
-		name     string
-		dbType   string
-		wantErr  bool
+		name    string
+		dbType  string
+		wantErr bool
 	}{
 		{
-			name:     "lowercase mysql",
-			dbType:   "mysql",
-			wantErr:  false,
+			name:    "lowercase mysql",
+			dbType:  "mysql",
+			wantErr: false,
 		},
 		{
-			name:     "uppercase MYSQL",
-			dbType:   "MYSQL",
-			wantErr:  true, // Should be case-sensitive
+			name:    "uppercase MYSQL",
+			dbType:  "MYSQL",
+			wantErr: true, // Should be case-sensitive
 		},
 		{
-			name:     "mixed case MySQL",
-			dbType:   "MySQL",
-			wantErr:  true,
+			name:    "mixed case MySQL",
+			dbType:  "MySQL",
+			wantErr: true,
 		},
 	}
 

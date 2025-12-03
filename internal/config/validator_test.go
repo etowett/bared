@@ -198,6 +198,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "negative keep value",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {
 						Type: "local",
@@ -206,11 +207,11 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Targets: []*Target{
-					{Name: "test", Conn: &Connection{Type: "mysql", Database: "db"}},
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
 				},
 			},
 			wantErr:     true,
-			errContains: "keep must be",
+			errContains: "keep must be non-negative",
 		},
 		{
 			name: "duplicate target names",
@@ -250,11 +251,12 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			wantErr:     true,
-			errContains: "connection is required",
+			errContains: "conn is required",
 		},
 		{
 			name: "invalid database type",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
@@ -263,13 +265,16 @@ func TestValidate(t *testing.T) {
 						Name: "test",
 						Conn: &Connection{
 							Type:     "invalid_db",
+							Host:     "localhost",
+							Port:     3306,
+							User:     "root",
 							Database: "db",
 						},
 					},
 				},
 			},
 			wantErr:     true,
-			errContains: "connection type",
+			errContains: "unsupported database type",
 		},
 		{
 			name: "mysql without database",
@@ -283,6 +288,8 @@ func TestValidate(t *testing.T) {
 						Conn: &Connection{
 							Type: "mysql",
 							Host: "localhost",
+							Port: 3306,
+							User: "root",
 						},
 					},
 				},
@@ -302,6 +309,8 @@ func TestValidate(t *testing.T) {
 						Conn: &Connection{
 							Type: "postgres",
 							Host: "localhost",
+							Port: 5432,
+							User: "postgres",
 						},
 					},
 				},
@@ -330,6 +339,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid port number - negative",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
@@ -340,17 +350,19 @@ func TestValidate(t *testing.T) {
 							Type:     "mysql",
 							Database: "db",
 							Host:     "localhost",
+							User:     "root",
 							Port:     -1,
 						},
 					},
 				},
 			},
 			wantErr:     true,
-			errContains: "port",
+			errContains: "port must be between",
 		},
 		{
 			name: "invalid port number - too large",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
@@ -361,17 +373,19 @@ func TestValidate(t *testing.T) {
 							Type:     "mysql",
 							Database: "db",
 							Host:     "localhost",
+							User:     "root",
 							Port:     99999,
 						},
 					},
 				},
 			},
 			wantErr:     true,
-			errContains: "port",
+			errContains: "port must be between",
 		},
 		{
 			name: "invalid notifier type",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
@@ -382,11 +396,11 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				Targets: []*Target{
-					{Name: "test", Conn: &Connection{Type: "mysql", Database: "db"}},
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
 				},
 			},
 			wantErr:     true,
-			errContains: "notifier type",
+			errContains: "unsupported type",
 		},
 		{
 			name: "slack notifier without URL",
@@ -409,13 +423,14 @@ func TestValidate(t *testing.T) {
 		{
 			name: "target references non-existent storage",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
 				Targets: []*Target{
 					{
 						Name: "test",
-						Conn: &Connection{Type: "mysql", Database: "db"},
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
 						Storage: &TargetStorage{
 							Enabled: true,
 							Name:    "nonexistent",
@@ -429,13 +444,14 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid compression type",
 			config: &Config{
+				DefaultStorage: "local",
 				Storages: map[string]*Storage{
 					"local": {Type: "local", Path: "/tmp"},
 				},
 				Targets: []*Target{
 					{
 						Name: "test",
-						Conn: &Connection{Type: "mysql", Database: "db"},
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
 						Compress: &CompressionOpts{
 							Enabled: true,
 							Type:    "invalid",

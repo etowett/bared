@@ -283,19 +283,19 @@ func TestRedis_Restore_ContextCancellation(t *testing.T) {
 
 func TestRedis_PasswordHandling(t *testing.T) {
 	tests := []struct {
-		name         string
-		password     string
-		shouldHaveA  bool
+		name        string
+		password    string
+		shouldHaveA bool
 	}{
 		{
-			name:         "with password",
-			password:     "secret123",
-			shouldHaveA:  true,
+			name:        "with password",
+			password:    "secret123",
+			shouldHaveA: true,
 		},
 		{
-			name:         "empty password",
-			password:     "",
-			shouldHaveA:  false,
+			name:        "empty password",
+			password:    "",
+			shouldHaveA: false,
 		},
 	}
 
