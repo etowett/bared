@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"bared/internal/app"
 	"bared/internal/jobs"
 	"bared/internal/version"
 )
@@ -40,6 +41,29 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, ListTargetsResponse{
 		Targets: summaries,
 		Total:   len(summaries),
+	})
+}
+
+// handleListRestoreTargets returns all configured restore targets
+func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request) {
+	restoreTargets := s.cfg.RestoreTargets
+	summaries := make([]RestoreTargetSummary, 0, len(restoreTargets))
+
+	for _, rt := range restoreTargets {
+		summary := RestoreTargetSummary{
+			Name:         rt.Name,
+			Type:         rt.Conn.Type,
+			Database:     rt.Conn.Database,
+			Host:         rt.Conn.Host,
+			Description:  rt.Description,
+			SourceTarget: rt.SourceTarget,
+		}
+		summaries = append(summaries, summary)
+	}
+
+	respondJSON(w, http.StatusOK, ListRestoreTargetsResponse{
+		RestoreTargets: summaries,
+		Total:          len(summaries),
 	})
 }
 
@@ -169,15 +193,18 @@ func (s *Server) handleTriggerRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find target
-	target, err := s.cfg.FindTarget(req.Target)
+	// Resolve target (regular or restore target)
+	target, _, _, err := s.cfg.ResolveRestoreTarget(req.Target)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "Target not found")
+		respondError(w, http.StatusNotFound, "Target or restore target not found")
 		return
 	}
 
-	// Submit restore job
-	jobID, err := s.jobManager.SubmitRestore(r.Context(), target, req.BackupPath, true)
+	// Submit restore job with dry-run flag
+	options := &app.RestoreOptions{
+		DryRun: req.DryRun,
+	}
+	jobID, err := s.jobManager.SubmitRestoreWithOptions(r.Context(), target, req.BackupPath, true, options)
 	if err != nil {
 		if strings.Contains(err.Error(), "already in progress") {
 			respondError(w, http.StatusConflict, err.Error())
@@ -187,9 +214,14 @@ func (s *Server) handleTriggerRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	message := "Restore job queued successfully"
+	if req.DryRun {
+		message = "Restore validation job queued successfully (dry-run)"
+	}
+
 	respondJSON(w, http.StatusAccepted, JobCreatedResponse{
 		JobID:   string(jobID),
-		Message: "Restore job queued successfully",
+		Message: message,
 	})
 }
 

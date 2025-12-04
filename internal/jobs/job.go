@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"bared/internal/app"
 )
 
 // JobID is a unique identifier for a job
@@ -41,10 +43,11 @@ type Job struct {
 	CreatedAt   time.Time
 	StartedAt   *time.Time
 	CompletedAt *time.Time
-	Logs        *LogBuffer
-	BackupPath  string // For restore jobs
-	Manual      bool   // true if triggered manually via API
-	ScheduledBy string // cron schedule that triggered this
+	Logs           *LogBuffer
+	BackupPath     string              // For restore jobs
+	RestoreOptions *app.RestoreOptions // For restore jobs with options
+	Manual         bool                // true if triggered manually via API
+	ScheduledBy    string              // cron schedule that triggered this
 
 	// Context for cancellation
 	ctx    context.Context

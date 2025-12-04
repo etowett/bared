@@ -144,3 +144,32 @@ func (l *Local) Delete(ctx context.Context, path string) error {
 
 	return nil
 }
+
+// Exists checks if a backup file exists
+func (l *Local) Exists(ctx context.Context, path string) (bool, error) {
+	fullPath := filepath.Join(l.cfg.Path, path)
+	_, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+	return true, nil
+}
+
+// GetInfo returns metadata about a backup file
+func (l *Local) GetInfo(ctx context.Context, path string) (*BackupInfo, error) {
+	fullPath := filepath.Join(l.cfg.Path, path)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return &BackupInfo{
+		Path:         path,
+		Size:         info.Size(),
+		LastModified: info.ModTime(),
+		StorageName:  l.cfg.Name,
+	}, nil
+}

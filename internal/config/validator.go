@@ -45,6 +45,25 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate restore targets
+	restoreTargetNames := make(map[string]bool)
+	for _, rt := range c.RestoreTargets {
+		// Check for duplicate names with regular targets
+		if targetNames[rt.Name] {
+			errors = append(errors, fmt.Sprintf("restore target name '%s' conflicts with regular target", rt.Name))
+		}
+
+		// Check for duplicate names among restore targets
+		if restoreTargetNames[rt.Name] {
+			errors = append(errors, fmt.Sprintf("duplicate restore target name: %s", rt.Name))
+		}
+		restoreTargetNames[rt.Name] = true
+
+		if err := validateRestoreTarget(rt, c); err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
 	// Validate notifiers
 	for name, notifier := range c.Notifiers {
 		if err := validateNotifier(name, notifier); err != nil {
@@ -186,6 +205,41 @@ func validateNotifier(name string, notifier *Notifier) error {
 		}
 	default:
 		return fmt.Errorf("notifier '%s': unsupported type '%s'", name, notifier.Type)
+	}
+
+	return nil
+}
+
+func validateRestoreTarget(rt *RestoreTarget, cfg *Config) error {
+	if rt.Name == "" {
+		return fmt.Errorf("restore target: name is required")
+	}
+
+	if rt.Conn == nil {
+		return fmt.Errorf("restore target '%s': conn is required", rt.Name)
+	}
+
+	if err := validateConnection(rt.Name, rt.Conn); err != nil {
+		return err
+	}
+
+	// Validate source target reference if provided
+	if rt.SourceTarget != "" {
+		if _, err := cfg.FindTarget(rt.SourceTarget); err != nil {
+			return fmt.Errorf("restore target '%s': source target '%s' not found", rt.Name, rt.SourceTarget)
+		}
+	}
+
+	// Validate storage reference
+	if rt.Storage != nil && rt.Storage.Enabled {
+		if rt.Storage.Name == "" {
+			return fmt.Errorf("restore target '%s': storage name is required when storage is enabled", rt.Name)
+		}
+		if _, ok := cfg.Storages[rt.Storage.Name]; !ok {
+			return fmt.Errorf("restore target '%s': storage '%s' not found", rt.Name, rt.Storage.Name)
+		}
+	} else if rt.SourceTarget == "" && cfg.DefaultStorage == "" {
+		return fmt.Errorf("restore target '%s': no storage configured, no source target, and no default_storage set", rt.Name)
 	}
 
 	return nil

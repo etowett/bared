@@ -96,8 +96,8 @@ func (m *Manager) executeJob(job *Job) {
 	})
 	defer util.SetLogHook(oldHook)
 
-	// Find target config
-	target, err := m.cfg.FindTarget(job.TargetName)
+	// Find target config (try restore target first, fall back to regular target)
+	target, _, _, err := m.cfg.ResolveRestoreTarget(job.TargetName)
 	if err != nil {
 		job.MarkFailed(fmt.Errorf("target not found: %w", err))
 		util.Error("Job %s failed: %v", job.ID, err)
@@ -123,7 +123,11 @@ func (m *Manager) executeJob(job *Job) {
 		util.Info("Job %s completed successfully", job.ID)
 
 	case JobTypeRestore:
-		result, err := app.RestoreTarget(job.Context(), m.cfg, target, job.BackupPath, job.Progress)
+		options := job.RestoreOptions
+		if options == nil {
+			options = &app.RestoreOptions{}
+		}
+		result, err := app.RestoreTargetWithOptions(job.Context(), m.cfg, target, job.BackupPath, options, job.Progress)
 		if err != nil {
 			if job.GetStatus() == JobStatusCancelling {
 				job.MarkCancelled()
@@ -168,8 +172,13 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	}
 }
 
-// SubmitRestore submits a restore job
+// SubmitRestore submits a restore job (backward compatible)
 func (m *Manager) SubmitRestore(ctx context.Context, target *config.Target, backupPath string, manual bool) (JobID, error) {
+	return m.SubmitRestoreWithOptions(ctx, target, backupPath, manual, &app.RestoreOptions{})
+}
+
+// SubmitRestoreWithOptions submits a restore job with options
+func (m *Manager) SubmitRestoreWithOptions(ctx context.Context, target *config.Target, backupPath string, manual bool, options *app.RestoreOptions) (JobID, error) {
 	// Check if target is already running
 	if m.IsTargetRunning(target.Name) {
 		return "", fmt.Errorf("target '%s' operation already in progress", target.Name)
@@ -178,6 +187,7 @@ func (m *Manager) SubmitRestore(ctx context.Context, target *config.Target, back
 	// Create job
 	job := NewJob(JobTypeRestore, target.Name, manual)
 	job.BackupPath = backupPath
+	job.RestoreOptions = options
 
 	// Store job
 	m.mu.Lock()
@@ -188,7 +198,11 @@ func (m *Manager) SubmitRestore(ctx context.Context, target *config.Target, back
 	// Queue job
 	select {
 	case m.jobQueue <- job:
-		util.Info("Restore job %s queued for target %s", job.ID, target.Name)
+		dryRunSuffix := ""
+		if options != nil && options.DryRun {
+			dryRunSuffix = " (dry-run)"
+		}
+		util.Info("Restore job %s queued for target %s%s", job.ID, target.Name, dryRunSuffix)
 		return job.ID, nil
 	case <-ctx.Done():
 		return "", ctx.Err()

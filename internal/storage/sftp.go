@@ -196,3 +196,46 @@ func (s *SFTP) disconnect() {
 		s.sshClient = nil
 	}
 }
+
+// Exists checks if a backup file exists in SFTP
+func (s *SFTP) Exists(ctx context.Context, filePath string) (bool, error) {
+	if err := s.connect(); err != nil {
+		return false, err
+	}
+	defer s.disconnect()
+
+	fullPath := path.Join(s.cfg.Path, filePath)
+
+	_, err := s.sftpClient.Stat(fullPath)
+	if err != nil {
+		// Check if it's a "not exist" error
+		if err.Error() == "file does not exist" || err.Error() == "no such file" {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+
+	return true, nil
+}
+
+// GetInfo returns metadata about a backup file in SFTP
+func (s *SFTP) GetInfo(ctx context.Context, filePath string) (*BackupInfo, error) {
+	if err := s.connect(); err != nil {
+		return nil, err
+	}
+	defer s.disconnect()
+
+	fullPath := path.Join(s.cfg.Path, filePath)
+
+	info, err := s.sftpClient.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return &BackupInfo{
+		Path:         filePath,
+		Size:         info.Size(),
+		LastModified: info.ModTime(),
+		StorageName:  s.cfg.Name,
+	}, nil
+}

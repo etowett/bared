@@ -82,6 +82,32 @@ func (r *Redis) Restore(ctx context.Context, reader io.Reader) error {
 	return fmt.Errorf("redis restore not yet implemented (requires manual RDB file replacement)")
 }
 
+// ValidateConnection tests Redis connectivity
+func (r *Redis) ValidateConnection(ctx context.Context) error {
+	// Check if redis-cli command exists
+	if err := util.CheckCommandExists("redis-cli"); err != nil {
+		return fmt.Errorf("redis-cli not found: %w (install redis-tools package)", err)
+	}
+
+	// Build test connection args
+	args := []string{
+		"-h", r.conn.Host,
+		"-p", fmt.Sprintf("%d", r.conn.Port),
+	}
+
+	if r.conn.Password != "" {
+		args = append(args, "-a", r.conn.Password)
+	}
+
+	args = append(args, "PING")
+
+	if err := util.ExecuteCommand(ctx, io.Discard, "redis-cli", args...); err != nil {
+		return fmt.Errorf("redis connection failed: %w", err)
+	}
+
+	return nil
+}
+
 func (r *Redis) buildDumpArgs(outputFile string) []string {
 	args := []string{
 		"-h", r.conn.Host,

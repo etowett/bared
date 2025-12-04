@@ -111,3 +111,30 @@ func (m *MySQL) buildRestoreArgs() []string {
 
 	return args
 }
+
+// ValidateConnection tests MySQL connectivity
+func (m *MySQL) ValidateConnection(ctx context.Context) error {
+	// Check if mysql command exists
+	if err := util.CheckCommandExists("mysql"); err != nil {
+		return fmt.Errorf("mysql not found: %w (install mysql-client package)", err)
+	}
+
+	// Build test connection args
+	args := []string{
+		fmt.Sprintf("--host=%s", m.conn.Host),
+		fmt.Sprintf("--port=%d", m.conn.Port),
+		fmt.Sprintf("--user=%s", m.conn.User),
+	}
+
+	if m.conn.Password != "" {
+		args = append(args, fmt.Sprintf("--password=%s", m.conn.Password))
+	}
+
+	args = append(args, m.conn.Database, "-e", "SELECT 1;")
+
+	if err := util.ExecuteCommand(ctx, io.Discard, "mysql", args...); err != nil {
+		return fmt.Errorf("database connection failed: %w", err)
+	}
+
+	return nil
+}

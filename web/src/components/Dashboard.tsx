@@ -5,6 +5,7 @@ import { useJobs } from '../hooks/useJobs'
 import { TargetList } from './TargetList'
 import { JobList } from './JobList'
 import { JobDetail } from './JobDetail'
+import { RestoreForm } from './RestoreForm'
 import type { Job } from '../types'
 
 interface DashboardProps {
@@ -74,6 +75,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
       </div>
 
       <div className="dashboard-content">
+        <div className="dashboard-section">
+          <h2>Restore Database</h2>
+          <RestoreForm />
+        </div>
+
         <div className="dashboard-section">
           <h2>Backup Targets</h2>
           <TargetList targets={dashboard?.targets || []} />

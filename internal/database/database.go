@@ -26,6 +26,9 @@ type Restorer interface {
 
 	// Name returns a human-readable name for this database
 	Name() string
+
+	// ValidateConnection tests database connectivity before restore
+	ValidateConnection(ctx context.Context) error
 }
 
 // DumpMetadata contains information about a completed dump

@@ -127,3 +127,40 @@ func (p *Postgres) buildRestoreArgs() []string {
 
 	return args
 }
+
+// ValidateConnection tests PostgreSQL connectivity
+func (p *Postgres) ValidateConnection(ctx context.Context) error {
+	// Check if psql command exists
+	if err := util.CheckCommandExists("psql"); err != nil {
+		return fmt.Errorf("psql not found: %w (install postgresql-client package)", err)
+	}
+
+	// Build test connection args
+	args := []string{
+		fmt.Sprintf("--host=%s", p.conn.Host),
+		fmt.Sprintf("--port=%d", p.conn.Port),
+		fmt.Sprintf("--username=%s", p.conn.User),
+		"--no-password",
+		p.conn.Database,
+		"-c", "SELECT 1;", // Simple test query
+	}
+
+	env := make(map[string]string)
+	if p.conn.Password != "" {
+		env["PGPASSWORD"] = p.conn.Password
+	}
+
+	// Execute test connection (use Discard since we just need to check connection)
+	var err error
+	if len(env) > 0 {
+		err = util.ExecuteCommandWithEnv(ctx, io.Discard, env, "psql", args...)
+	} else {
+		err = util.ExecuteCommand(ctx, io.Discard, "psql", args...)
+	}
+
+	if err != nil {
+		return fmt.Errorf("database connection failed: %w", err)
+	}
+
+	return nil
+}

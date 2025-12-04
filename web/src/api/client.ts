@@ -1,4 +1,4 @@
-import type { Job, Target, Dashboard, LogEntry } from '../types'
+import type { Job, Target, Dashboard, LogEntry, RestoreTarget } from '../types'
 
 // Get auth from sessionStorage (set on login)
 export const getAuthHeader = (): string => {
@@ -66,6 +66,11 @@ export const apiClient = {
     return apiFetch('/api/targets')
   },
 
+  // Restore Targets
+  async getRestoreTargets(): Promise<{ restore_targets: RestoreTarget[]; total: number }> {
+    return apiFetch('/api/restore-targets')
+  },
+
   // Jobs
   async getJobs(filters?: {
     status?: string
@@ -92,11 +97,12 @@ export const apiClient = {
 
   async triggerRestore(
     target: string,
-    backup_path: string
+    backup_path: string,
+    dry_run?: boolean
   ): Promise<{ job_id: string; message: string }> {
     return apiFetch('/api/jobs/restore', {
       method: 'POST',
-      body: JSON.stringify({ target, backup_path }),
+      body: JSON.stringify({ target, backup_path, dry_run: dry_run || false }),
     })
   },
 
