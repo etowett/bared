@@ -51,13 +51,16 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
           : 'Restore job queued successfully!'
       )
 
+      // Only clear form fields on success
       setBackupPath('')
       setDryRun(true)
       setShowConfirm(false)
 
       if (onSuccess) onSuccess()
     } catch (error) {
+      // On error, preserve all form values so user doesn't have to retype
       alert(`Failed to trigger restore: ${error}`)
+      // backupPath, selectedTarget, and dryRun are preserved automatically
     }
   }
 

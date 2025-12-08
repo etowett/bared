@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"bared/internal/storage"
@@ -24,6 +25,7 @@ type Tracker struct {
 	TargetName  string          `json:"target"`
 	Backups     []*BackupRecord `json:"backups"`
 	trackerPath string
+	mu          sync.Mutex
 }
 
 // NewTracker creates a new tracker or loads existing one
@@ -60,6 +62,9 @@ func NewTracker(storageName, targetName string) (*Tracker, error) {
 
 // AddBackup adds a new backup to the tracker
 func (t *Tracker) AddBackup(path string, size int64) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	record := &BackupRecord{
 		Path:    path,
 		Size:    size,
@@ -78,6 +83,9 @@ func (t *Tracker) AddBackup(path string, size int64) error {
 
 // GetOldBackups returns backups that should be deleted based on keep count
 func (t *Tracker) GetOldBackups(keep int) []*BackupRecord {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if keep <= 0 || len(t.Backups) <= keep {
 		return nil
 	}
@@ -88,6 +96,9 @@ func (t *Tracker) GetOldBackups(keep int) []*BackupRecord {
 
 // RemoveBackup removes a backup from the tracker
 func (t *Tracker) RemoveBackup(path string) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	for i, backup := range t.Backups {
 		if backup.Path == path {
 			t.Backups = append(t.Backups[:i], t.Backups[i+1:]...)

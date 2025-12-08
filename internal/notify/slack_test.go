@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -533,9 +534,9 @@ func TestSlack_PayloadStructure(t *testing.T) {
 }
 
 func TestSlack_ConcurrentNotifications(t *testing.T) {
-	requestCount := 0
+	var requestCount int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
+		atomic.AddInt32(&requestCount, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -567,7 +568,7 @@ func TestSlack_ConcurrentNotifications(t *testing.T) {
 	}
 
 	// Verify all requests were received
-	assert.Equal(t, 10, requestCount)
+	assert.Equal(t, int32(10), atomic.LoadInt32(&requestCount))
 }
 
 func TestSlack_LargeMessage(t *testing.T) {

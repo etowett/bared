@@ -3,9 +3,10 @@ services:
     build: .
     container_name: bared
     volumes:
-      - ./examples/config.example.yml:/etc/bared/bared.yml:ro
+      - ./config.yml:/etc/bared/bared.yml:ro
       - backups:/backups
       - tracker:/home/backup/.bared
+      - ./tmp:/tmp/backups
     environment:
       - MYSQL_PASSWORD=testpass
       - POSTGRES_PASSWORD=testpass

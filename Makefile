@@ -1,4 +1,4 @@
-.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format build-with-web validate-all
+.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format build-with-web validate-all compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -262,6 +262,112 @@ release: build
 env:
 	@go env
 
+# Docker Compose Commands
+# Start all services (detached mode)
+compose-up:
+	@echo "Starting all services with Docker Compose..."
+	docker compose up -d
+	@echo "Services started. Use 'make compose-ps' to check status"
+
+# Start all services (foreground mode)
+compose-up-fg:
+	@echo "Starting all services in foreground..."
+	docker compose up
+
+# Stop and remove all containers, networks
+compose-down:
+	@echo "Stopping and removing all containers..."
+	docker compose down
+	@echo "All containers stopped and removed"
+
+# Stop and remove all containers, networks, and volumes
+compose-down-volumes:
+	@echo "Stopping and removing all containers and volumes..."
+	docker compose down -v
+	@echo "All containers, networks, and volumes removed"
+
+# Restart all services
+compose-restart:
+	@echo "Restarting all services..."
+	docker compose restart
+	@echo "All services restarted"
+
+# Stop all services (without removing)
+compose-stop:
+	@echo "Stopping all services..."
+	docker compose stop
+	@echo "All services stopped"
+
+# Start all services (that are stopped)
+compose-start:
+	@echo "Starting all services..."
+	docker compose start
+	@echo "All services started"
+
+# Show running containers
+compose-ps:
+	@docker compose ps
+
+# View logs from all services
+compose-logs:
+	@docker compose logs
+
+# Follow logs from all services
+compose-logs-follow:
+	@docker compose logs -f
+
+# View logs from specific service (usage: make compose-logs-service SERVICE=bared)
+compose-logs-service:
+	@docker compose logs $(SERVICE)
+
+# Follow logs from specific service (usage: make compose-logs-service-follow SERVICE=bared)
+compose-logs-service-follow:
+	@docker compose logs -f $(SERVICE)
+
+# Rebuild and start services
+compose-build:
+	@echo "Building and starting services..."
+	docker compose up -d --build
+	@echo "Services built and started"
+
+# Pull latest images
+compose-pull:
+	@echo "Pulling latest images..."
+	docker compose pull
+	@echo "Images updated"
+
+# Remove stopped containers
+compose-clean:
+	@echo "Removing stopped containers..."
+	docker compose rm -f
+	@echo "Stopped containers removed"
+
+# Remove all containers, volumes, and networks (full cleanup)
+compose-clean-all:
+	@echo "Performing full cleanup..."
+	docker compose down -v --remove-orphans
+	@echo "Full cleanup complete"
+
+# Start only database services (mysql, postgres, redis, minio)
+compose-services-up:
+	@echo "Starting database services only..."
+	docker compose up -d mysql postgres redis minio
+	@echo "Database services started"
+
+# Stop only database services
+compose-services-down:
+	@echo "Stopping database services..."
+	docker compose stop mysql postgres redis minio
+	@echo "Database services stopped"
+
+# Execute command in bared container (usage: make compose-exec CMD="brd list")
+compose-exec:
+	@docker compose exec bared $(CMD)
+
+# Shell into bared container
+compose-shell:
+	@docker compose exec bared sh
+
 # Show help
 help:
 	@echo "BareD Makefile Commands:"
@@ -310,6 +416,28 @@ help:
 	@echo "  make docker-push-latest          - Push to ektowett/bared:latest only"
 	@echo "  make docker-release              - Build and push (single platform)"
 	@echo "  make docker-release-multiplatform - Build and push (multi-platform)"
+	@echo ""
+	@echo "Docker Compose Commands:"
+	@echo "  make compose-up                  - Start all services (detached)"
+	@echo "  make compose-up-fg               - Start all services (foreground)"
+	@echo "  make compose-down                - Stop and remove all containers"
+	@echo "  make compose-down-volumes        - Stop and remove containers + volumes"
+	@echo "  make compose-restart             - Restart all services"
+	@echo "  make compose-stop                - Stop all services (don't remove)"
+	@echo "  make compose-start               - Start stopped services"
+	@echo "  make compose-ps                  - Show running containers"
+	@echo "  make compose-logs                - View logs from all services"
+	@echo "  make compose-logs-follow         - Follow logs from all services"
+	@echo "  make compose-logs-service        - View logs from service (SERVICE=name)"
+	@echo "  make compose-logs-service-follow - Follow logs from service (SERVICE=name)"
+	@echo "  make compose-build               - Rebuild and start services"
+	@echo "  make compose-pull                - Pull latest images"
+	@echo "  make compose-clean               - Remove stopped containers"
+	@echo "  make compose-clean-all           - Full cleanup (containers + volumes)"
+	@echo "  make compose-services-up         - Start only database services"
+	@echo "  make compose-services-down       - Stop only database services"
+	@echo "  make compose-exec                - Execute command (CMD=\"command\")"
+	@echo "  make compose-shell               - Open shell in bared container"
 	@echo ""
 	@echo "Info Commands:"
 	@echo "  make env         - Show Go environment"

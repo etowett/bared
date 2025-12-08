@@ -75,6 +75,7 @@ func (m *MySQL) buildDumpArgs() []string {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
+		"--ssl-mode=DISABLED", // Disable SSL to avoid self-signed certificate issues
 	}
 
 	if m.conn.Password != "" {
@@ -100,6 +101,7 @@ func (m *MySQL) buildRestoreArgs() []string {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
+		"--ssl-mode=DISABLED", // Disable SSL to avoid self-signed certificate issues
 	}
 
 	if m.conn.Password != "" {
@@ -124,6 +126,7 @@ func (m *MySQL) ValidateConnection(ctx context.Context) error {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
+		"--ssl-mode=DISABLED", // Disable SSL to avoid self-signed certificate issues
 	}
 
 	if m.conn.Password != "" {
