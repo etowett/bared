@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.93.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/pkg/sftp v1.13.10
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/cobra v1.10.1
@@ -32,7 +33,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.3 // indirect
 	github.com/aws/smithy-go v1.24.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { isAuthenticated } from './api/client'
 import { Dashboard } from './components/Dashboard'
 import { Login } from './components/Login'

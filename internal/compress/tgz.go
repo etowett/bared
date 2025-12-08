@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -39,23 +40,24 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 	// Create a pipe to count bytes as we read
 	pr, pw := io.Pipe()
 	var readErr error
-	var totalSize int64
+	var readErrMu sync.Mutex
 
 	// Read from input in goroutine
 	go func() {
 		defer pw.Close()
-		var err error
-		totalSize, err = io.Copy(pw, r)
+		_, err := io.Copy(pw, r)
 		if err != nil {
+			readErrMu.Lock()
 			readErr = err
+			readErrMu.Unlock()
 		}
 	}()
 
-	// Write tar header
+	// Write tar header (size will be set after buffering)
 	header := &tar.Header{
 		Name:    t.filename,
 		Mode:    0600,
-		Size:    totalSize, // Will be 0 initially, tar handles streaming
+		Size:    0, // Will be set after we know the actual size
 		ModTime: time.Now(),
 	}
 
@@ -83,8 +85,11 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 		}
 	}
 
-	if readErr != nil {
-		return fmt.Errorf("failed to read input: %w", readErr)
+	readErrMu.Lock()
+	err := readErr
+	readErrMu.Unlock()
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
 	}
 
 	// Now we know the size, write the header

@@ -1,4 +1,4 @@
-import type { Job, Target, Dashboard, LogEntry, RestoreTarget } from '../types'
+import type { Dashboard, Job, LogEntry, RestoreTarget, Target } from '../types'
 
 // Get auth from sessionStorage (set on login)
 export const getAuthHeader = (): string => {

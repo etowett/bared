@@ -83,6 +83,26 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		return result, result.Error
 	}
 
+	// Generate backup path early (before storage validation) so it's always set
+	extension := ""
+	if target.Compress != nil && target.Compress.Enabled {
+		compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
+		if err != nil {
+			// Even if compression fails, set a default path for consistency
+			extension = ".sql"
+			backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+			result.BackupPath = backupPath
+			result.Error = fmt.Errorf("failed to create compressor: %w", err)
+			return result, result.Error
+		}
+		extension = compressor.Extension()
+	} else {
+		extension = ".sql"
+	}
+
+	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+	result.BackupPath = backupPath
+
 	stor, err := storage.New(storageCfg)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create storage: %w", err)
@@ -96,22 +116,6 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		result.Error = fmt.Errorf("storage validation failed: %w", err)
 		return result, result.Error
 	}
-
-	// Generate backup path
-	extension := ""
-	if target.Compress != nil && target.Compress.Enabled {
-		compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
-		if err != nil {
-			result.Error = fmt.Errorf("failed to create compressor: %w", err)
-			return result, result.Error
-		}
-		extension = compressor.Extension()
-	} else {
-		extension = ".sql"
-	}
-
-	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
-	result.BackupPath = backupPath
 
 	log.Printf("[%s] Backup details:", target.Name)
 	log.Printf("\tStorage: %s", stor.Name())
