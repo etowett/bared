@@ -322,16 +322,6 @@ func getCatCommand() string {
 	return "cat"
 }
 
-func getStderrCommand() string {
-	// Returns a command that writes to stderr
-	// On Unix: sh -c 'echo "message" >&2'
-	// On Windows: cmd /c echo message 1>&2
-	if runtime.GOOS == "windows" {
-		return "cmd"
-	}
-	return "sh"
-}
-
 // TestExecuteCommand_RealWorldScenario tests a more realistic scenario
 func TestExecuteCommand_RealWorldScenario(t *testing.T) {
 	// Skip if mysqldump is not available

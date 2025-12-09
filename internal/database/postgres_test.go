@@ -277,7 +277,7 @@ func TestPostgres_Validate(t *testing.T) {
 	}
 }
 
-func TestPostgres_Validate_ContextCancellation(t *testing.T) {
+func TestPostgres_Validate_ContextCancellation(_ *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -298,13 +298,13 @@ func TestPostgres_Dump_Integration(t *testing.T) {
 		{
 			name:    "basic dump call structure",
 			conn:    fixtures.PostgresConnection(),
-			setup:   func(t *testing.T) context.Context { return context.Background() },
+			setup:   func(_ *testing.T) context.Context { return context.Background() },
 			wantErr: true, // Will fail because pg_dump might not connect
 		},
 		{
 			name: "dump with context cancellation",
 			conn: fixtures.PostgresConnection(),
-			setup: func(t *testing.T) context.Context {
+			setup: func(_ *testing.T) context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx

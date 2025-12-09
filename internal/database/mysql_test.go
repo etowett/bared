@@ -273,7 +273,7 @@ func TestMySQL_Validate(t *testing.T) {
 	}
 }
 
-func TestMySQL_Validate_ContextCancellation(t *testing.T) {
+func TestMySQL_Validate_ContextCancellation(_ *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -297,13 +297,13 @@ func TestMySQL_Dump_Integration(t *testing.T) {
 		{
 			name:    "basic dump call structure",
 			conn:    fixtures.MySQLConnection(),
-			setup:   func(t *testing.T) context.Context { return context.Background() },
+			setup:   func(_ *testing.T) context.Context { return context.Background() },
 			wantErr: true, // Will fail because mysqldump might not connect
 		},
 		{
 			name: "dump with context cancellation",
 			conn: fixtures.MySQLConnection(),
-			setup: func(t *testing.T) context.Context {
+			setup: func(_ *testing.T) context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx

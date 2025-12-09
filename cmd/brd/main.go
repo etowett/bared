@@ -1,9 +1,9 @@
+// Package main provides the command-line interface for BareD, a backup and restore daemon for databases.
 package main
 
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -16,23 +16,8 @@ import (
 	"bared/internal/version"
 )
 
-// formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
 var (
 	cfgFile string
-	cfg     *config.Config
 )
 
 func main() {
@@ -65,7 +50,7 @@ func init() {
 var validateConfigCmd = &cobra.Command{
 	Use:   "validate-config",
 	Short: "Validate configuration file",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
@@ -75,8 +60,8 @@ var validateConfigCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		fmt.Println("Configuration is valid ✓")
@@ -91,8 +76,11 @@ var validateConfigCmd = &cobra.Command{
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Backup a target database",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
 		}
@@ -106,8 +94,8 @@ var backupCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Find the target
@@ -144,9 +132,48 @@ func init() {
 var restoreCmd = &cobra.Command{
 	Use:   "restore",
 	Short: "Restore a target database",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
-		backupPath, _ := cmd.Flags().GetString("backup")
+	Long: `Restore a database from a backup file.
+
+The restore command supports both regular targets and dedicated restore targets.
+Restore targets allow you to restore backups to different databases/hosts.
+
+Examples:
+  # Restore latest backup to a target
+  brd restore --target mydb --backup latest
+
+  # Restore specific backup to a restore target
+  brd restore --target staging_restore --backup et-backups/prod/prod-postgres-2025-12-03.tar.gz
+
+  # Dry-run to validate without restoring
+  brd restore --target mydb --backup latest --dry-run
+
+  # Use separate restore config
+  brd restore --config restore-config.yml --target staging_restore --backup latest`,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
+		backupPath, err := cmd.Flags().GetString("backup")
+		if err != nil {
+			return fmt.Errorf("failed to get backup flag: %w", err)
+		}
+		dryRun, err := cmd.Flags().GetBool("dry-run")
+		if err != nil {
+			return fmt.Errorf("failed to get dry-run flag: %w", err)
+		}
+		skipValidation, err := cmd.Flags().GetBool("skip-validation")
+		if err != nil {
+			return fmt.Errorf("failed to get skip-validation flag: %w", err)
+		}
+		skipVerify, err := cmd.Flags().GetBool("skip-verify")
+		if err != nil {
+			return fmt.Errorf("failed to get skip-verify flag: %w", err)
+		}
+		noConfirm, err := cmd.Flags().GetBool("yes")
+		if err != nil {
+			return fmt.Errorf("failed to get yes flag: %w", err)
+		}
 
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
@@ -161,85 +188,107 @@ var restoreCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
-		// Find the target
-		target, err := cfg.FindTarget(targetName)
+		// Resolve target (could be regular target or restore target)
+		target, restoreTarget, isRestoreTarget, err := cfg.ResolveRestoreTarget(targetName)
 		if err != nil {
 			return err
 		}
 
-		// Get storage info for logging (before calling RestoreTarget)
-		storageCfg, err := cfg.GetStorageForTarget(target)
+		// Get storage info for logging
+		var storageCfg *config.Storage
+		if isRestoreTarget {
+			storageCfg, err = cfg.GetStorageForRestoreTarget(restoreTarget)
+		} else {
+			storageCfg, err = cfg.GetStorageForTarget(target)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to get storage: %w", err)
 		}
-
-		// Build storage path string for display
-		storagePath := ""
-		if storageCfg.Path != "" {
-			storagePath = fmt.Sprintf("%s/%s", storageCfg.Path, backupPath)
-		} else if storageCfg.Bucket != "" {
-			storagePath = fmt.Sprintf("s3://%s/%s", storageCfg.Bucket, backupPath)
-		} else if storageCfg.Host != "" {
-			storagePath = fmt.Sprintf("sftp://%s@%s:%d%s/%s",
-				storageCfg.Username, storageCfg.Host, storageCfg.Port, storageCfg.Path, backupPath)
-		}
-
-		// Determine if backup is compressed
-		needsDecompression := strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz")
-		compressionInfo := ""
-		if needsDecompression {
-			compressionInfo = " (compressed)"
-		}
-
-		log.Printf("[%s] Restore details:", target.Name)
-		log.Printf("\tStorage: %s", storageCfg.Name)
-		if storagePath != "" {
-			log.Printf("\t\tStorage path: %s", storagePath)
-		}
-		log.Printf("\tDatabase: %s (type: %s, host: %s:%d, user: %s)",
-			target.Conn.Database,
-			target.Conn.Type,
-			target.Conn.Host,
-			target.Conn.Port,
-			target.Conn.User)
-		log.Printf("\tBackup file: %s%s", backupPath, compressionInfo)
 
 		ctx := context.Background()
 
 		// If backup is "latest", find the most recent backup
 		if backupPath == "latest" {
-			latestBackup, err := app.FindLatestBackup(ctx, cfg, target)
-			if err != nil {
-				return fmt.Errorf("failed to find latest backup: %w", err)
+			fmt.Printf("Finding latest backup for target...\n")
+			latestBackup, findErr := app.FindLatestBackup(ctx, cfg, target)
+			if findErr != nil {
+				return fmt.Errorf("failed to find latest backup: %w", findErr)
 			}
 			backupPath = latestBackup.Path
 			fmt.Printf("Using latest backup: %s\n", backupPath)
-			// Update compression info after resolving latest backup
-			needsDecompression = strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz")
-			if needsDecompression {
-				compressionInfo = " (compressed)"
-			} else {
-				compressionInfo = ""
-			}
-			log.Printf("\tBackup file: %s%s", backupPath, compressionInfo)
 		}
 
-		// Execute restore
-		result, err := app.RestoreTarget(ctx, cfg, target, backupPath, nil) // nil = no progress tracking for CLI
+		// Display restore details
+		fmt.Printf("\n")
+		fmt.Printf("=== Restore Details ===\n")
+		if isRestoreTarget {
+			fmt.Printf("Restore Target: %s\n", restoreTarget.Name)
+			if restoreTarget.Description != "" {
+				fmt.Printf("  Description: %s\n", restoreTarget.Description)
+			}
+			if restoreTarget.SourceTarget != "" {
+				fmt.Printf("  Source Target: %s\n", restoreTarget.SourceTarget)
+			}
+		} else {
+			fmt.Printf("Target: %s\n", target.Name)
+		}
+		fmt.Printf("Database: %s@%s:%d/%s\n",
+			target.Conn.User, target.Conn.Host, target.Conn.Port, target.Conn.Database)
+		fmt.Printf("Backup File: %s\n", backupPath)
+		fmt.Printf("Storage: %s (%s)\n", storageCfg.Name, storageCfg.Type)
+		if dryRun {
+			fmt.Printf("Mode: DRY-RUN (validation only)\n")
+		} else {
+			fmt.Printf("Mode: LIVE RESTORE\n")
+		}
+		fmt.Printf("======================\n\n")
+
+		// Confirmation prompt (unless --yes or --dry-run)
+		if !dryRun && !noConfirm {
+			fmt.Printf("⚠️  WARNING: This will overwrite the database '%s' on %s!\n",
+				target.Conn.Database, target.Conn.Host)
+			fmt.Printf("Continue with restore? (yes/no): ")
+
+			var response string
+			//nolint:errcheck // Error reading user input is handled by checking response value
+			_, _ = fmt.Scanln(&response)
+			if strings.ToLower(response) != "yes" {
+				fmt.Println("Restore cancelled.")
+				return nil
+			}
+		}
+
+		// Execute restore with options
+		options := &app.RestoreOptions{
+			DryRun:           dryRun,
+			SkipValidation:   skipValidation,
+			SkipBackupVerify: skipVerify,
+		}
+
+		result, err := app.RestoreTargetWithOptions(ctx, cfg, target, backupPath, options, nil)
 		if err != nil {
 			return fmt.Errorf("restore failed: %w", err)
 		}
 
 		if result.Success {
-			fmt.Printf("\n✓ Restore completed successfully\n")
-			fmt.Printf("  Target: %s\n", result.Target)
-			fmt.Printf("  Storage: %s\n", result.StorageName)
-			fmt.Printf("  Backup: %s\n", result.BackupPath)
-			fmt.Printf("  Duration: %v\n", result.Duration)
+			if result.DryRun {
+				fmt.Printf("\n✓ Dry-run completed successfully\n")
+				fmt.Printf("\nValidations performed:\n")
+				for _, v := range result.Validations {
+					fmt.Printf("  ✓ %s\n", v)
+				}
+				fmt.Printf("\nRestore is ready to execute. Remove --dry-run to perform actual restore.\n")
+			} else {
+				fmt.Printf("\n✓ Restore completed successfully\n")
+				fmt.Printf("  Target: %s\n", result.Target)
+				fmt.Printf("  Storage: %s\n", result.StorageName)
+				fmt.Printf("  Backup: %s\n", result.BackupPath)
+				fmt.Printf("  Duration: %v\n", result.Duration)
+			}
 		}
 
 		return nil
@@ -247,15 +296,22 @@ var restoreCmd = &cobra.Command{
 }
 
 func init() {
-	restoreCmd.Flags().String("target", "", "target name to restore")
+	restoreCmd.Flags().String("target", "", "target or restore target name")
 	restoreCmd.Flags().String("backup", "latest", "backup file to restore (or 'latest')")
+	restoreCmd.Flags().Bool("dry-run", false, "validate without executing restore")
+	restoreCmd.Flags().Bool("skip-validation", false, "skip database connection validation")
+	restoreCmd.Flags().Bool("skip-verify", false, "skip backup file verification")
+	restoreCmd.Flags().BoolP("yes", "y", false, "skip confirmation prompt")
 }
 
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List backups for a target",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
 		}
@@ -269,8 +325,8 @@ var listCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Find the target
@@ -315,7 +371,7 @@ func init() {
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run as daemon with scheduler",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
@@ -325,14 +381,23 @@ var daemonCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Get HTTP flags
-		httpAddr, _ := cmd.Flags().GetString("http")
-		authUser, _ := cmd.Flags().GetString("http-user")
-		authPass, _ := cmd.Flags().GetString("http-pass")
+		httpAddr, err := cmd.Flags().GetString("http")
+		if err != nil {
+			return fmt.Errorf("failed to get http flag: %w", err)
+		}
+		authUser, err := cmd.Flags().GetString("http-user")
+		if err != nil {
+			return fmt.Errorf("failed to get http-user flag: %w", err)
+		}
+		authPass, err := cmd.Flags().GetString("http-pass")
+		if err != nil {
+			return fmt.Errorf("failed to get http-pass flag: %w", err)
+		}
 
 		// Prepare daemon options
 		var opts []daemon.Option
@@ -353,4 +418,18 @@ func init() {
 	daemonCmd.Flags().String("http", "", "HTTP server address (e.g., :8080)")
 	daemonCmd.Flags().String("http-user", "", "HTTP basic auth username")
 	daemonCmd.Flags().String("http-pass", "", "HTTP basic auth password")
+}
+
+// formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

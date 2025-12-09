@@ -93,7 +93,10 @@ func (s *Slack) send(ctx context.Context, text, color string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send notification: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		//nolint:errcheck // Error closing response body during cleanup is not critical
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("slack returned status %d", resp.StatusCode)

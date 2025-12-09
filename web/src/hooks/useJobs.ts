@@ -58,8 +58,15 @@ export function useTriggerRestore() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ target, backup_path }: { target: string; backup_path: string }) =>
-      apiClient.triggerRestore(target, backup_path),
+    mutationFn: ({
+      target,
+      backup_path,
+      dry_run,
+    }: {
+      target: string
+      backup_path: string
+      dry_run?: boolean
+    }) => apiClient.triggerRestore(target, backup_path, dry_run),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })

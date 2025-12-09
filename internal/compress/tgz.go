@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -30,32 +31,47 @@ func (t *TarGz) Extension() string {
 func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 	// Create gzip writer
 	gzw := gzip.NewWriter(w)
-	defer gzw.Close()
+	defer func() {
+		//nolint:errcheck // Error closing gzip writer during cleanup is not critical
+		_ = gzw.Close()
+	}()
 
 	// Create tar writer
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer func() {
+		//nolint:errcheck // Error closing tar writer during cleanup is not critical
+		_ = tw.Close()
+	}()
 
 	// Create a pipe to count bytes as we read
 	pr, pw := io.Pipe()
 	var readErr error
-	var totalSize int64
+	var readErrMu sync.Mutex
 
 	// Read from input in goroutine
 	go func() {
-		defer pw.Close()
-		var err error
-		totalSize, err = io.Copy(pw, r)
+		defer func() {
+			if err := pw.Close(); err != nil {
+				readErrMu.Lock()
+				if readErr == nil {
+					readErr = err
+				}
+				readErrMu.Unlock()
+			}
+		}()
+		_, err := io.Copy(pw, r)
 		if err != nil {
+			readErrMu.Lock()
 			readErr = err
+			readErrMu.Unlock()
 		}
 	}()
 
-	// Write tar header
+	// Write tar header (size will be set after buffering)
 	header := &tar.Header{
 		Name:    t.filename,
 		Mode:    0600,
-		Size:    totalSize, // Will be 0 initially, tar handles streaming
+		Size:    0, // Will be set after we know the actual size
 		ModTime: time.Now(),
 	}
 
@@ -83,8 +99,11 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 		}
 	}
 
-	if readErr != nil {
-		return fmt.Errorf("failed to read input: %w", readErr)
+	readErrMu.Lock()
+	err := readErr
+	readErrMu.Unlock()
+	if err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
 	}
 
 	// Now we know the size, write the header
@@ -102,13 +121,16 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 }
 
 // Decompress reads tar.gz from reader and writes uncompressed content to writer
-func (t *TarGz) Decompress(ctx context.Context, r io.Reader, w io.Writer) error {
+func (t *TarGz) Decompress(_ context.Context, r io.Reader, w io.Writer) error {
 	// Create gzip reader
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() {
+		//nolint:errcheck // Error closing gzip reader during cleanup is not critical
+		_ = gzr.Close()
+	}()
 
 	// Create tar reader
 	tr := tar.NewReader(gzr)
@@ -120,6 +142,7 @@ func (t *TarGz) Decompress(ctx context.Context, r io.Reader, w io.Writer) error 
 	}
 
 	// Copy the file content to the writer
+	//#nosec G110 -- decompression from trusted backup sources only
 	if _, err := io.Copy(w, tr); err != nil {
 		return fmt.Errorf("failed to decompress data: %w", err)
 	}

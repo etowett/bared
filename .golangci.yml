@@ -1,53 +1,62 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor
-    - examples
 
 linters:
+  default: none
   enable:
     - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify code
     - govet         # Vet examines Go source code
     - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Static analysis
+    - staticcheck   # Static analysis (includes gosimple in v2)
     - unused        # Check for unused code
-    - gofmt         # Check formatting
-    - goimports     # Check imports
     - misspell      # Check for misspelled words
     - revive        # Fast, configurable, extensible, flexible, and beautiful linter
     - unconvert     # Remove unnecessary type conversions
     - unparam       # Report unused function parameters
     - gosec         # Security checks
 
-linters-settings:
-  errcheck:
-    check-blank: true
-    check-type-assertions: true
+  exclusions:
+    paths:
+      - vendor
+      - examples
+    rules:
+      # Exclude some linters from running on tests
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
 
-  govet:
-    check-shadowing: true
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
 
-  gofmt:
-    simplify: true
+    revive:
+      confidence: 0.8
+      rules:
+        - name: var-naming
+          disabled: true  # Allow util, api package names
 
-  revive:
-    confidence: 0.8
+    gosec:
+      excludes:
+        - G204  # Subprocess launched with variable (we need this for database commands)
+        - G401  # Use of weak cryptographic primitive (we're not doing crypto)
 
-  gosec:
-    excludes:
-      - G204  # Subprocess launched with variable (we need this for database commands)
-      - G401  # Use of weak cryptographic primitive (we're not doing crypto)
+    staticcheck:
+      checks: ["all", "-QF1011"]  # Disable type inference suggestions for compile-time type assertions
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    gofmt:
+      simplify: true
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-
-  exclude-rules:
-    # Exclude some linters from running on tests
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec

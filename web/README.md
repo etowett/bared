@@ -25,7 +25,7 @@ npm install
 
 ### Development Mode
 
-Start the Vite dev server (runs on http://localhost:5173):
+Start the Vite dev server (runs on <http://localhost:5173>):
 
 ```bash
 npm run dev
@@ -60,7 +60,7 @@ npm run preview
 
 ## Project Structure
 
-```
+```tree
 web/
 ├── src/
 │   ├── api/
@@ -204,9 +204,10 @@ FROM alpine:latest
 COPY --from=backend-builder /app/brd /usr/local/bin/brd
 ```
 
-## Authentication
+## API Authentication
 
 Default credentials in docker-compose:
+
 - Username: `admin`
 - Password: `changeme`
 
@@ -222,6 +223,7 @@ docker-compose up -d
 ### CORS Issues
 
 If you see CORS errors in development, ensure:
+
 1. Go backend is running with `--http` flag
 2. Vite proxy is configured correctly
 3. Using `http://localhost:5173` (Vite dev server)

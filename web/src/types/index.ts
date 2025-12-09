@@ -44,3 +44,12 @@ export interface Dashboard {
   total_jobs: number
   total_storage_bytes?: number
 }
+
+export interface RestoreTarget {
+  name: string
+  type: string
+  database: string
+  host: string
+  description?: string
+  source_target?: string
+}

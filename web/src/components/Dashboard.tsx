@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { clearAuth } from '../api/client'
 import { useDashboard } from '../hooks/useDashboard'
 import { useJobs } from '../hooks/useJobs'
-import { TargetList } from './TargetList'
-import { JobList } from './JobList'
-import { JobDetail } from './JobDetail'
 import type { Job } from '../types'
+import { JobDetail } from './JobDetail'
+import { JobList } from './JobList'
+import { RestoreForm } from './RestoreForm'
+import { TargetList } from './TargetList'
 
 interface DashboardProps {
   onLogout: () => void
@@ -40,7 +41,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
   if (dashboardLoading) {
     return (
       <div className="dashboard">
-        <div className="loading">Loading dashboard...</div>
+        <div className="loading">Loading dashboard . . . </div>
       </div>
     )
   }
@@ -74,6 +75,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
       </div>
 
       <div className="dashboard-content">
+        <div className="dashboard-section">
+          <h2>Restore Database</h2>
+          <RestoreForm />
+        </div>
+
         <div className="dashboard-section">
           <h2>Backup Targets</h2>
           <TargetList targets={dashboard?.targets || []} />

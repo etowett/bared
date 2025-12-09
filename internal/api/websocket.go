@@ -14,7 +14,7 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		// Allow all origins for now (can be restricted in production)
 		return true
 	},
@@ -46,7 +46,11 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade WebSocket connection: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Failed to close WebSocket connection: %v", err)
+		}
+	}()
 
 	log.Printf("WebSocket client connected for job %s", jobID)
 

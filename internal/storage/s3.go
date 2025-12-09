@@ -140,7 +140,10 @@ func (s *S3) Retrieve(ctx context.Context, filePath string, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to download from S3: %w", err)
 	}
-	defer result.Body.Close()
+	defer func() {
+		//nolint:errcheck // Error closing S3 object body during cleanup is not critical
+		_ = result.Body.Close()
+	}()
 
 	_, err = io.Copy(w, result.Body)
 	if err != nil {
@@ -261,4 +264,63 @@ func (s *S3) initClient(ctx context.Context) error {
 	s.client = s3.NewFromConfig(cfg, options)
 
 	return nil
+}
+
+// Exists checks if a backup file exists in S3
+func (s *S3) Exists(ctx context.Context, filePath string) (bool, error) {
+	if err := s.initClient(ctx); err != nil {
+		return false, err
+	}
+
+	// Check if filePath already includes the storage path prefix
+	var key string
+	if s.cfg.Path != "" && strings.HasPrefix(filePath, s.cfg.Path+"/") {
+		key = filePath
+	} else {
+		key = path.Join(s.cfg.Path, filePath)
+	}
+
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		// Check if it's a "not found" error
+		if strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "404") {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+
+	return true, nil
+}
+
+// GetInfo returns metadata about a backup file in S3
+func (s *S3) GetInfo(ctx context.Context, filePath string) (*BackupInfo, error) {
+	if err := s.initClient(ctx); err != nil {
+		return nil, err
+	}
+
+	// Check if filePath already includes the storage path prefix
+	var key string
+	if s.cfg.Path != "" && strings.HasPrefix(filePath, s.cfg.Path+"/") {
+		key = filePath
+	} else {
+		key = path.Join(s.cfg.Path, filePath)
+	}
+
+	result, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return &BackupInfo{
+		Path:         filePath,
+		Size:         *result.ContentLength,
+		LastModified: *result.LastModified,
+		StorageName:  s.cfg.Name,
+	}, nil
 }

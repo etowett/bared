@@ -1,3 +1,4 @@
+// Package storage provides storage backend implementations for local, S3, and SFTP.
 package storage
 
 import (

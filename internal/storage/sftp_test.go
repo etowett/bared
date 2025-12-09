@@ -355,7 +355,7 @@ func TestSFTP_PathConfiguration(t *testing.T) {
 	}
 }
 
-func TestSFTP_ContextCancellation(t *testing.T) {
+func TestSFTP_ContextCancellation(_ *testing.T) {
 	cfg := &config.Storage{
 		Name:     "sftp",
 		Type:     "sftp",

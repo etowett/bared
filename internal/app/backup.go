@@ -1,3 +1,4 @@
+// Package app provides high-level application logic for backup, restore, and listing operations.
 package app
 
 import (
@@ -63,6 +64,26 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 
 	log.Printf("[%s] Starting backup", target.Name)
 
+	// Generate backup path early (before any validation) so it's always set in result
+	extension := ""
+	if target.Compress != nil && target.Compress.Enabled {
+		compressor, compressErr := compress.New(target.Compress.Type, target.Conn.Database)
+		if compressErr != nil {
+			// Even if compression fails, set a default path for consistency
+			extension = ".sql"
+			backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+			result.BackupPath = backupPath
+			result.Error = fmt.Errorf("failed to create compressor: %w", compressErr)
+			return result, result.Error
+		}
+		extension = compressor.Extension()
+	} else {
+		extension = ".sql"
+	}
+
+	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+	result.BackupPath = backupPath
+
 	// Create database dumper
 	dumper, err := database.NewDumper(target)
 	if err != nil {
@@ -71,8 +92,8 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	}
 
 	// Validate dumper
-	if err := dumper.Validate(ctx); err != nil {
-		result.Error = fmt.Errorf("dumper validation failed: %w", err)
+	if validationErr := dumper.Validate(ctx); validationErr != nil {
+		result.Error = fmt.Errorf("dumper validation failed: %w", validationErr)
 		return result, result.Error
 	}
 
@@ -83,35 +104,20 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		return result, result.Error
 	}
 
+	// Set storage name early from config
+	result.StorageName = storageCfg.Name
+
 	stor, err := storage.New(storageCfg)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create storage: %w", err)
 		return result, result.Error
 	}
 
-	result.StorageName = stor.Name()
-
 	// Validate storage
-	if err := stor.Validate(ctx); err != nil {
-		result.Error = fmt.Errorf("storage validation failed: %w", err)
+	if storageErr := stor.Validate(ctx); storageErr != nil {
+		result.Error = fmt.Errorf("storage validation failed: %w", storageErr)
 		return result, result.Error
 	}
-
-	// Generate backup path
-	extension := ""
-	if target.Compress != nil && target.Compress.Enabled {
-		compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
-		if err != nil {
-			result.Error = fmt.Errorf("failed to create compressor: %w", err)
-			return result, result.Error
-		}
-		extension = compressor.Extension()
-	} else {
-		extension = ".sql"
-	}
-
-	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
-	result.BackupPath = backupPath
 
 	log.Printf("[%s] Backup details:", target.Name)
 	log.Printf("\tStorage: %s", stor.Name())
@@ -238,12 +244,17 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 
 	// Start dump in goroutine
 	go func() {
-		defer dumpWriter.Close()
+		defer func() {
+			//nolint:govet // shadow is intentional in defer function
+			if err := dumpWriter.Close(); err != nil {
+				util.Warn("[%s] Failed to close dump writer: %v", target.Name, err)
+			}
+		}()
 		util.Debug("[%s] Starting database dump", target.Name)
-		meta, err := dumper.Dump(ctx, dumpCounter)
-		if err != nil {
-			dumpErr = err
-			util.Error("[%s] Dump error: %v", target.Name, err)
+		meta, dumpResultErr := dumper.Dump(ctx, dumpCounter)
+		if dumpResultErr != nil {
+			dumpErr = dumpResultErr
+			util.Error("[%s] Dump error: %v", target.Name, dumpResultErr)
 		} else {
 			dumpMetadata = meta
 			uncompressedSize = dumpCounter.Size()

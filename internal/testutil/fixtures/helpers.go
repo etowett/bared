@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"bared/internal/config"
 	"gopkg.in/yaml.v3"
+
+	"bared/internal/config"
 )
 
 // CreateTempConfig creates a temporary config file and returns its path
@@ -23,7 +24,7 @@ func CreateTempConfig(t *testing.T, cfg *config.Config) string {
 		t.Fatalf("failed to marshal config: %v", err)
 	}
 
-	err = os.WriteFile(configPath, data, 0644)
+	err = os.WriteFile(configPath, data, 0600) // #nosec G306 - reduced from 0644 for security
 	if err != nil {
 		t.Fatalf("failed to write config file: %v", err)
 	}

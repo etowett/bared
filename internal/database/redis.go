@@ -30,7 +30,7 @@ func (r *Redis) Name() string {
 }
 
 // Validate checks if redis-cli command exists
-func (r *Redis) Validate(ctx context.Context) error {
+func (r *Redis) Validate(_ context.Context) error {
 	if err := util.CheckCommandExists("redis-cli"); err != nil {
 		return fmt.Errorf("redis-cli not found: %w (install redis-tools package)", err)
 	}
@@ -44,7 +44,10 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	// Create a temporary file for the RDB dump
 	tmpDir := os.TempDir()
 	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("redis-dump-%d.rdb", time.Now().Unix()))
-	defer os.Remove(tmpFile)
+	defer func() {
+		//nolint:errcheck // Error removing temp file during cleanup is not critical
+		_ = os.Remove(tmpFile)
+	}()
 
 	// Use redis-cli --rdb to dump the database
 	args := r.buildDumpArgs(tmpFile)
@@ -55,11 +58,14 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	}
 
 	// Read the RDB file and write to the output writer
-	rdbFile, err := os.Open(tmpFile)
+	rdbFile, err := os.Open(tmpFile) // #nosec G304 - tmpFile is constructed from os.TempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open RDB file: %w", err)
 	}
-	defer rdbFile.Close()
+	defer func() {
+		//nolint:errcheck // Error closing RDB file during cleanup is not critical
+		_ = rdbFile.Close()
+	}()
 
 	size, err := io.Copy(w, rdbFile)
 	if err != nil {
@@ -78,8 +84,34 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 }
 
 // Restore is not implemented for Redis (requires stopping server and replacing RDB file)
-func (r *Redis) Restore(ctx context.Context, reader io.Reader) error {
+func (r *Redis) Restore(_ context.Context, _ io.Reader) error {
 	return fmt.Errorf("redis restore not yet implemented (requires manual RDB file replacement)")
+}
+
+// ValidateConnection tests Redis connectivity
+func (r *Redis) ValidateConnection(ctx context.Context) error {
+	// Check if redis-cli command exists
+	if err := util.CheckCommandExists("redis-cli"); err != nil {
+		return fmt.Errorf("redis-cli not found: %w (install redis-tools package)", err)
+	}
+
+	// Build test connection args
+	args := []string{
+		"-h", r.conn.Host,
+		"-p", fmt.Sprintf("%d", r.conn.Port),
+	}
+
+	if r.conn.Password != "" {
+		args = append(args, "-a", r.conn.Password)
+	}
+
+	args = append(args, "PING")
+
+	if err := util.ExecuteCommand(ctx, io.Discard, "redis-cli", args...); err != nil {
+		return fmt.Errorf("redis connection failed: %w", err)
+	}
+
+	return nil
 }
 
 func (r *Redis) buildDumpArgs(outputFile string) []string {

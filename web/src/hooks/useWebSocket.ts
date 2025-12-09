@@ -17,7 +17,7 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
   const [error, setError] = useState<string | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<number>()
+  const reconnectTimeoutRef = useRef<number | undefined>(undefined)
   const reconnectDelayRef = useRef(initialReconnectDelay)
   const mountedRef = useRef(true)
 

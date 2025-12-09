@@ -61,7 +61,7 @@ targets:
       password: ${TEST_DB_PASSWORD}
 `,
 			wantErr: false,
-			validate: func(t *testing.T, cfg *Config) {
+			validate: func(t *testing.T, _ *Config) {
 				// Set env vars for this test
 				os.Setenv("TEST_AWS_KEY", "test_key_value")
 				os.Setenv("TEST_AWS_SECRET", "test_secret_value")

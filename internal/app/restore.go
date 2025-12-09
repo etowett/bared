@@ -14,6 +14,13 @@ import (
 	"bared/internal/storage"
 )
 
+// RestoreOptions contains options for restore operations
+type RestoreOptions struct {
+	DryRun           bool // If true, validate only without executing restore
+	SkipValidation   bool // Skip connection validation (not recommended)
+	SkipBackupVerify bool // Skip backup file verification
+}
+
 // RestoreResult contains information about a restore operation
 type RestoreResult struct {
 	Target      string
@@ -22,77 +29,137 @@ type RestoreResult struct {
 	Duration    time.Duration
 	BackupPath  string
 	StorageName string
+	DryRun      bool     // Whether this was a dry-run
+	Validations []string // List of validations performed
 }
 
-// RestoreTarget performs a restore for a single target
-func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string, progress Progress) (*RestoreResult, error) {
+// RestoreTargetWithOptions performs a restore with specified options
+func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string, options *RestoreOptions, progress Progress) (*RestoreResult, error) {
 	startTime := time.Now()
+
+	// Initialize options if nil
+	if options == nil {
+		options = &RestoreOptions{}
+	}
+
 	result := &RestoreResult{
-		Target:     target.Name,
-		BackupPath: backupPath,
+		Target:      target.Name,
+		BackupPath:  backupPath,
+		DryRun:      options.DryRun,
+		Validations: []string{},
 	}
 
 	if progress != nil {
 		progress.SetStage("validating", 0)
 	}
 
-	log.Printf("[%s] Starting restore from: %s", target.Name, backupPath)
+	dryRunSuffix := ""
+	if result.DryRun {
+		dryRunSuffix = " (DRY-RUN)"
+	}
+	log.Printf("[%s] Starting restore%s from: %s", target.Name, dryRunSuffix, backupPath)
 
-	// Create database restorer
+	// Step 1: Create database restorer
 	restorer, err := database.NewRestorer(target)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create restorer: %w", err)
 		return result, result.Error
 	}
+	result.Validations = append(result.Validations, "Database restorer created")
 
-	// Get storage backend
+	// Step 2: Validate database connection (unless skipped)
+	if !options.SkipValidation {
+		log.Printf("[%s] Validating database connection...", target.Name)
+		if connErr := restorer.ValidateConnection(ctx); connErr != nil {
+			result.Error = fmt.Errorf("database connection validation failed: %w", connErr)
+			return result, result.Error
+		}
+		result.Validations = append(result.Validations, "Database connection validated")
+		log.Printf("[%s] Database connection validated successfully", target.Name)
+	}
+
+	// Step 3: Get storage backend
 	storageCfg, err := cfg.GetStorageForTarget(target)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to get storage: %w", err)
 		return result, result.Error
 	}
 
-	log.Printf("Storage config: %+v", storageCfg)
-
 	stor, err := storage.New(storageCfg)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create storage: %w", err)
 		return result, result.Error
 	}
-
-	log.Printf("Restoring target: %s", target.Name)
-	log.Printf("Using storage backend: %s", stor.Name())
-	log.Printf("Storage path: %s", storageCfg.Path)
-	log.Printf("Storage bucket: %s", storageCfg.Bucket)
-	log.Printf("Storage host: %s", storageCfg.Host)
-	log.Printf("Storage port: %d", storageCfg.Port)
-	log.Printf("Storage username: %s", storageCfg.Username)
-	log.Printf("Storage password: %s", storageCfg.Password)
-
 	result.StorageName = stor.Name()
+	result.Validations = append(result.Validations, fmt.Sprintf("Storage backend connected: %s", stor.Name()))
 
-	// Validate storage
+	// Step 4: Validate storage
 	if err := stor.Validate(ctx); err != nil {
 		result.Error = fmt.Errorf("storage validation failed: %w", err)
 		return result, result.Error
 	}
+	result.Validations = append(result.Validations, "Storage validated")
 
-	// Check if backup needs decompression
+	// Step 5: Verify backup file exists (unless skipped)
+	if !options.SkipBackupVerify {
+		log.Printf("[%s] Verifying backup file exists...", target.Name)
+		exists, err := stor.Exists(ctx, backupPath)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to verify backup existence: %w", err)
+			return result, result.Error
+		}
+		if !exists {
+			result.Error = fmt.Errorf("backup file not found: %s", backupPath)
+			return result, result.Error
+		}
+
+		// Get backup file info
+		backupInfo, err := stor.GetInfo(ctx, backupPath)
+		if err != nil {
+			result.Error = fmt.Errorf("failed to get backup info: %w", err)
+			return result, result.Error
+		}
+
+		result.Validations = append(result.Validations,
+			fmt.Sprintf("Backup file verified: %s (size: %d bytes, modified: %s)",
+				backupPath, backupInfo.Size, backupInfo.LastModified.Format(time.RFC3339)))
+		log.Printf("[%s] Backup file verified: %d bytes", target.Name, backupInfo.Size)
+	}
+
+	// Step 6: Check if backup needs decompression
 	needsDecompression := strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz")
 	if needsDecompression {
+		result.Validations = append(result.Validations, "Backup requires decompression")
 		log.Printf("[%s] Backup requires decompression", target.Name)
 	}
 
-	// Execute restore pipeline
-	if needsDecompression {
-		err = restoreWithDecompression(ctx, target, restorer, stor, backupPath)
-	} else {
-		err = restoreWithoutDecompression(ctx, target, restorer, stor, backupPath)
+	// If dry-run, stop here
+	if result.DryRun {
+		result.Success = true
+		result.Duration = time.Since(startTime)
+		log.Printf("[%s] DRY-RUN completed successfully. All validations passed.", target.Name)
+		log.Printf("[%s] Validations performed:", target.Name)
+		for _, v := range result.Validations {
+			log.Printf("[%s]   - %s", target.Name, v)
+		}
+		return result, nil
 	}
 
-	if err != nil {
-		result.Error = fmt.Errorf("restore failed: %w", err)
-		log.Printf("[%s] Restore failed: %v", target.Name, err)
+	// Step 7: Execute actual restore pipeline
+	if progress != nil {
+		progress.SetStage("restoring", 10)
+	}
+
+	var restoreErr error
+	if needsDecompression {
+		restoreErr = restoreWithDecompression(ctx, target, restorer, stor, backupPath)
+	} else {
+		restoreErr = restoreWithoutDecompression(ctx, target, restorer, stor, backupPath)
+	}
+
+	if restoreErr != nil {
+		result.Error = fmt.Errorf("restore failed: %w", restoreErr)
+		log.Printf("[%s] Restore failed: %v", target.Name, restoreErr)
 		return result, result.Error
 	}
 
@@ -102,6 +169,11 @@ func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Targe
 	log.Printf("[%s] Restore completed successfully in %v", target.Name, result.Duration)
 
 	return result, nil
+}
+
+// RestoreTarget performs a restore (backward compatible wrapper)
+func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string, progress Progress) (*RestoreResult, error) {
+	return RestoreTargetWithOptions(ctx, cfg, target, backupPath, &RestoreOptions{}, progress)
 }
 
 // restoreWithDecompression performs restore with decompression
@@ -116,7 +188,11 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 	// Start retrieval in goroutine
 	go func() {
-		defer retrieveWriter.Close()
+		defer func() {
+			if err := retrieveWriter.Close(); err != nil {
+				log.Printf("[%s] Failed to close retrieve writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Retrieving backup from storage", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, retrieveWriter)
 		if retrieveErr != nil {
@@ -128,7 +204,11 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 	// Start decompression in goroutine
 	go func() {
-		defer decompressWriter.Close()
+		defer func() {
+			if err := decompressWriter.Close(); err != nil {
+				log.Printf("[%s] Failed to close decompress writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Starting decompression", target.Name)
 		decompressor, err := compress.New("tgz", target.Conn.Database)
 		if err != nil {
@@ -173,7 +253,11 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 	// Start retrieval in goroutine
 	go func() {
-		defer writer.Close()
+		defer func() {
+			if err := writer.Close(); err != nil {
+				log.Printf("[%s] Failed to close writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Retrieving backup from storage", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, writer)
 		if retrieveErr == nil {

@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+import { FormEvent, useState } from 'react'
 import { setAuth } from '../api/client'
 
 interface LoginProps {

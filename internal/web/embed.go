@@ -1,3 +1,4 @@
+// Package web provides embedded web UI assets and HTTP handlers for the React frontend.
 package web
 
 import (
@@ -15,9 +16,10 @@ func GetHandler() http.Handler {
 	dist, err := fs.Sub(distFiles, "dist")
 	if err != nil {
 		// If dist doesn't exist (development), return a simple handler
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Web UI not built. Run: cd web && npm install && npm run build"))
+			//nolint:errcheck // Error writing to response writer is not critical
+			_, _ = w.Write([]byte("Web UI not built. Run: cd web && npm install && npm run build"))
 		})
 	}
 

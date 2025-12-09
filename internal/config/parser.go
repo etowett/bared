@@ -12,6 +12,7 @@ var envVarRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 
 // Load reads and parses the configuration file
 func Load(path string) (*Config, error) {
+	//#nosec G304 -- path is from user-provided config file argument
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -94,4 +95,62 @@ func (c *Config) GetAllNotifiers() []*Notifier {
 		notifiers = append(notifiers, notifier)
 	}
 	return notifiers
+}
+
+// FindRestoreTarget finds a restore target by name
+func (c *Config) FindRestoreTarget(name string) (*RestoreTarget, error) {
+	for _, rt := range c.RestoreTargets {
+		if rt.Name == name {
+			return rt, nil
+		}
+	}
+	return nil, fmt.Errorf("restore target '%s' not found in configuration", name)
+}
+
+// GetStorageForRestoreTarget returns the storage backend for a restore target
+func (c *Config) GetStorageForRestoreTarget(restoreTarget *RestoreTarget) (*Storage, error) {
+	// Use restore target's storage if configured
+	if restoreTarget.Storage != nil && restoreTarget.Storage.Enabled {
+		return c.FindStorage(restoreTarget.Storage.Name)
+	}
+
+	// Fall back to source target's storage
+	if restoreTarget.SourceTarget != "" {
+		sourceTarget, err := c.FindTarget(restoreTarget.SourceTarget)
+		if err != nil {
+			return nil, fmt.Errorf("source target '%s' not found", restoreTarget.SourceTarget)
+		}
+		return c.GetStorageForTarget(sourceTarget)
+	}
+
+	// Fall back to default storage
+	if c.DefaultStorage != "" {
+		return c.FindStorage(c.DefaultStorage)
+	}
+
+	return nil, fmt.Errorf("no storage configured for restore target '%s'", restoreTarget.Name)
+}
+
+// ResolveRestoreTarget resolves either a regular target or restore target by name
+// Returns (Target, RestoreTarget, isRestoreTarget, error)
+func (c *Config) ResolveRestoreTarget(name string) (*Target, *RestoreTarget, bool, error) {
+	// First try to find as restore target
+	rt, err := c.FindRestoreTarget(name)
+	if err == nil {
+		// Convert RestoreTarget to Target for restore operations
+		target := &Target{
+			Name:    rt.Name,
+			Conn:    rt.Conn,
+			Storage: rt.Storage,
+		}
+		return target, rt, true, nil
+	}
+
+	// Fall back to regular target
+	target, err := c.FindTarget(name)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("target or restore target '%s' not found", name)
+	}
+
+	return target, nil, false, nil
 }

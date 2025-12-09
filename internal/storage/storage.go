@@ -26,6 +26,12 @@ type Storage interface {
 
 	// Validate checks if the storage is accessible
 	Validate(ctx context.Context) error
+
+	// Exists checks if a backup file exists
+	Exists(ctx context.Context, path string) (bool, error)
+
+	// GetInfo returns metadata about a backup file
+	GetInfo(ctx context.Context, path string) (*BackupInfo, error)
 }
 
 // BackupInfo contains metadata about a stored backup

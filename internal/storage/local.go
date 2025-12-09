@@ -27,7 +27,7 @@ func (l *Local) Name() string {
 }
 
 // Validate checks if the storage path exists and is writable
-func (l *Local) Validate(ctx context.Context) error {
+func (l *Local) Validate(_ context.Context) error {
 	// Check if path exists
 	info, err := os.Stat(l.cfg.Path)
 	if err != nil {
@@ -43,32 +43,37 @@ func (l *Local) Validate(ctx context.Context) error {
 
 	// Check if writable by creating a temp file
 	testFile := filepath.Join(l.cfg.Path, ".bared-test")
-	f, err := os.Create(testFile)
+	f, err := os.Create(testFile) // #nosec G304 - path from validated config
 	if err != nil {
 		return fmt.Errorf("storage path is not writable: %w", err)
 	}
-	f.Close()
-	os.Remove(testFile)
+	//nolint:errcheck // Error closing test file is not critical
+	_ = f.Close()
+	//nolint:errcheck // Error removing test file is not critical
+	_ = os.Remove(testFile)
 
 	return nil
 }
 
 // Store writes data from reader to local filesystem
-func (l *Local) Store(ctx context.Context, path string, r io.Reader, size int64) error {
+func (l *Local) Store(_ context.Context, path string, r io.Reader, _ int64) error {
 	fullPath := filepath.Join(l.cfg.Path, path)
 
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(fullPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil { // #nosec G301 - reduced from 0755 for security
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Create the file
-	f, err := os.Create(fullPath)
+	f, err := os.Create(fullPath) // #nosec G304 - fullPath from validated config and trusted backup path
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		//nolint:errcheck // Error closing file during cleanup is not critical
+		_ = f.Close()
+	}()
 
 	// Copy data from reader to file
 	_, err = io.Copy(f, r)
@@ -80,14 +85,17 @@ func (l *Local) Store(ctx context.Context, path string, r io.Reader, size int64)
 }
 
 // Retrieve reads data from local filesystem into writer
-func (l *Local) Retrieve(ctx context.Context, path string, w io.Writer) error {
+func (l *Local) Retrieve(_ context.Context, path string, w io.Writer) error {
 	fullPath := filepath.Join(l.cfg.Path, path)
 
-	f, err := os.Open(fullPath)
+	f, err := os.Open(fullPath) // #nosec G304 - fullPath from validated config and trusted backup path
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		//nolint:errcheck // Error closing file during cleanup is not critical
+		_ = f.Close()
+	}()
 
 	_, err = io.Copy(w, f)
 	if err != nil {
@@ -98,7 +106,7 @@ func (l *Local) Retrieve(ctx context.Context, path string, w io.Writer) error {
 }
 
 // List returns all backup files in the storage
-func (l *Local) List(ctx context.Context) ([]*BackupInfo, error) {
+func (l *Local) List(_ context.Context) ([]*BackupInfo, error) {
 	var backups []*BackupInfo
 
 	err := filepath.Walk(l.cfg.Path, func(path string, info os.FileInfo, err error) error {
@@ -135,7 +143,7 @@ func (l *Local) List(ctx context.Context) ([]*BackupInfo, error) {
 }
 
 // Delete removes a backup from local filesystem
-func (l *Local) Delete(ctx context.Context, path string) error {
+func (l *Local) Delete(_ context.Context, path string) error {
 	fullPath := filepath.Join(l.cfg.Path, path)
 
 	if err := os.Remove(fullPath); err != nil {
@@ -143,4 +151,33 @@ func (l *Local) Delete(ctx context.Context, path string) error {
 	}
 
 	return nil
+}
+
+// Exists checks if a backup file exists
+func (l *Local) Exists(_ context.Context, path string) (bool, error) {
+	fullPath := filepath.Join(l.cfg.Path, path)
+	_, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+	return true, nil
+}
+
+// GetInfo returns metadata about a backup file
+func (l *Local) GetInfo(_ context.Context, path string) (*BackupInfo, error) {
+	fullPath := filepath.Join(l.cfg.Path, path)
+	info, err := os.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return &BackupInfo{
+		Path:         path,
+		Size:         info.Size(),
+		LastModified: info.ModTime(),
+		StorageName:  l.cfg.Name,
+	}, nil
 }

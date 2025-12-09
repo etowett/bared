@@ -6,23 +6,44 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    needs: [web]
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ['1.24', '1.25']
+        go-version: ['1.25.5']
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: ${{ matrix.go-version }}
+
+    - name: Install database tools (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          mariadb-client \
+          postgresql-client \
+          redis-tools
+
+    - name: Install database tools (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install mysql-client postgresql redis
+        echo "/usr/local/opt/mysql-client/bin" >> $GITHUB_PATH
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -36,6 +57,20 @@ jobs:
 
     - name: Download dependencies
       run: go mod download
+
+    - name: Download web artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: web-dist
+        path: internal/web/dist
+      continue-on-error: true
+
+    - name: Create placeholder dist if needed
+      run: |
+        if [ ! -d "internal/web/dist" ]; then
+          mkdir -p internal/web/dist
+          echo "placeholder" > internal/web/dist/.placeholder
+        fi
 
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...
@@ -53,15 +88,20 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version: '1.25.5'
+
+    - name: Create placeholder dist directory
+      run: |
+        mkdir -p internal/web/dist
+        echo "placeholder" > internal/web/dist/.placeholder
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v9
       with:
         version: latest
         args: --timeout=5m
@@ -72,12 +112,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: '20'
+        node-version-file: web/.nvmrc
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
 
@@ -94,10 +134,11 @@ jobs:
       run: npm run build
 
     - name: Upload web artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: web-dist
         path: web/dist
+        retention-days: 7
 
   build:
     name: Build
@@ -106,17 +147,17 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version: '1.25.5'
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: '20'
+        node-version-file: web/.nvmrc
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
 
@@ -133,7 +174,7 @@ jobs:
       run: make validate
 
     - name: Upload binary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: brd
         path: bin/brd

@@ -15,19 +15,19 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.25'
+        go-version: '1.25.5'
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: '20'
+        node-version-file: web/.nvmrc
         cache: 'npm'
         cache-dependency-path: web/package-lock.json
 
@@ -43,6 +43,12 @@ jobs:
         cd ..
         echo "Web frontend built successfully"
         ls -lh web/dist/
+
+    - name: Copy web dist to embed location
+      run: |
+        mkdir -p internal/web
+        cp -r web/dist internal/web/dist
+        echo "Web frontend copied to internal/web/dist for embedding"
 
     - name: Build binaries
       run: |
@@ -69,6 +75,18 @@ jobs:
 
         echo "All binaries built with embedded web frontend"
 
+    - name: Verify binaries
+      run: |
+        cd dist
+        for file in brd-*; do
+          if [ ! -s "$file" ]; then
+            echo "Error: $file is empty or missing"
+            exit 1
+          fi
+          echo "✓ Verified: $file ($(du -h "$file" | cut -f1))"
+        done
+        echo "All binaries verified successfully"
+
     - name: Create checksums
       run: |
         cd dist
@@ -86,12 +104,19 @@ jobs:
     - name: Generate changelog
       id: changelog
       run: |
-        echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-        git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"* %s (%h)" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log ${PREV_TAG}..HEAD --pretty=format:"* %s (%h)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "* Initial release" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
 
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           dist/brd-linux-amd64.tar.gz

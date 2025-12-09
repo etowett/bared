@@ -32,7 +32,7 @@ func (m *MySQL) Name() string {
 }
 
 // Validate checks if mysqldump command exists
-func (m *MySQL) Validate(ctx context.Context) error {
+func (m *MySQL) Validate(_ context.Context) error {
 	if err := util.CheckCommandExists("mysqldump"); err != nil {
 		return fmt.Errorf("mysqldump not found: %w (install mysql-client package)", err)
 	}
@@ -75,6 +75,7 @@ func (m *MySQL) buildDumpArgs() []string {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
+		"--skip-ssl", // Disable SSL (compatible with both MySQL and MariaDB)
 	}
 
 	if m.conn.Password != "" {
@@ -100,6 +101,7 @@ func (m *MySQL) buildRestoreArgs() []string {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
+		"--skip-ssl", // Disable SSL (compatible with both MySQL and MariaDB)
 	}
 
 	if m.conn.Password != "" {
@@ -110,4 +112,32 @@ func (m *MySQL) buildRestoreArgs() []string {
 	args = append(args, m.conn.Database)
 
 	return args
+}
+
+// ValidateConnection tests MySQL connectivity
+func (m *MySQL) ValidateConnection(ctx context.Context) error {
+	// Check if mysql command exists
+	if err := util.CheckCommandExists("mysql"); err != nil {
+		return fmt.Errorf("mysql not found: %w (install mysql-client package)", err)
+	}
+
+	// Build test connection args
+	args := []string{
+		fmt.Sprintf("--host=%s", m.conn.Host),
+		fmt.Sprintf("--port=%d", m.conn.Port),
+		fmt.Sprintf("--user=%s", m.conn.User),
+		"--skip-ssl", // Disable SSL (compatible with both MySQL and MariaDB)
+	}
+
+	if m.conn.Password != "" {
+		args = append(args, fmt.Sprintf("--password=%s", m.conn.Password))
+	}
+
+	args = append(args, m.conn.Database, "-e", "SELECT 1;")
+
+	if err := util.ExecuteCommand(ctx, io.Discard, "mysql", args...); err != nil {
+		return fmt.Errorf("database connection failed: %w", err)
+	}
+
+	return nil
 }

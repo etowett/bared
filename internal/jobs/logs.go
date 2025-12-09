@@ -14,11 +14,11 @@ type LogEntry struct {
 
 // LogBuffer is a thread-safe circular log buffer with subscriber support
 type LogBuffer struct {
-	entries   []LogEntry
-	maxSize   int
-	index     int
-	full      bool
-	mu        sync.RWMutex
+	entries []LogEntry
+	maxSize int
+	index   int
+	full    bool
+	mu      sync.RWMutex
 
 	// Subscribers for real-time streaming
 	subscribers map[chan LogEntry]bool

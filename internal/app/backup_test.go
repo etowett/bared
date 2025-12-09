@@ -75,7 +75,7 @@ func TestBackupTarget_InvalidDatabaseType(t *testing.T) {
 	cfg := createTestConfig()
 	cfg.Targets[0].Conn.Type = "unsupported-db"
 
-	result, err := BackupTarget(context.Background(), cfg, cfg.Targets[0])
+	result, err := BackupTarget(context.Background(), cfg, cfg.Targets[0], nil)
 
 	assert.Error(t, err)
 	require.NotNil(t, result)
@@ -161,7 +161,7 @@ func TestBackupTarget_DifferentDatabaseTypes(t *testing.T) {
 			cfg := createTestConfig()
 			cfg.Targets = []*config.Target{tt.target}
 
-			result, _ := BackupTarget(context.Background(), cfg, tt.target)
+			result, _ := BackupTarget(context.Background(), cfg, tt.target, nil)
 
 			require.NotNil(t, result)
 			assert.Equal(t, tt.target.Name, result.Target)
@@ -231,7 +231,7 @@ func TestBackupTarget_DurationMeasured(t *testing.T) {
 	assert.GreaterOrEqual(t, result.Duration, time.Duration(0))
 }
 
-func TestSendNotifications_NoNotifiers(t *testing.T) {
+func TestSendNotifications_NoNotifiers(_ *testing.T) {
 	cfg := createTestConfig()
 	result := &BackupResult{
 		Target:     "mysql-prod",

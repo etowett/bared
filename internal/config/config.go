@@ -1,3 +1,4 @@
+// Package config provides configuration file parsing and validation for BareD.
 package config
 
 // Config represents the entire configuration file
@@ -7,6 +8,7 @@ type Config struct {
 	Storages       map[string]*Storage  `yaml:"storages"`
 	Notifiers      map[string]*Notifier `yaml:"notifiers"`
 	Targets        []*Target            `yaml:"targets"`
+	RestoreTargets []*RestoreTarget     `yaml:"restore_targets,omitempty"`
 }
 
 // Storage configuration
@@ -64,4 +66,13 @@ type CompressionOpts struct {
 type TargetStorage struct {
 	Enabled bool   `yaml:"enabled"`
 	Name    string `yaml:"name"`
+}
+
+// RestoreTarget represents a restore destination (can differ from backup source)
+type RestoreTarget struct {
+	Name         string         `yaml:"name"`
+	Conn         *Connection    `yaml:"conn"`
+	SourceTarget string         `yaml:"source_target,omitempty"`
+	Storage      *TargetStorage `yaml:"storage,omitempty"`
+	Description  string         `yaml:"description,omitempty"`
 }

@@ -1,0 +1,67 @@
+# BareD Restore Configuration Example
+# This demonstrates how to configure separate restore targets
+
+default_storage: s3
+
+storages:
+  # S3 storage for production backups
+  s3:
+    type: s3
+    bucket: my-backup-bucket
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    path: backups/
+    keep: 30
+
+  # Local disk storage
+  local_disk:
+    type: local
+    path: /data/backups
+    keep: 20
+
+# Regular backup targets (production databases)
+targets:
+  - name: smsl_whatsapp
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: whatsapp_prod
+      host: prod-db.example.com
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    schedule: "0 2 * * *"  # Daily at 2 AM
+
+# Restore targets (separate destinations with different credentials)
+restore_targets:
+  # Restore production backups to staging with different credentials
+  - name: smsl_whatsapp_restore
+    description: "Restore production WhatsApp backups to staging database"
+    source_target: smsl_whatsapp  # Links to backup target for storage resolution
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_STAGING_PASSWORD}
+      database: whatsapp_staging
+      host: staging-db.example.com
+      port: 5432
+
+  # Restore to local database for development
+  - name: athena_local_db
+    description: "Restore Athena backups to local development database"
+    conn:
+      type: postgres
+      user: postgres
+      password: localpass
+      database: athena_dev
+      host: localhost
+      port: 5432
+    storage:
+      enabled: true
+      name: local_disk  # Override storage location

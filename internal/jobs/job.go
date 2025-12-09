@@ -1,9 +1,12 @@
+// Package jobs provides job management and tracking for backup and restore operations.
 package jobs
 
 import (
 	"context"
 	"sync"
 	"time"
+
+	"bared/internal/app"
 )
 
 // JobID is a unique identifier for a job
@@ -12,7 +15,9 @@ type JobID string
 // JobStatus represents the current state of a job
 type JobStatus string
 
+// Job statuses for tracking operation progress.
 const (
+	// JobStatusQueued indicates the job is waiting to be executed.
 	JobStatusQueued     JobStatus = "queued"
 	JobStatusRunning    JobStatus = "running"
 	JobStatusCompleted  JobStatus = "completed"
@@ -24,27 +29,30 @@ const (
 // JobType represents the type of operation
 type JobType string
 
+// Job types for different operations.
 const (
+	// JobTypeBackup indicates a backup operation.
 	JobTypeBackup  JobType = "backup"
 	JobTypeRestore JobType = "restore"
 )
 
 // Job represents a backup or restore operation
 type Job struct {
-	ID          JobID
-	Type        JobType
-	TargetName  string
-	Status      JobStatus
-	Progress    *Progress
-	Result      interface{} // *app.BackupResult or *app.RestoreResult
-	Error       error
-	CreatedAt   time.Time
-	StartedAt   *time.Time
-	CompletedAt *time.Time
-	Logs        *LogBuffer
-	BackupPath  string // For restore jobs
-	Manual      bool   // true if triggered manually via API
-	ScheduledBy string // cron schedule that triggered this
+	ID             JobID
+	Type           JobType
+	TargetName     string
+	Status         JobStatus
+	Progress       *Progress
+	Result         interface{} // *app.BackupResult or *app.RestoreResult
+	Error          error
+	CreatedAt      time.Time
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
+	Logs           *LogBuffer
+	BackupPath     string              // For restore jobs
+	RestoreOptions *app.RestoreOptions // For restore jobs with options
+	Manual         bool                // true if triggered manually via API
+	ScheduledBy    string              // cron schedule that triggered this
 
 	// Context for cancellation
 	ctx    context.Context

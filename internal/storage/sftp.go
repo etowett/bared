@@ -31,7 +31,7 @@ func (s *SFTP) Name() string {
 }
 
 // Validate checks if SFTP is accessible
-func (s *SFTP) Validate(ctx context.Context) error {
+func (s *SFTP) Validate(_ context.Context) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (s *SFTP) Validate(ctx context.Context) error {
 }
 
 // Store writes data from reader to SFTP
-func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int64) error {
+func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, _ int64) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -67,7 +67,10 @@ func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int
 		if err != nil {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
-		defer f.Close()
+		defer func() {
+			//nolint:errcheck // Error closing SFTP file during cleanup is not critical
+			_ = f.Close()
+		}()
 
 		_, err = io.Copy(f, r)
 		return err
@@ -81,7 +84,7 @@ func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int
 }
 
 // Retrieve reads data from SFTP into writer
-func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error {
+func (s *SFTP) Retrieve(_ context.Context, filePath string, w io.Writer) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -93,7 +96,10 @@ func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		//nolint:errcheck // Error closing SFTP file during cleanup is not critical
+		_ = f.Close()
+	}()
 
 	_, err = io.Copy(w, f)
 	if err != nil {
@@ -104,7 +110,7 @@ func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error
 }
 
 // List returns all backup files from SFTP
-func (s *SFTP) List(ctx context.Context) ([]*BackupInfo, error) {
+func (s *SFTP) List(_ context.Context) ([]*BackupInfo, error) {
 	if err := s.connect(); err != nil {
 		return nil, err
 	}
@@ -135,7 +141,7 @@ func (s *SFTP) List(ctx context.Context) ([]*BackupInfo, error) {
 }
 
 // Delete removes a backup from SFTP
-func (s *SFTP) Delete(ctx context.Context, filePath string) error {
+func (s *SFTP) Delete(_ context.Context, filePath string) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -162,7 +168,7 @@ func (s *SFTP) connect() error {
 		Auth: []ssh.AuthMethod{
 			ssh.Password(s.cfg.Password),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Add proper host key verification
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec G106 - TODO: Add proper host key verification
 	}
 
 	// Connect to SSH server
@@ -175,7 +181,8 @@ func (s *SFTP) connect() error {
 	// Create SFTP client
 	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
-		sshClient.Close()
+		//nolint:errcheck // Error closing SSH client during error handling is not critical
+		_ = sshClient.Close()
 		return fmt.Errorf("failed to create SFTP client: %w", err)
 	}
 
@@ -188,11 +195,56 @@ func (s *SFTP) connect() error {
 // disconnect closes SSH and SFTP connections
 func (s *SFTP) disconnect() {
 	if s.sftpClient != nil {
-		s.sftpClient.Close()
+		//nolint:errcheck // Error closing SFTP client during cleanup is not critical
+		_ = s.sftpClient.Close()
 		s.sftpClient = nil
 	}
 	if s.sshClient != nil {
-		s.sshClient.Close()
+		//nolint:errcheck // Error closing SSH client during cleanup is not critical
+		_ = s.sshClient.Close()
 		s.sshClient = nil
 	}
+}
+
+// Exists checks if a backup file exists in SFTP
+func (s *SFTP) Exists(_ context.Context, filePath string) (bool, error) {
+	if err := s.connect(); err != nil {
+		return false, err
+	}
+	defer s.disconnect()
+
+	fullPath := path.Join(s.cfg.Path, filePath)
+
+	_, err := s.sftpClient.Stat(fullPath)
+	if err != nil {
+		// Check if it's a "not exist" error
+		if err.Error() == "file does not exist" || err.Error() == "no such file" {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check file existence: %w", err)
+	}
+
+	return true, nil
+}
+
+// GetInfo returns metadata about a backup file in SFTP
+func (s *SFTP) GetInfo(_ context.Context, filePath string) (*BackupInfo, error) {
+	if err := s.connect(); err != nil {
+		return nil, err
+	}
+	defer s.disconnect()
+
+	fullPath := path.Join(s.cfg.Path, filePath)
+
+	info, err := s.sftpClient.Stat(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return &BackupInfo{
+		Path:         filePath,
+		Size:         info.Size(),
+		LastModified: info.ModTime(),
+		StorageName:  s.cfg.Name,
+	}, nil
 }

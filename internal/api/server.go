@@ -73,6 +73,7 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	// API routes (require authentication)
 	mux.HandleFunc("/api/dashboard", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleDashboard))))
 	mux.HandleFunc("/api/targets", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleListTargets))))
+	mux.HandleFunc("/api/restore-targets", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleListRestoreTargets))))
 	mux.HandleFunc("/api/jobs", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleJobsRouter))))
 	mux.HandleFunc("/api/jobs/", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleJobsDetailRouter))))
 

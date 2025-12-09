@@ -1,3 +1,4 @@
+// Package util provides utility functions including logging and command execution.
 package util
 
 import (
@@ -11,7 +12,9 @@ import (
 // LogLevel represents logging levels
 type LogLevel int
 
+// Log levels for controlling logging verbosity.
 const (
+	// DEBUG enables detailed debug logging.
 	DEBUG LogLevel = iota
 	INFO
 	WARN

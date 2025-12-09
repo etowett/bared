@@ -36,12 +36,12 @@ type JobResponse struct {
 
 // ProgressResponse represents progress information
 type ProgressResponse struct {
-	Stage          string   `json:"stage"`
-	Percent        float64  `json:"percent"`
-	BytesProcessed int64    `json:"bytes_processed"`
-	BytesTotal     int64    `json:"bytes_total"`
-	ETA            *string  `json:"eta,omitempty"`
-	Message        string   `json:"message"`
+	Stage          string  `json:"stage"`
+	Percent        float64 `json:"percent"`
+	BytesProcessed int64   `json:"bytes_processed"`
+	BytesTotal     int64   `json:"bytes_total"`
+	ETA            *string `json:"eta,omitempty"`
+	Message        string  `json:"message"`
 }
 
 // ListJobsResponse represents the response for listing jobs
@@ -59,6 +59,7 @@ type TriggerBackupRequest struct {
 type TriggerRestoreRequest struct {
 	Target     string `json:"target"`
 	BackupPath string `json:"backup_path"`
+	DryRun     bool   `json:"dry_run,omitempty"`
 }
 
 // JobCreatedResponse represents the response after creating a job
@@ -90,6 +91,22 @@ type DashboardResponse struct {
 	ActiveJobs   int             `json:"active_jobs"`
 	TotalJobs    int             `json:"total_jobs"`
 	TotalStorage int64           `json:"total_storage_bytes,omitempty"`
+}
+
+// RestoreTargetSummary represents a restore target's info
+type RestoreTargetSummary struct {
+	Name         string `json:"name"`
+	Type         string `json:"type"`
+	Database     string `json:"database"`
+	Host         string `json:"host"`
+	Description  string `json:"description,omitempty"`
+	SourceTarget string `json:"source_target,omitempty"`
+}
+
+// ListRestoreTargetsResponse represents the response for listing restore targets
+type ListRestoreTargetsResponse struct {
+	RestoreTargets []RestoreTargetSummary `json:"restore_targets"`
+	Total          int                    `json:"total"`
 }
 
 // LogEntry represents a single log entry

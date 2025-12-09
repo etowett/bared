@@ -72,7 +72,8 @@ func (m *MockStorage) Store(ctx context.Context, path string, r io.Reader, size 
 	// Capture data for verification
 	data := &strings.Builder{}
 	if r != nil {
-		io.Copy(data, r)
+		//nolint:errcheck // Error copying in mock is not critical
+		_, _ = io.Copy(data, r)
 	}
 
 	m.mu.Lock()
@@ -231,6 +232,66 @@ func (m *MockStorage) Validate(ctx context.Context) error {
 
 	// Return configured error
 	return m.ValidateError
+}
+
+// Exists mocks the storage.Exists method
+func (m *MockStorage) Exists(ctx context.Context, path string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	default:
+	}
+
+	// Check if file exists in stored files
+	if _, exists := m.StoredFiles[path]; exists {
+		return true, nil
+	}
+
+	// Check if file exists in list backups
+	for _, backup := range m.ListBackups {
+		if backup.Path == path {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// GetInfo mocks the storage.GetInfo method
+func (m *MockStorage) GetInfo(ctx context.Context, path string) (*storage.BackupInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Check if file exists in list backups
+	for _, backup := range m.ListBackups {
+		if backup.Path == path {
+			return backup, nil
+		}
+	}
+
+	// Check if file exists in stored files
+	if data, exists := m.StoredFiles[path]; exists {
+		return &storage.BackupInfo{
+			Path:         path,
+			Size:         int64(len(data)),
+			LastModified: time.Now(),
+			StorageName:  m.StorageNameValue,
+		}, nil
+	}
+
+	// File not found
+	return nil, fmt.Errorf("backup file not found: %s", path)
 }
 
 // Reset clears all recorded calls
