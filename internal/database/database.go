@@ -1,3 +1,4 @@
+// Package database provides database backup and restore implementations for MySQL, PostgreSQL, and Redis.
 package database
 
 import (

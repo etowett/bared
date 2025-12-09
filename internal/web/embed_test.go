@@ -14,7 +14,7 @@ func TestGetHandler(t *testing.T) {
 	require.NotNil(t, handler)
 }
 
-func TestGetHandler_ReturnsHTTPHandler(t *testing.T) {
+func TestGetHandler_ReturnsHTTPHandler(_ *testing.T) {
 	handler := GetHandler()
 
 	// Verify it implements http.Handler interface

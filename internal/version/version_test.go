@@ -66,7 +66,7 @@ func TestVersionVariables(t *testing.T) {
 	assert.Equal(t, "unknown", BuildDate)
 }
 
-func TestVersionVariables_Types(t *testing.T) {
+func TestVersionVariables_Types(_ *testing.T) {
 	// Verify all variables are strings
 	var _ string = Version
 	var _ string = Commit

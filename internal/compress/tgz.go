@@ -32,19 +32,15 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 	// Create gzip writer
 	gzw := gzip.NewWriter(w)
 	defer func() {
-		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-		if err := gzw.Close(); err != nil {
-			// Error already being returned by main function
-		}
+		//nolint:errcheck // Error closing gzip writer during cleanup is not critical
+		_ = gzw.Close()
 	}()
 
 	// Create tar writer
 	tw := tar.NewWriter(gzw)
 	defer func() {
-		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-		if err := tw.Close(); err != nil {
-			// Error already being returned by main function
-		}
+		//nolint:errcheck // Error closing tar writer during cleanup is not critical
+		_ = tw.Close()
 	}()
 
 	// Create a pipe to count bytes as we read
@@ -125,17 +121,15 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 }
 
 // Decompress reads tar.gz from reader and writes uncompressed content to writer
-func (t *TarGz) Decompress(ctx context.Context, r io.Reader, w io.Writer) error {
+func (t *TarGz) Decompress(_ context.Context, r io.Reader, w io.Writer) error {
 	// Create gzip reader
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer func() {
-		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-		if err := gzr.Close(); err != nil {
-			// Error already being returned by main function
-		}
+		//nolint:errcheck // Error closing gzip reader during cleanup is not critical
+		_ = gzr.Close()
 	}()
 
 	// Create tar reader

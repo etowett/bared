@@ -241,7 +241,7 @@ func TestLocal_Retrieve(t *testing.T) {
 		},
 		{
 			name: "retrieve non-existent file",
-			setupFile: func(tmpDir string) string {
+			setupFile: func(_ string) string {
 				return "nonexistent.sql"
 			},
 			wantErr:     true,
@@ -307,7 +307,7 @@ func TestLocal_List(t *testing.T) {
 	}{
 		{
 			name: "list empty directory",
-			setupFiles: func(tmpDir string) {
+			setupFiles: func(_ string) {
 				// No files
 			},
 			wantCount: 0,
@@ -424,7 +424,7 @@ func TestLocal_Delete(t *testing.T) {
 		},
 		{
 			name: "delete non-existent file",
-			setupFile: func(tmpDir string) string {
+			setupFile: func(_ string) string {
 				return "nonexistent.sql"
 			},
 			wantErr:     true,

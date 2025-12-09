@@ -32,7 +32,7 @@ func (p *Postgres) Name() string {
 }
 
 // Validate checks if pg_dump command exists
-func (p *Postgres) Validate(ctx context.Context) error {
+func (p *Postgres) Validate(_ context.Context) error {
 	if err := util.CheckCommandExists("pg_dump"); err != nil {
 		return fmt.Errorf("pg_dump not found: %w (install postgresql-client package)", err)
 	}

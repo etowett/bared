@@ -1,3 +1,4 @@
+// Package jobs provides job management and tracking for backup and restore operations.
 package jobs
 
 import (
@@ -14,7 +15,9 @@ type JobID string
 // JobStatus represents the current state of a job
 type JobStatus string
 
+// Job statuses for tracking operation progress.
 const (
+	// JobStatusQueued indicates the job is waiting to be executed.
 	JobStatusQueued     JobStatus = "queued"
 	JobStatusRunning    JobStatus = "running"
 	JobStatusCompleted  JobStatus = "completed"
@@ -26,7 +29,9 @@ const (
 // JobType represents the type of operation
 type JobType string
 
+// Job types for different operations.
 const (
+	// JobTypeBackup indicates a backup operation.
 	JobTypeBackup  JobType = "backup"
 	JobTypeRestore JobType = "restore"
 )

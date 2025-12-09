@@ -1,3 +1,4 @@
+// Package fixtures provides test fixtures for database configurations and mock data.
 package fixtures
 
 import (

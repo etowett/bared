@@ -388,7 +388,7 @@ func TestS3_PathPrefix(t *testing.T) {
 	}
 }
 
-func TestS3_ContextCancellation(t *testing.T) {
+func TestS3_ContextCancellation(_ *testing.T) {
 	cfg := &config.Storage{
 		Name:            "s3",
 		Type:            "s3",

@@ -1,3 +1,4 @@
+// Package api provides HTTP API handlers for the BareD REST API.
 package api
 
 import (
@@ -11,7 +12,7 @@ import (
 )
 
 // handleHealth returns the API health status
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	respondJSON(w, http.StatusOK, HealthResponse{
 		Status:  "ok",
 		Version: version.GetVersion(),
@@ -19,7 +20,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleListTargets returns all configured targets
-func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
 	targets := s.cfg.Targets
 	summaries := make([]TargetSummary, 0, len(targets))
 
@@ -45,7 +46,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleListRestoreTargets returns all configured restore targets
-func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListRestoreTargets(w http.ResponseWriter, _ *http.Request) {
 	restoreTargets := s.cfg.RestoreTargets
 	summaries := make([]RestoreTargetSummary, 0, len(restoreTargets))
 
@@ -292,7 +293,7 @@ func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDashboard returns dashboard summary
-func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleDashboard(w http.ResponseWriter, _ *http.Request) {
 	// Get all targets
 	targets := s.cfg.Targets
 	summaries := make([]TargetSummary, 0, len(targets))

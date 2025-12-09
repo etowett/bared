@@ -1,3 +1,4 @@
+// Package config provides configuration file parsing and validation for BareD.
 package config
 
 // Config represents the entire configuration file

@@ -231,7 +231,7 @@ func TestBackupTarget_DurationMeasured(t *testing.T) {
 	assert.GreaterOrEqual(t, result.Duration, time.Duration(0))
 }
 
-func TestSendNotifications_NoNotifiers(t *testing.T) {
+func TestSendNotifications_NoNotifiers(_ *testing.T) {
 	cfg := createTestConfig()
 	result := &BackupResult{
 		Target:     "mysql-prod",

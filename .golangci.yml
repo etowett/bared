@@ -8,10 +8,9 @@ linters:
   default: none
   enable:
     - errcheck      # Check for unchecked errors
-    - gosimple      # Simplify code
     - govet         # Vet examines Go source code
     - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Static analysis
+    - staticcheck   # Static analysis (includes gosimple in v2)
     - unused        # Check for unused code
     - misspell      # Check for misspelled words
     - revive        # Fast, configurable, extensible, flexible, and beautiful linter
@@ -30,23 +29,24 @@ linters:
           - errcheck
           - gosec
 
-settings:
-  errcheck:
-    check-blank: true
-    check-type-assertions: true
+  settings:
+    errcheck:
+      check-blank: true
+      check-type-assertions: true
 
-  govet:
-    settings:
-      shadow:
-        strict: true
+    revive:
+      confidence: 0.8
+      rules:
+        - name: var-naming
+          disabled: true  # Allow util, api package names
 
-  revive:
-    confidence: 0.8
+    gosec:
+      excludes:
+        - G204  # Subprocess launched with variable (we need this for database commands)
+        - G401  # Use of weak cryptographic primitive (we're not doing crypto)
 
-  gosec:
-    excludes:
-      - G204  # Subprocess launched with variable (we need this for database commands)
-      - G401  # Use of weak cryptographic primitive (we're not doing crypto)
+    staticcheck:
+      checks: ["all", "-QF1011"]  # Disable type inference suggestions for compile-time type assertions
 
 formatters:
   enable:

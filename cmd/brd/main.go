@@ -1,3 +1,4 @@
+// Package main provides the command-line interface for BareD, a backup and restore daemon for databases.
 package main
 
 import (
@@ -49,7 +50,7 @@ func init() {
 var validateConfigCmd = &cobra.Command{
 	Use:   "validate-config",
 	Short: "Validate configuration file",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
@@ -75,7 +76,7 @@ var validateConfigCmd = &cobra.Command{
 var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Backup a target database",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		targetName, err := cmd.Flags().GetString("target")
 		if err != nil {
 			return fmt.Errorf("failed to get target flag: %w", err)
@@ -148,7 +149,7 @@ Examples:
 
   # Use separate restore config
   brd restore --config restore-config.yml --target staging_restore --backup latest`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		targetName, err := cmd.Flags().GetString("target")
 		if err != nil {
 			return fmt.Errorf("failed to get target flag: %w", err)
@@ -306,7 +307,7 @@ func init() {
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List backups for a target",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		targetName, err := cmd.Flags().GetString("target")
 		if err != nil {
 			return fmt.Errorf("failed to get target flag: %w", err)
@@ -370,7 +371,7 @@ func init() {
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run as daemon with scheduler",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)

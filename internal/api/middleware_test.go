@@ -26,7 +26,7 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	})
@@ -78,7 +78,7 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+			handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
 
@@ -107,7 +107,7 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -121,7 +121,7 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 }
 
 func TestLoggingMiddleware(t *testing.T) {
-	handler := loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test response"))
 	})
@@ -147,7 +147,7 @@ func TestLoggingMiddleware_CapturesStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+			handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
 			})
 
@@ -162,7 +162,7 @@ func TestLoggingMiddleware_CapturesStatusCode(t *testing.T) {
 }
 
 func TestCorsMiddleware(t *testing.T) {
-	handler := corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := corsMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("cors enabled"))
 	})
@@ -180,7 +180,7 @@ func TestCorsMiddleware(t *testing.T) {
 }
 
 func TestCorsMiddleware_PreflightRequest(t *testing.T) {
-	handler := corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := corsMiddleware(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatal("Handler should not be called for OPTIONS request")
 	})
 
@@ -236,7 +236,7 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -254,7 +254,7 @@ func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			handler := loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+			handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			})
 
@@ -269,7 +269,7 @@ func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
 }
 
 func TestCorsMiddleware_DifferentOrigins(t *testing.T) {
-	handler := corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := corsMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -306,7 +306,7 @@ func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -335,7 +335,7 @@ func TestMiddlewareChaining(t *testing.T) {
 	}
 
 	// Chain multiple middlewares
-	finalHandler := func(w http.ResponseWriter, r *http.Request) {
+	finalHandler := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	}

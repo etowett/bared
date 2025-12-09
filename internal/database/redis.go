@@ -30,7 +30,7 @@ func (r *Redis) Name() string {
 }
 
 // Validate checks if redis-cli command exists
-func (r *Redis) Validate(ctx context.Context) error {
+func (r *Redis) Validate(_ context.Context) error {
 	if err := util.CheckCommandExists("redis-cli"); err != nil {
 		return fmt.Errorf("redis-cli not found: %w (install redis-tools package)", err)
 	}
@@ -45,10 +45,8 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	tmpDir := os.TempDir()
 	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("redis-dump-%d.rdb", time.Now().Unix()))
 	defer func() {
-		//nolint:staticcheck // empty branch is intentional - ignoring cleanup errors
-		if err := os.Remove(tmpFile); err != nil {
-			// Ignore error on cleanup
-		}
+		//nolint:errcheck // Error removing temp file during cleanup is not critical
+		_ = os.Remove(tmpFile)
 	}()
 
 	// Use redis-cli --rdb to dump the database
@@ -65,10 +63,8 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 		return nil, fmt.Errorf("failed to open RDB file: %w", err)
 	}
 	defer func() {
-		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-		if err := rdbFile.Close(); err != nil {
-			// Ignore error on cleanup
-		}
+		//nolint:errcheck // Error closing RDB file during cleanup is not critical
+		_ = rdbFile.Close()
 	}()
 
 	size, err := io.Copy(w, rdbFile)
@@ -88,7 +84,7 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 }
 
 // Restore is not implemented for Redis (requires stopping server and replacing RDB file)
-func (r *Redis) Restore(ctx context.Context, reader io.Reader) error {
+func (r *Redis) Restore(_ context.Context, _ io.Reader) error {
 	return fmt.Errorf("redis restore not yet implemented (requires manual RDB file replacement)")
 }
 

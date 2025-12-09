@@ -31,7 +31,7 @@ func (s *SFTP) Name() string {
 }
 
 // Validate checks if SFTP is accessible
-func (s *SFTP) Validate(ctx context.Context) error {
+func (s *SFTP) Validate(_ context.Context) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (s *SFTP) Validate(ctx context.Context) error {
 }
 
 // Store writes data from reader to SFTP
-func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int64) error {
+func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, _ int64) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -68,10 +68,8 @@ func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int
 			return fmt.Errorf("failed to create file: %w", err)
 		}
 		defer func() {
-			//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-			if err := f.Close(); err != nil {
-				// Error already being returned by retry function
-			}
+			//nolint:errcheck // Error closing SFTP file during cleanup is not critical
+			_ = f.Close()
 		}()
 
 		_, err = io.Copy(f, r)
@@ -86,7 +84,7 @@ func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int
 }
 
 // Retrieve reads data from SFTP into writer
-func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error {
+func (s *SFTP) Retrieve(_ context.Context, filePath string, w io.Writer) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -99,10 +97,8 @@ func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
-		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
-		if err := f.Close(); err != nil {
-			// Error already being returned by main function
-		}
+		//nolint:errcheck // Error closing SFTP file during cleanup is not critical
+		_ = f.Close()
 	}()
 
 	_, err = io.Copy(w, f)
@@ -114,7 +110,7 @@ func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error
 }
 
 // List returns all backup files from SFTP
-func (s *SFTP) List(ctx context.Context) ([]*BackupInfo, error) {
+func (s *SFTP) List(_ context.Context) ([]*BackupInfo, error) {
 	if err := s.connect(); err != nil {
 		return nil, err
 	}
@@ -145,7 +141,7 @@ func (s *SFTP) List(ctx context.Context) ([]*BackupInfo, error) {
 }
 
 // Delete removes a backup from SFTP
-func (s *SFTP) Delete(ctx context.Context, filePath string) error {
+func (s *SFTP) Delete(_ context.Context, filePath string) error {
 	if err := s.connect(); err != nil {
 		return err
 	}
@@ -211,7 +207,7 @@ func (s *SFTP) disconnect() {
 }
 
 // Exists checks if a backup file exists in SFTP
-func (s *SFTP) Exists(ctx context.Context, filePath string) (bool, error) {
+func (s *SFTP) Exists(_ context.Context, filePath string) (bool, error) {
 	if err := s.connect(); err != nil {
 		return false, err
 	}
@@ -232,7 +228,7 @@ func (s *SFTP) Exists(ctx context.Context, filePath string) (bool, error) {
 }
 
 // GetInfo returns metadata about a backup file in SFTP
-func (s *SFTP) GetInfo(ctx context.Context, filePath string) (*BackupInfo, error) {
+func (s *SFTP) GetInfo(_ context.Context, filePath string) (*BackupInfo, error) {
 	if err := s.connect(); err != nil {
 		return nil, err
 	}

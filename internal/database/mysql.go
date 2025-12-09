@@ -32,7 +32,7 @@ func (m *MySQL) Name() string {
 }
 
 // Validate checks if mysqldump command exists
-func (m *MySQL) Validate(ctx context.Context) error {
+func (m *MySQL) Validate(_ context.Context) error {
 	if err := util.CheckCommandExists("mysqldump"); err != nil {
 		return fmt.Errorf("mysqldump not found: %w (install mysql-client package)", err)
 	}

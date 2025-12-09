@@ -543,7 +543,7 @@ func TestManager_MultipleTargetsAndJobTypes(t *testing.T) {
 	assert.Len(t, postgresJobs, 2)
 }
 
-func TestManager_GetJob_ThreadSafety(t *testing.T) {
+func TestManager_GetJob_ThreadSafety(_ *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}

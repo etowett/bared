@@ -1,3 +1,4 @@
+// Package app provides high-level application logic for backup, restore, and listing operations.
 package app
 
 import (

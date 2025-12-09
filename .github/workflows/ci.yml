@@ -14,6 +14,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    needs: [web]
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -28,6 +29,22 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
+    - name: Install database tools (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          mariadb-client \
+          postgresql-client \
+          redis-tools
+
+    - name: Install database tools (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install mysql-client postgresql redis
+        echo "/usr/local/opt/mysql-client/bin" >> $GITHUB_PATH
+
     - name: Cache Go modules
       uses: actions/cache@v4
       with:
@@ -40,6 +57,20 @@ jobs:
 
     - name: Download dependencies
       run: go mod download
+
+    - name: Download web artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: web-dist
+        path: internal/web/dist
+      continue-on-error: true
+
+    - name: Create placeholder dist if needed
+      run: |
+        if [ ! -d "internal/web/dist" ]; then
+          mkdir -p internal/web/dist
+          echo "placeholder" > internal/web/dist/.placeholder
+        fi
 
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...

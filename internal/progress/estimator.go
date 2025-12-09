@@ -1,3 +1,4 @@
+// Package progress provides progress tracking and estimation for long-running operations.
 package progress
 
 import (

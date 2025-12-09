@@ -1,3 +1,4 @@
+// Package notify provides notification implementations for Slack and Discord.
 package notify
 
 import (

@@ -86,10 +86,8 @@ func TestCreateBackupTempFile_UniqueFilenames(t *testing.T) {
 		// Store for cleanup (note: not appending to maintain unique filenames)
 		defer cleanup()
 		defer func() {
-			//nolint:staticcheck // empty branch is intentional - ignoring cleanup errors in test
-			if err := file.Close(); err != nil {
-				// Ignore error in test cleanup
-			}
+			//nolint:errcheck // Error closing test file during cleanup is not critical
+			_ = file.Close()
 		}()
 	}
 

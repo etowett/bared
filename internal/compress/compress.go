@@ -1,3 +1,4 @@
+// Package compress provides compression and decompression functionality for backup files.
 package compress
 
 import (

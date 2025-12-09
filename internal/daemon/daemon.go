@@ -1,3 +1,4 @@
+// Package daemon provides the daemon server with scheduling and HTTP API capabilities.
 package daemon
 
 import (

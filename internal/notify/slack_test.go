@@ -107,7 +107,7 @@ func TestSlack_NotifySuccess(t *testing.T) {
 			msg: &Message{
 				Target: "mysql-prod",
 			},
-			validateFunc: func(t *testing.T, payload map[string]interface{}) {
+			validateFunc: func(t *testing.T, _ map[string]interface{}) {
 				// Should not be called
 				t.Error("HTTP request should not be made when success notifications disabled")
 			},
@@ -256,21 +256,21 @@ func TestSlack_HTTPErrors(t *testing.T) {
 	}{
 		{
 			name: "slack returns 404",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
 			expectedError: "slack returned status 404",
 		},
 		{
 			name: "slack returns 500",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			expectedError: "slack returned status 500",
 		},
 		{
 			name: "slack returns 403",
-			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+			serverResponse: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 			},
 			expectedError: "slack returned status 403",
@@ -344,7 +344,7 @@ func TestSlack_InvalidURL(t *testing.T) {
 
 func TestSlack_ContextCancellation(t *testing.T) {
 	// Create a server that delays response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -373,7 +373,7 @@ func TestSlack_ContextCancellation(t *testing.T) {
 
 func TestSlack_ContextTimeout(t *testing.T) {
 	// Create a server that delays response longer than timeout
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -535,7 +535,7 @@ func TestSlack_PayloadStructure(t *testing.T) {
 
 func TestSlack_ConcurrentNotifications(t *testing.T) {
 	var requestCount int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		atomic.AddInt32(&requestCount, 1)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -572,7 +572,7 @@ func TestSlack_ConcurrentNotifications(t *testing.T) {
 }
 
 func TestSlack_LargeMessage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
