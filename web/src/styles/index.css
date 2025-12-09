@@ -714,15 +714,25 @@ button:disabled {
 }
 
 .form-select,
-.form-textarea {
+.form-textarea,
+.form-input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1rem;
   font-family: inherit;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--text-primary);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-select:focus,
+.form-textarea:focus,
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .form-textarea {
@@ -832,4 +842,40 @@ button:disabled {
   text-align: center;
   padding: 2rem;
   color: var(--text-muted);
+}
+
+/* Autocomplete Suggestions */
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: var(--shadow-md);
+  margin-top: 4px;
+}
+
+.autocomplete-suggestions > div {
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.autocomplete-suggestions > div:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-suggestions > div:hover,
+.autocomplete-suggestions > div.selected {
+  background: var(--bg-tertiary);
+}
+
+.autocomplete-suggestions > div:active {
+  background: var(--bg-secondary);
 }

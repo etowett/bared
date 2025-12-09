@@ -1,5 +1,5 @@
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/web
 
@@ -39,31 +39,34 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -o brd ./cmd/brd
 
 # Stage 3: Runtime
-FROM alpine:latest
+FROM debian:trixie-slim
 
 # Install runtime dependencies (database clients + wget for health checks)
-RUN apk add --no-cache \
-    mysql-client \
+# Note: mariadb-client provides mysql/mysqldump commands compatible with both MySQL and MariaDB
+# MySQL and MariaDB clients conflict in package managers, so we use mariadb-client which works with both
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    mariadb-client \
     postgresql-client \
-    redis \
+    redis-tools \
     ca-certificates \
-    tzdata \
-    wget
+    wget && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -g 1000 backup && \
-    adduser -D -u 1000 -G backup backup
+RUN groupadd -r -g 1000 bared && \
+    useradd -r -u 1000 -g bared bared
 
 # Create directories
 RUN mkdir -p /backups /etc/bared /tmp && \
-    chown -R backup:backup /backups /etc/bared /tmp
+    chown -R bared:bared /backups /etc/bared /tmp
 
 # Copy binary from builder
 COPY --from=backend-builder /app/brd /usr/local/bin/brd
 RUN chmod +x /usr/local/bin/brd
 
 # Switch to non-root user
-USER backup
+USER bared
 
 # Set working directory
 WORKDIR /etc/bared
@@ -73,7 +76,7 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
 # Volumes
 VOLUME ["/backups", "/etc/bared"]

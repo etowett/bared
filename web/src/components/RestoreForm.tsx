@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTriggerRestore } from '../hooks/useJobs'
 import { useRestoreTargets } from '../hooks/useRestoreTargets'
 import type { RestoreTarget } from '../types'
@@ -7,11 +7,46 @@ interface RestoreFormProps {
   onSuccess?: () => void
 }
 
+const STORAGE_KEY = 'bared_backup_paths'
+const MAX_HISTORY = 20
+
+function loadBackupPathHistory(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return []
+  }
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function saveBackupPath(path: string) {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return
+  }
+  try {
+    const history = loadBackupPathHistory()
+    // Remove if already exists and add to front
+    const filtered = history.filter((p) => p !== path)
+    const updated = [path, ...filtered].slice(0, MAX_HISTORY)
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 export function RestoreForm({ onSuccess }: RestoreFormProps) {
   const [selectedTarget, setSelectedTarget] = useState<string>('')
   const [backupPath, setBackupPath] = useState<string>('')
   const [dryRun, setDryRun] = useState<boolean>(true)
   const [showConfirm, setShowConfirm] = useState<boolean>(false)
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   const { data: restoreTargets, isLoading } = useRestoreTargets()
   const triggerRestore = useTriggerRestore()
@@ -19,6 +54,77 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
   const selectedTargetInfo = restoreTargets?.restore_targets.find(
     (t: RestoreTarget) => t.name === selectedTarget
   )
+
+  // Load and filter suggestions based on input
+  useEffect(() => {
+    if (!backupPath.trim()) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    const history = loadBackupPathHistory()
+    const filtered = history.filter((path) =>
+      path.toLowerCase().includes(backupPath.toLowerCase())
+    )
+    setSuggestions(filtered)
+    setShowSuggestions(filtered.length > 0)
+    setSelectedIndex(-1)
+  }, [backupPath])
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setSelectedIndex((prev) =>
+          prev < suggestions.length - 1 ? prev + 1 : prev
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
+        break
+      case 'Enter':
+        if (selectedIndex >= 0) {
+          e.preventDefault()
+          setBackupPath(suggestions[selectedIndex])
+          setShowSuggestions(false)
+          setSelectedIndex(-1)
+        }
+        break
+      case 'Escape':
+        setShowSuggestions(false)
+        setSelectedIndex(-1)
+        break
+    }
+  }
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setBackupPath(suggestion)
+    setShowSuggestions(false)
+    setSelectedIndex(-1)
+    inputRef.current?.focus()
+  }
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,10 +157,14 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
           : 'Restore job queued successfully!'
       )
 
+      // Save successful backup path to history
+      saveBackupPath(backupPath)
+
       // Only clear form fields on success
       setBackupPath('')
       setDryRun(true)
       setShowConfirm(false)
+      setShowSuggestions(false)
 
       if (onSuccess) onSuccess()
     } catch (error) {
@@ -112,17 +222,39 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
           </div>
         )}
 
-        <div className="form-group">
+        <div className="form-group" style={{ position: 'relative' }}>
           <label htmlFor="backup-path">Backup Path:</label>
-          <textarea
+          <input
+            ref={inputRef}
             id="backup-path"
+            type="text"
             value={backupPath}
             onChange={(e) => setBackupPath(e.target.value)}
-            className="form-textarea"
+            onKeyDown={handleKeyDown}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setShowSuggestions(true)
+              }
+            }}
+            className="form-input"
             placeholder="e.g., et-backups/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
-            rows={3}
             required
+            autoComplete="off"
           />
+          {showSuggestions && suggestions.length > 0 && (
+            <div ref={suggestionsRef} className="autocomplete-suggestions">
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={suggestion}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={index === selectedIndex ? 'selected' : ''}
+                >
+                  {suggestion}
+                </div>
+              ))}
+            </div>
+          )}
           <small className="form-help">
             Enter the backup file path or 'latest' to restore the most recent backup
           </small>
