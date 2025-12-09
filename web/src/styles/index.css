@@ -724,7 +724,9 @@ button:disabled {
   font-family: inherit;
   background: var(--bg-primary);
   color: var(--text-primary);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .form-select:focus,

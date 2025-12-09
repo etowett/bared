@@ -64,9 +64,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
     }
 
     const history = loadBackupPathHistory()
-    const filtered = history.filter((path) =>
-      path.toLowerCase().includes(backupPath.toLowerCase())
-    )
+    const filtered = history.filter((path) => path.toLowerCase().includes(backupPath.toLowerCase()))
     setSuggestions(filtered)
     setShowSuggestions(filtered.length > 0)
     setSelectedIndex(-1)
@@ -79,9 +77,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex((prev) =>
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        )
+        setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
         break
       case 'ArrowUp':
         e.preventDefault()
@@ -152,9 +148,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
       })
 
       alert(
-        dryRun
-          ? 'Restore validation job queued successfully!'
-          : 'Restore job queued successfully!'
+        dryRun ? 'Restore validation job queued successfully!' : 'Restore job queued successfully!'
       )
 
       // Save successful backup path to history
@@ -262,11 +256,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
         <div className="form-group checkbox-group">
           <label>
-            <input
-              type="checkbox"
-              checked={dryRun}
-              onChange={(e) => setDryRun(e.target.checked)}
-            />
+            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
             <span>Dry-run (validate only, do not restore)</span>
           </label>
           <small className="form-help">
@@ -283,8 +273,8 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
             {triggerRestore.isPending
               ? 'Submitting...'
               : dryRun
-              ? 'Validate Restore'
-              : 'Execute Restore'}
+                ? 'Validate Restore'
+                : 'Execute Restore'}
           </button>
         </div>
       </form>

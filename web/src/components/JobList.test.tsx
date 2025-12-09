@@ -14,7 +14,9 @@ vi.mock('../hooks/useJobs', () => ({
 // Mock JobProgress component
 vi.mock('./JobProgress', () => ({
   JobProgress: ({ progress, compact }: { progress: any; compact: boolean }) => (
-    <div data-testid="job-progress">{progress.percent}% - {compact ? 'compact' : 'full'}</div>
+    <div data-testid="job-progress">
+      {progress.percent}% - {compact ? 'compact' : 'full'}
+    </div>
   ),
 }))
 
@@ -172,13 +174,8 @@ describe('JobList Component', () => {
   })
 
   it('highlights selected job row', () => {
-    const jobs = [
-      createMockJob({ id: 'selected-job-id' }),
-      createMockJob({ id: 'other-job-id' }),
-    ]
-    render(
-      <JobList jobs={jobs} onSelectJob={mockOnSelectJob} selectedJobId="selected-job-id" />
-    )
+    const jobs = [createMockJob({ id: 'selected-job-id' }), createMockJob({ id: 'other-job-id' })]
+    render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} selectedJobId="selected-job-id" />)
 
     const rows = screen.getAllByRole('row')
     // First row is header, second is selected job

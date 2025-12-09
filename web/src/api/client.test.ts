@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  getAuthHeader,
-  setAuth,
-  clearAuth,
-  isAuthenticated,
-  apiClient,
-} from './client'
+import { getAuthHeader, setAuth, clearAuth, isAuthenticated, apiClient } from './client'
 
 describe('API Client', () => {
   let mockFetch: ReturnType<typeof vi.fn>
@@ -112,9 +106,7 @@ describe('API Client', () => {
       it('fetches targets list', async () => {
         setAuth('user', 'pass')
         const mockTargets = {
-          targets: [
-            { name: 'db1', type: 'mysql', database: 'test', is_running: false },
-          ],
+          targets: [{ name: 'db1', type: 'mysql', database: 'test', is_running: false }],
           total: 1,
         }
         mockFetch.mockResolvedValueOnce({
@@ -166,9 +158,7 @@ describe('API Client', () => {
       it('fetches jobs without filters', async () => {
         setAuth('user', 'pass')
         const mockJobs = {
-          jobs: [
-            { id: 'job1', type: 'backup', target: 'db1', status: 'running' },
-          ],
+          jobs: [{ id: 'job1', type: 'backup', target: 'db1', status: 'running' }],
           total: 1,
         }
         mockFetch.mockResolvedValueOnce({
@@ -346,9 +336,7 @@ describe('API Client', () => {
         setAuth('user', 'pass')
         const mockLogs = {
           job_id: 'job1',
-          logs: [
-            { timestamp: '2025-12-09T10:00:00Z', level: 'info', message: 'Starting' },
-          ],
+          logs: [{ timestamp: '2025-12-09T10:00:00Z', level: 'info', message: 'Starting' }],
           total: 1,
         }
         mockFetch.mockResolvedValueOnce({

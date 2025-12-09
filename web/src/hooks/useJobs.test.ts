@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useJobs, useJob, useJobLogs, useTriggerBackup, useTriggerRestore, useCancelJob } from './useJobs'
+import {
+  useJobs,
+  useJob,
+  useJobLogs,
+  useTriggerBackup,
+  useTriggerRestore,
+  useCancelJob,
+} from './useJobs'
 import * as apiClient from '../api/client'
 import React from 'react'
 
@@ -344,9 +351,7 @@ describe('useJobs Hooks', () => {
     })
 
     it('handles cancel job errors', async () => {
-      vi.spyOn(apiClient.apiClient, 'cancelJob').mockRejectedValueOnce(
-        new Error('Cancel failed')
-      )
+      vi.spyOn(apiClient.apiClient, 'cancelJob').mockRejectedValueOnce(new Error('Cancel failed'))
 
       const { result } = renderHook(() => useCancelJob(), { wrapper: createWrapper() })
 
