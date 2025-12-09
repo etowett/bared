@@ -64,6 +64,26 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 
 	log.Printf("[%s] Starting backup", target.Name)
 
+	// Generate backup path early (before any validation) so it's always set in result
+	extension := ""
+	if target.Compress != nil && target.Compress.Enabled {
+		compressor, compressErr := compress.New(target.Compress.Type, target.Conn.Database)
+		if compressErr != nil {
+			// Even if compression fails, set a default path for consistency
+			extension = ".sql"
+			backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+			result.BackupPath = backupPath
+			result.Error = fmt.Errorf("failed to create compressor: %w", compressErr)
+			return result, result.Error
+		}
+		extension = compressor.Extension()
+	} else {
+		extension = ".sql"
+	}
+
+	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
+	result.BackupPath = backupPath
+
 	// Create database dumper
 	dumper, err := database.NewDumper(target)
 	if err != nil {
@@ -84,33 +104,14 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		return result, result.Error
 	}
 
-	// Generate backup path early (before storage validation) so it's always set
-	extension := ""
-	if target.Compress != nil && target.Compress.Enabled {
-		compressor, compressErr := compress.New(target.Compress.Type, target.Conn.Database)
-		if compressErr != nil {
-			// Even if compression fails, set a default path for consistency
-			extension = ".sql"
-			backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
-			result.BackupPath = backupPath
-			result.Error = fmt.Errorf("failed to create compressor: %w", compressErr)
-			return result, result.Error
-		}
-		extension = compressor.Extension()
-	} else {
-		extension = ".sql"
-	}
-
-	backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
-	result.BackupPath = backupPath
+	// Set storage name early from config
+	result.StorageName = storageCfg.Name
 
 	stor, err := storage.New(storageCfg)
 	if err != nil {
 		result.Error = fmt.Errorf("failed to create storage: %w", err)
 		return result, result.Error
 	}
-
-	result.StorageName = stor.Name()
 
 	// Validate storage
 	if storageErr := stor.Validate(ctx); storageErr != nil {
