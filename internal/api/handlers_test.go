@@ -22,7 +22,7 @@ func init() {
 	util.InitLogger(util.ERROR)
 }
 
-func setupTestServer(t *testing.T) (*Server, *jobs.Manager) {
+func setupTestServer(_ *testing.T) *Server {
 	target := fixtures.MySQLTarget()
 	target.Name = "test-target"
 
@@ -40,11 +40,11 @@ func setupTestServer(t *testing.T) (*Server, *jobs.Manager) {
 		cfg:        cfg,
 	}
 
-	return server, mgr
+	return server
 }
 
 func TestHandleHealth(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/health", nil)
 	rr := httptest.NewRecorder()
@@ -62,7 +62,7 @@ func TestHandleHealth(t *testing.T) {
 }
 
 func TestHandleListTargets(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/targets", nil)
 	rr := httptest.NewRecorder()
@@ -122,7 +122,7 @@ func TestHandleListRestoreTargets(t *testing.T) {
 }
 
 func TestHandleListJobs_Empty(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/jobs", nil)
 	rr := httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestHandleListJobs_Empty(t *testing.T) {
 }
 
 func TestHandleGetJob_NotFound(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/jobs/nonexistent-id", nil)
 	rr := httptest.NewRecorder()
@@ -151,7 +151,7 @@ func TestHandleGetJob_NotFound(t *testing.T) {
 }
 
 func TestHandleGetJob_InvalidPath(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/jobs/", nil)
 	rr := httptest.NewRecorder()
@@ -163,7 +163,7 @@ func TestHandleGetJob_InvalidPath(t *testing.T) {
 }
 
 func TestHandleTriggerBackup_MethodNotAllowed(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/backups/trigger", nil)
 	rr := httptest.NewRecorder()
@@ -174,7 +174,7 @@ func TestHandleTriggerBackup_MethodNotAllowed(t *testing.T) {
 }
 
 func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("POST", "/api/backups/trigger", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
@@ -185,7 +185,7 @@ func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	reqBody := TriggerBackupRequest{Target: ""}
 	body, _ := json.Marshal(reqBody)
@@ -199,7 +199,7 @@ func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
 }
 
 func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	reqBody := TriggerBackupRequest{Target: "nonexistent-target"}
 	body, _ := json.Marshal(reqBody)
@@ -213,7 +213,7 @@ func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 }
 
 func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("POST", "/api/restore/trigger", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
@@ -224,7 +224,7 @@ func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
 }
 
 func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	reqBody := TriggerRestoreRequest{
 		Target:     "",
@@ -241,7 +241,7 @@ func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 }
 
 func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	reqBody := TriggerRestoreRequest{
 		Target:     "test-target",
@@ -258,7 +258,7 @@ func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 }
 
 func TestHandleCancelJob_NotFound(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("DELETE", "/api/jobs/nonexistent-id/cancel", nil)
 	rr := httptest.NewRecorder()
@@ -269,7 +269,7 @@ func TestHandleCancelJob_NotFound(t *testing.T) {
 }
 
 func TestHandleCancelJob_InvalidPath(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("DELETE", "/api/jobs/cancel", nil)
 	rr := httptest.NewRecorder()
@@ -281,7 +281,7 @@ func TestHandleCancelJob_InvalidPath(t *testing.T) {
 }
 
 func TestHandleCancelJob_MethodNotAllowed(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("POST", "/api/jobs/someid/cancel", nil)
 	rr := httptest.NewRecorder()
@@ -292,7 +292,7 @@ func TestHandleCancelJob_MethodNotAllowed(t *testing.T) {
 }
 
 func TestHandleGetJobLogs_NotFound(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/jobs/nonexistent-id/logs", nil)
 	rr := httptest.NewRecorder()
@@ -303,7 +303,7 @@ func TestHandleGetJobLogs_NotFound(t *testing.T) {
 }
 
 func TestHandleDashboard(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/dashboard", nil)
 	rr := httptest.NewRecorder()
@@ -373,7 +373,7 @@ func TestJobToResponse(t *testing.T) {
 }
 
 func TestHandleListJobs_WithFilters(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	// Test with status filter
 	req := httptest.NewRequest("GET", "/api/jobs?status=running", nil)
@@ -393,7 +393,7 @@ func TestHandleListJobs_WithFilters(t *testing.T) {
 }
 
 func TestHandleListTargets_WithRunningJobs(t *testing.T) {
-	server, _ := setupTestServer(t)
+	server := setupTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/targets", nil)
 	rr := httptest.NewRecorder()

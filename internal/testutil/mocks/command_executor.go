@@ -155,7 +155,8 @@ func (m *CommandExecutor) ExecuteCommandWithStdin(ctx context.Context, r io.Read
 	// Capture input for verification
 	input := &strings.Builder{}
 	if r != nil {
-		io.Copy(input, r)
+		//nolint:errcheck // Error copying in mock is not critical
+		_, _ = io.Copy(input, r)
 	}
 
 	m.mu.Lock()

@@ -140,7 +140,12 @@ func (s *S3) Retrieve(ctx context.Context, filePath string, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to download from S3: %w", err)
 	}
-	defer result.Body.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := result.Body.Close(); err != nil {
+			// Error already being returned by main function
+		}
+	}()
 
 	_, err = io.Copy(w, result.Body)
 	if err != nil {

@@ -66,11 +66,11 @@ func TestWithHTTP(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		addr     string
-		user     string
-		pass     string
-		hasAPI   bool
+		name   string
+		addr   string
+		user   string
+		pass   string
+		hasAPI bool
 	}{
 		{
 			name:   "with http",
@@ -111,8 +111,8 @@ func TestWithMaxConcurrentJobs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		maxJobs  int
+		name    string
+		maxJobs int
 	}{
 		{name: "single job", maxJobs: 1},
 		{name: "multiple jobs", maxJobs: 5},

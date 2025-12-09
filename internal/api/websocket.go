@@ -46,7 +46,11 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade WebSocket connection: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			log.Printf("Failed to close WebSocket connection: %v", err)
+		}
+	}()
 
 	log.Printf("WebSocket client connected for job %s", jobID)
 

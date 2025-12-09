@@ -322,9 +322,7 @@ func TestTracker_SaveAndLoad(t *testing.T) {
 		{Path: "backup3.sql.tar.gz", Size: 3000, Created: time.Now()},
 	}
 
-	for _, backup := range backups {
-		tracker1.Backups = append(tracker1.Backups, backup)
-	}
+	tracker1.Backups = append(tracker1.Backups, backups...)
 
 	err = tracker1.save()
 	require.NoError(t, err)

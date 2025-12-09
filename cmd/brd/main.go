@@ -17,7 +17,6 @@ import (
 
 var (
 	cfgFile string
-	cfg     *config.Config
 )
 
 func main() {
@@ -60,8 +59,8 @@ var validateConfigCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		fmt.Println("Configuration is valid ✓")
@@ -77,7 +76,10 @@ var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Backup a target database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
 		}
@@ -91,8 +93,8 @@ var backupCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Find the target
@@ -147,12 +149,30 @@ Examples:
   # Use separate restore config
   brd restore --config restore-config.yml --target staging_restore --backup latest`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
-		backupPath, _ := cmd.Flags().GetString("backup")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		skipValidation, _ := cmd.Flags().GetBool("skip-validation")
-		skipVerify, _ := cmd.Flags().GetBool("skip-verify")
-		noConfirm, _ := cmd.Flags().GetBool("yes")
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
+		backupPath, err := cmd.Flags().GetString("backup")
+		if err != nil {
+			return fmt.Errorf("failed to get backup flag: %w", err)
+		}
+		dryRun, err := cmd.Flags().GetBool("dry-run")
+		if err != nil {
+			return fmt.Errorf("failed to get dry-run flag: %w", err)
+		}
+		skipValidation, err := cmd.Flags().GetBool("skip-validation")
+		if err != nil {
+			return fmt.Errorf("failed to get skip-validation flag: %w", err)
+		}
+		skipVerify, err := cmd.Flags().GetBool("skip-verify")
+		if err != nil {
+			return fmt.Errorf("failed to get skip-verify flag: %w", err)
+		}
+		noConfirm, err := cmd.Flags().GetBool("yes")
+		if err != nil {
+			return fmt.Errorf("failed to get yes flag: %w", err)
+		}
 
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
@@ -167,8 +187,8 @@ Examples:
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Resolve target (could be regular target or restore target)
@@ -193,9 +213,9 @@ Examples:
 		// If backup is "latest", find the most recent backup
 		if backupPath == "latest" {
 			fmt.Printf("Finding latest backup for target...\n")
-			latestBackup, err := app.FindLatestBackup(ctx, cfg, target)
-			if err != nil {
-				return fmt.Errorf("failed to find latest backup: %w", err)
+			latestBackup, findErr := app.FindLatestBackup(ctx, cfg, target)
+			if findErr != nil {
+				return fmt.Errorf("failed to find latest backup: %w", findErr)
 			}
 			backupPath = latestBackup.Path
 			fmt.Printf("Using latest backup: %s\n", backupPath)
@@ -233,7 +253,8 @@ Examples:
 			fmt.Printf("Continue with restore? (yes/no): ")
 
 			var response string
-			fmt.Scanln(&response)
+			//nolint:errcheck // Error reading user input is handled by checking response value
+			_, _ = fmt.Scanln(&response)
 			if strings.ToLower(response) != "yes" {
 				fmt.Println("Restore cancelled.")
 				return nil
@@ -286,7 +307,10 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List backups for a target",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		targetName, _ := cmd.Flags().GetString("target")
+		targetName, err := cmd.Flags().GetString("target")
+		if err != nil {
+			return fmt.Errorf("failed to get target flag: %w", err)
+		}
 		if targetName == "" {
 			return fmt.Errorf("--target flag is required")
 		}
@@ -300,8 +324,8 @@ var listCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Find the target
@@ -356,14 +380,23 @@ var daemonCmd = &cobra.Command{
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
-		if err := cfg.Validate(); err != nil {
-			return err
+		if validateErr := cfg.Validate(); validateErr != nil {
+			return validateErr
 		}
 
 		// Get HTTP flags
-		httpAddr, _ := cmd.Flags().GetString("http")
-		authUser, _ := cmd.Flags().GetString("http-user")
-		authPass, _ := cmd.Flags().GetString("http-pass")
+		httpAddr, err := cmd.Flags().GetString("http")
+		if err != nil {
+			return fmt.Errorf("failed to get http flag: %w", err)
+		}
+		authUser, err := cmd.Flags().GetString("http-user")
+		if err != nil {
+			return fmt.Errorf("failed to get http-user flag: %w", err)
+		}
+		authPass, err := cmd.Flags().GetString("http-pass")
+		if err != nil {
+			return fmt.Errorf("failed to get http-pass flag: %w", err)
+		}
 
 		// Prepare daemon options
 		var opts []daemon.Option

@@ -151,7 +151,8 @@ func (m *MockRestorer) Restore(ctx context.Context, r io.Reader) error {
 	// Capture input for verification
 	input := &strings.Builder{}
 	if r != nil {
-		io.Copy(input, r)
+		//nolint:errcheck // Error copying in mock is not critical
+		_, _ = io.Copy(input, r)
 	}
 
 	m.mu.Lock()

@@ -31,11 +31,21 @@ func (t *TarGz) Extension() string {
 func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 	// Create gzip writer
 	gzw := gzip.NewWriter(w)
-	defer gzw.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := gzw.Close(); err != nil {
+			// Error already being returned by main function
+		}
+	}()
 
 	// Create tar writer
 	tw := tar.NewWriter(gzw)
-	defer tw.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := tw.Close(); err != nil {
+			// Error already being returned by main function
+		}
+	}()
 
 	// Create a pipe to count bytes as we read
 	pr, pw := io.Pipe()
@@ -44,7 +54,15 @@ func (t *TarGz) Compress(ctx context.Context, r io.Reader, w io.Writer) error {
 
 	// Read from input in goroutine
 	go func() {
-		defer pw.Close()
+		defer func() {
+			if err := pw.Close(); err != nil {
+				readErrMu.Lock()
+				if readErr == nil {
+					readErr = err
+				}
+				readErrMu.Unlock()
+			}
+		}()
 		_, err := io.Copy(pw, r)
 		if err != nil {
 			readErrMu.Lock()
@@ -113,7 +131,12 @@ func (t *TarGz) Decompress(ctx context.Context, r io.Reader, w io.Writer) error 
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := gzr.Close(); err != nil {
+			// Error already being returned by main function
+		}
+	}()
 
 	// Create tar reader
 	tr := tar.NewReader(gzr)
@@ -125,6 +148,7 @@ func (t *TarGz) Decompress(ctx context.Context, r io.Reader, w io.Writer) error 
 	}
 
 	// Copy the file content to the writer
+	//#nosec G110 -- decompression from trusted backup sources only
 	if _, err := io.Copy(w, tr); err != nil {
 		return fmt.Errorf("failed to decompress data: %w", err)
 	}

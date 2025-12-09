@@ -70,8 +70,8 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	// Step 2: Validate database connection (unless skipped)
 	if !options.SkipValidation {
 		log.Printf("[%s] Validating database connection...", target.Name)
-		if err := restorer.ValidateConnection(ctx); err != nil {
-			result.Error = fmt.Errorf("database connection validation failed: %w", err)
+		if connErr := restorer.ValidateConnection(ctx); connErr != nil {
+			result.Error = fmt.Errorf("database connection validation failed: %w", connErr)
 			return result, result.Error
 		}
 		result.Validations = append(result.Validations, "Database connection validated")
@@ -188,7 +188,11 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 	// Start retrieval in goroutine
 	go func() {
-		defer retrieveWriter.Close()
+		defer func() {
+			if err := retrieveWriter.Close(); err != nil {
+				log.Printf("[%s] Failed to close retrieve writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Retrieving backup from storage", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, retrieveWriter)
 		if retrieveErr != nil {
@@ -200,7 +204,11 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 	// Start decompression in goroutine
 	go func() {
-		defer decompressWriter.Close()
+		defer func() {
+			if err := decompressWriter.Close(); err != nil {
+				log.Printf("[%s] Failed to close decompress writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Starting decompression", target.Name)
 		decompressor, err := compress.New("tgz", target.Conn.Database)
 		if err != nil {
@@ -245,7 +253,11 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 	// Start retrieval in goroutine
 	go func() {
-		defer writer.Close()
+		defer func() {
+			if err := writer.Close(); err != nil {
+				log.Printf("[%s] Failed to close writer: %v", target.Name, err)
+			}
+		}()
 		log.Printf("[%s] Retrieving backup from storage", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, writer)
 		if retrieveErr == nil {

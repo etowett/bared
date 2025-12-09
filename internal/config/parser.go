@@ -12,6 +12,7 @@ var envVarRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 
 // Load reads and parses the configuration file
 func Load(path string) (*Config, error) {
+	//#nosec G304 -- path is from user-provided config file argument
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)

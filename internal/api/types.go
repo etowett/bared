@@ -36,12 +36,12 @@ type JobResponse struct {
 
 // ProgressResponse represents progress information
 type ProgressResponse struct {
-	Stage          string   `json:"stage"`
-	Percent        float64  `json:"percent"`
-	BytesProcessed int64    `json:"bytes_processed"`
-	BytesTotal     int64    `json:"bytes_total"`
-	ETA            *string  `json:"eta,omitempty"`
-	Message        string   `json:"message"`
+	Stage          string  `json:"stage"`
+	Percent        float64 `json:"percent"`
+	BytesProcessed int64   `json:"bytes_processed"`
+	BytesTotal     int64   `json:"bytes_total"`
+	ETA            *string `json:"eta,omitempty"`
+	Message        string  `json:"message"`
 }
 
 // ListJobsResponse represents the response for listing jobs

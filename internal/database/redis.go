@@ -44,7 +44,12 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	// Create a temporary file for the RDB dump
 	tmpDir := os.TempDir()
 	tmpFile := filepath.Join(tmpDir, fmt.Sprintf("redis-dump-%d.rdb", time.Now().Unix()))
-	defer os.Remove(tmpFile)
+	defer func() {
+		//nolint:staticcheck // empty branch is intentional - ignoring cleanup errors
+		if err := os.Remove(tmpFile); err != nil {
+			// Ignore error on cleanup
+		}
+	}()
 
 	// Use redis-cli --rdb to dump the database
 	args := r.buildDumpArgs(tmpFile)
@@ -55,11 +60,16 @@ func (r *Redis) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	}
 
 	// Read the RDB file and write to the output writer
-	rdbFile, err := os.Open(tmpFile)
+	rdbFile, err := os.Open(tmpFile) // #nosec G304 - tmpFile is constructed from os.TempDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open RDB file: %w", err)
 	}
-	defer rdbFile.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := rdbFile.Close(); err != nil {
+			// Ignore error on cleanup
+		}
+	}()
 
 	size, err := io.Copy(w, rdbFile)
 	if err != nil {

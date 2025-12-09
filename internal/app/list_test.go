@@ -140,8 +140,8 @@ func TestListBackups_SortedByNewest(t *testing.T) {
 	files := []string{"oldest.tar.gz", "middle.tar.gz", "newest.tar.gz"}
 	for i, file := range files {
 		filePath := filepath.Join(targetDir, file)
-		err := os.WriteFile(filePath, []byte("data"), 0644)
-		require.NoError(t, err)
+		writeErr := os.WriteFile(filePath, []byte("data"), 0644)
+		require.NoError(t, writeErr)
 
 		// Set modification time
 		modTime := time.Now().Add(time.Duration(i) * time.Second)

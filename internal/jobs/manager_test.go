@@ -447,7 +447,7 @@ func TestManager_ConcurrentJobOperations(t *testing.T) {
 		wg.Add(2)
 
 		// Add jobs
-		go func(n int) {
+		go func(_ int) {
 			defer wg.Done()
 			job := NewJob(JobTypeBackup, "mysql-prod", true)
 			mgr.mu.Lock()

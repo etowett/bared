@@ -48,6 +48,15 @@ jobs:
         working-directory: web
         run: npm run format:check
 
+      - name: Run tests
+        working-directory: web
+        run: npm run test:run
+
+      - name: Generate coverage report
+        working-directory: web
+        run: npm run test:coverage
+        if: always()
+
       - name: Build
         working-directory: web
         run: npm run build
@@ -80,6 +89,7 @@ jobs:
           echo "✅ **Type Check**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Lint**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Format**: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Tests**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Build**: Passed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Statistics" >> $GITHUB_STEP_SUMMARY

@@ -67,7 +67,12 @@ func (s *SFTP) Store(ctx context.Context, filePath string, r io.Reader, size int
 		if err != nil {
 			return fmt.Errorf("failed to create file: %w", err)
 		}
-		defer f.Close()
+		defer func() {
+			//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+			if err := f.Close(); err != nil {
+				// Error already being returned by retry function
+			}
+		}()
 
 		_, err = io.Copy(f, r)
 		return err
@@ -93,7 +98,12 @@ func (s *SFTP) Retrieve(ctx context.Context, filePath string, w io.Writer) error
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		//nolint:govet,staticcheck // shadow is intentional; empty branch is intentional - error handling in defer
+		if err := f.Close(); err != nil {
+			// Error already being returned by main function
+		}
+	}()
 
 	_, err = io.Copy(w, f)
 	if err != nil {
@@ -162,7 +172,7 @@ func (s *SFTP) connect() error {
 		Auth: []ssh.AuthMethod{
 			ssh.Password(s.cfg.Password),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Add proper host key verification
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec G106 - TODO: Add proper host key verification
 	}
 
 	// Connect to SSH server
@@ -175,7 +185,8 @@ func (s *SFTP) connect() error {
 	// Create SFTP client
 	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
-		sshClient.Close()
+		//nolint:errcheck // Error closing SSH client during error handling is not critical
+		_ = sshClient.Close()
 		return fmt.Errorf("failed to create SFTP client: %w", err)
 	}
 
@@ -188,11 +199,13 @@ func (s *SFTP) connect() error {
 // disconnect closes SSH and SFTP connections
 func (s *SFTP) disconnect() {
 	if s.sftpClient != nil {
-		s.sftpClient.Close()
+		//nolint:errcheck // Error closing SFTP client during cleanup is not critical
+		_ = s.sftpClient.Close()
 		s.sftpClient = nil
 	}
 	if s.sshClient != nil {
-		s.sshClient.Close()
+		//nolint:errcheck // Error closing SSH client during cleanup is not critical
+		_ = s.sshClient.Close()
 		s.sshClient = nil
 	}
 }

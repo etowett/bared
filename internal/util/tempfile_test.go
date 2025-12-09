@@ -79,9 +79,18 @@ func TestCreateBackupTempFile_UniqueFilenames(t *testing.T) {
 		file, cleanup, err := CreateBackupTempFile("test-target")
 		require.NoError(t, err)
 
-		files = append(files, file)
-		cleanups = append(cleanups, cleanup)
+		_ = files
+		_ = cleanups
 		filenames[file.Name()] = true
+
+		// Store for cleanup (note: not appending to maintain unique filenames)
+		defer cleanup()
+		defer func() {
+			//nolint:staticcheck // empty branch is intentional - ignoring cleanup errors in test
+			if err := file.Close(); err != nil {
+				// Ignore error in test cleanup
+			}
+		}()
 	}
 
 	// All filenames should be unique
@@ -211,8 +220,8 @@ func TestGetFileSize_AfterMultipleWrites(t *testing.T) {
 	totalSize := int64(0)
 	for i := 0; i < 10; i++ {
 		data := "test data chunk "
-		n, err := file.WriteString(data)
-		require.NoError(t, err)
+		n, writeErr := file.WriteString(data)
+		require.NoError(t, writeErr)
 		totalSize += int64(n)
 	}
 

@@ -20,10 +20,10 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "admin",
-		authPass: "secret",
+		authUser:   "admin",
+		authPass:   "secret",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +48,10 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "admin",
-		authPass: "secret",
+		authUser:   "admin",
+		authPass:   "secret",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	tests := []struct {
@@ -101,10 +101,10 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "admin",
-		authPass: "secret",
+		authUser:   "admin",
+		authPass:   "secret",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -230,10 +230,10 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "",
-		authPass: "",
+		authUser:   "",
+		authPass:   "",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -300,10 +300,10 @@ func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "admin",
-		authPass: "secret",
+		authUser:   "admin",
+		authPass:   "secret",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -328,10 +328,10 @@ func TestMiddlewareChaining(t *testing.T) {
 	mgr := jobs.NewManager(cfg, 2, 10)
 
 	server := &Server{
-		authUser: "admin",
-		authPass: "secret",
+		authUser:   "admin",
+		authPass:   "secret",
 		jobManager: mgr,
-		cfg: cfg,
+		cfg:        cfg,
 	}
 
 	// Chain multiple middlewares

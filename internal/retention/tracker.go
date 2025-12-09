@@ -1,6 +1,7 @@
 package retention
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ func NewTracker(storageName, targetName string) (*Tracker, error) {
 	}
 
 	trackerDir := filepath.Join(homeDir, ".bared", "trackers")
-	if err := os.MkdirAll(trackerDir, 0755); err != nil {
+	if err := os.MkdirAll(trackerDir, 0750); err != nil { // #nosec G301 - reduced from 0755 for security
 		return nil, fmt.Errorf("failed to create tracker directory: %w", err)
 	}
 
@@ -125,7 +126,7 @@ func (t *Tracker) save() error {
 		return fmt.Errorf("failed to marshal tracker: %w", err)
 	}
 
-	if err := os.WriteFile(t.trackerPath, data, 0644); err != nil {
+	if err := os.WriteFile(t.trackerPath, data, 0600); err != nil { // #nosec G306 - reduced from 0644 for security
 		return fmt.Errorf("failed to write tracker: %w", err)
 	}
 
@@ -141,12 +142,14 @@ func (t *Tracker) CleanupOldBackups(stor storage.Storage, keep int) error {
 
 	// Delete old backups from storage
 	for _, backup := range oldBackups {
-		if err := stor.Delete(nil, backup.Path); err != nil {
+		if err := stor.Delete(context.Background(), backup.Path); err != nil {
 			// Log error but continue with other deletions
 			fmt.Printf("Warning: failed to delete backup %s: %v\n", backup.Path, err)
 		} else {
 			// Remove from tracker
-			t.RemoveBackup(backup.Path)
+			if err := t.RemoveBackup(backup.Path); err != nil {
+				fmt.Printf("Warning: failed to remove backup from tracker %s: %v\n", backup.Path, err)
+			}
 		}
 	}
 

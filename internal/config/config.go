@@ -69,9 +69,9 @@ type TargetStorage struct {
 
 // RestoreTarget represents a restore destination (can differ from backup source)
 type RestoreTarget struct {
-	Name         string          `yaml:"name"`
-	Conn         *Connection     `yaml:"conn"`
-	SourceTarget string          `yaml:"source_target,omitempty"`
-	Storage      *TargetStorage  `yaml:"storage,omitempty"`
-	Description  string          `yaml:"description,omitempty"`
+	Name         string         `yaml:"name"`
+	Conn         *Connection    `yaml:"conn"`
+	SourceTarget string         `yaml:"source_target,omitempty"`
+	Storage      *TargetStorage `yaml:"storage,omitempty"`
+	Description  string         `yaml:"description,omitempty"`
 }

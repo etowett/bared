@@ -33,16 +33,16 @@ const (
 
 // Job represents a backup or restore operation
 type Job struct {
-	ID          JobID
-	Type        JobType
-	TargetName  string
-	Status      JobStatus
-	Progress    *Progress
-	Result      interface{} // *app.BackupResult or *app.RestoreResult
-	Error       error
-	CreatedAt   time.Time
-	StartedAt   *time.Time
-	CompletedAt *time.Time
+	ID             JobID
+	Type           JobType
+	TargetName     string
+	Status         JobStatus
+	Progress       *Progress
+	Result         interface{} // *app.BackupResult or *app.RestoreResult
+	Error          error
+	CreatedAt      time.Time
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
 	Logs           *LogBuffer
 	BackupPath     string              // For restore jobs
 	RestoreOptions *app.RestoreOptions // For restore jobs with options

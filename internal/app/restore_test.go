@@ -210,7 +210,7 @@ func TestRestoreTargetWithOptions_BackupNotFound(t *testing.T) {
 	backupPath := "mysql_test/nonexistent-backup.sql.tar.gz"
 
 	options := &RestoreOptions{
-		DryRun: true,
+		DryRun:         true,
 		SkipValidation: true,
 	}
 
@@ -247,7 +247,7 @@ func TestRestoreTargetWithOptions_NilOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Pass nil options - should initialize with defaults
-	result, err := RestoreTargetWithOptions(context.Background(), cfg, target, backupPath, nil, nil)
+	result, _ := RestoreTargetWithOptions(context.Background(), cfg, target, backupPath, nil, nil)
 
 	// Will fail on actual restore, but should not panic on nil options
 	require.NotNil(t, result)
@@ -279,7 +279,7 @@ func TestRestoreTargetWithOptions_CompressedBackup(t *testing.T) {
 	require.NoError(t, err)
 
 	options := &RestoreOptions{
-		DryRun: true,
+		DryRun:         true,
 		SkipValidation: true,
 	}
 
@@ -315,7 +315,7 @@ func TestRestoreTargetWithOptions_UncompressedBackup(t *testing.T) {
 	require.NoError(t, err)
 
 	options := &RestoreOptions{
-		DryRun: true,
+		DryRun:         true,
 		SkipValidation: true,
 	}
 
@@ -356,7 +356,7 @@ func TestRestoreTarget(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call wrapper function
-	result, err := RestoreTarget(context.Background(), cfg, target, backupPath, nil)
+	result, _ := RestoreTarget(context.Background(), cfg, target, backupPath, nil)
 
 	// Will fail on actual restore but result should exist
 	require.NotNil(t, result)

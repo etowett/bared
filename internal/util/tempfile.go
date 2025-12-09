@@ -14,7 +14,7 @@ func CreateBackupTempFile(targetName string) (*os.File, func(), error) {
 	// Generate unique filename
 	timestamp := time.Now().Format("20060102-150405")
 	pid := os.Getpid()
-	random := rand.Intn(10000)
+	random := rand.Intn(10000) // #nosec G404 - Used for filename uniqueness, not security
 	filename := fmt.Sprintf("bared-backup-%s-%s-%d-%d.tmp", targetName, timestamp, pid, random)
 
 	// Create temp file in system temp directory
@@ -24,7 +24,7 @@ func CreateBackupTempFile(targetName string) (*os.File, func(), error) {
 	Debug("Creating temp file: %s", fullPath)
 
 	// Create the file
-	file, err := os.Create(fullPath)
+	file, err := os.Create(fullPath) // #nosec G304 - fullPath is constructed from trusted sources (os.TempDir and validated targetName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -32,7 +32,9 @@ func CreateBackupTempFile(targetName string) (*os.File, func(), error) {
 	// Create cleanup function
 	cleanup := func() {
 		// Close the file if still open
-		file.Close()
+		if err := file.Close(); err != nil {
+			Warn("Failed to close temp file %s: %v", fullPath, err)
+		}
 
 		// Remove the file
 		if err := os.Remove(fullPath); err != nil {

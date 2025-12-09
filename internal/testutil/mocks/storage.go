@@ -72,7 +72,8 @@ func (m *MockStorage) Store(ctx context.Context, path string, r io.Reader, size 
 	// Capture data for verification
 	data := &strings.Builder{}
 	if r != nil {
-		io.Copy(data, r)
+		//nolint:errcheck // Error copying in mock is not critical
+		_, _ = io.Copy(data, r)
 	}
 
 	m.mu.Lock()
