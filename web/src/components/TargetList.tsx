@@ -1,5 +1,9 @@
 import { useTriggerBackup } from '../hooks/useJobs'
 import type { Target } from '../types'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { formatDate } from '@/lib/utils'
 
 interface TargetListProps {
   targets: Target[]
@@ -18,65 +22,62 @@ export function TargetList({ targets }: TargetListProps) {
     }
   }
 
-  const formatDate = (dateStr?: string): string => {
-    if (!dateStr) return 'Never'
-    try {
-      return new Date(dateStr).toLocaleString()
-    } catch {
-      return dateStr
-    }
-  }
-
   if (targets.length === 0) {
-    return <div className="empty-state">No targets configured</div>
+    return (
+      <div className="text-center py-12 text-muted-foreground">No targets configured</div>
+    )
   }
 
   return (
-    <div className="target-list">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {targets.map((target) => (
-        <div key={target.name} className="target-card">
-          <div className="target-header">
-            <h3>{target.name}</h3>
-            <span className={`status-badge ${target.is_running ? 'running' : 'idle'}`}>
-              {target.is_running ? 'Running' : 'Idle'}
-            </span>
-          </div>
+        <Card key={target.name} className="bg-slate-100">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-xl">{target.name}</CardTitle>
+              <StatusBadge status={target.is_running ? 'running' : 'idle'} />
+            </div>
+          </CardHeader>
 
-          <div className="target-info">
-            <div className="info-row">
-              <span className="info-label">Type:</span>
-              <span className="info-value">{target.type}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Database:</span>
-              <span className="info-value">{target.database}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Last Backup:</span>
-              <span className="info-value">{formatDate(target.last_backup)}</span>
-            </div>
-            {target.schedule && (
-              <div className="info-row">
-                <span className="info-label">Schedule:</span>
-                <span className="info-value">{target.schedule}</span>
+          <CardContent className="space-y-3">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground font-medium">Type:</span>
+                <span className="text-foreground">{target.type}</span>
               </div>
-            )}
-            {target.next_scheduled && (
-              <div className="info-row">
-                <span className="info-label">Next Run:</span>
-                <span className="info-value">{formatDate(target.next_scheduled)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground font-medium">Database:</span>
+                <span className="text-foreground">{target.database}</span>
               </div>
-            )}
-          </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground font-medium">Last Backup:</span>
+                <span className="text-foreground">
+                  {target.last_backup ? formatDate(target.last_backup) : 'Never'}
+                </span>
+              </div>
+              {target.schedule && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Schedule:</span>
+                  <span className="text-foreground">{target.schedule}</span>
+                </div>
+              )}
+              {target.next_scheduled && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Next Run:</span>
+                  <span className="text-foreground">{formatDate(target.next_scheduled)}</span>
+                </div>
+              )}
+            </div>
 
-          <button
-            onClick={() => handleBackup(target.name)}
-            disabled={target.is_running || triggerBackup.isPending}
-            className="btn-primary"
-          >
-            {target.is_running ? 'Backup Running...' : 'Backup Now'}
-          </button>
-        </div>
+            <Button
+              onClick={() => handleBackup(target.name)}
+              disabled={target.is_running || triggerBackup.isPending}
+              className="w-full"
+            >
+              {target.is_running ? 'Backup Running...' : 'Backup Now'}
+            </Button>
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

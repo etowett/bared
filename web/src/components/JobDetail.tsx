@@ -3,6 +3,19 @@ import { useJob, useJobLogs } from '../hooks/useJobs'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { JobProgress } from './JobProgress'
 import type { Job } from '../types'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { X, AlertCircle } from 'lucide-react'
+import { formatDate, cn } from '@/lib/utils'
 
 interface JobDetailProps {
   job: Job
@@ -12,155 +25,192 @@ interface JobDetailProps {
 export function JobDetail({ job, onClose }: JobDetailProps) {
   const logsEndRef = useRef<HTMLDivElement>(null)
 
-  // Fetch updated job details
   const { data: updatedJob } = useJob(job.id)
   const currentJob = updatedJob || job
 
-  // Fetch historical logs
   const { data: logsData } = useJobLogs(job.id)
 
-  // WebSocket for real-time logs (only for running jobs)
   const { messages: wsMessages, connected } = useWebSocket(job.id, {
     enabled: currentJob.status === 'running' || currentJob.status === 'queued',
   })
 
-  // Combine historical and real-time logs
   const allLogs = [...(logsData?.logs || []), ...wsMessages]
 
-  // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [allLogs.length])
 
-  const formatDate = (dateStr?: string): string => {
-    if (!dateStr) return 'N/A'
-    try {
-      return new Date(dateStr).toLocaleString()
-    } catch {
-      return dateStr
-    }
-  }
-
   const getLogLevelClass = (level: string): string => {
     switch (level.toLowerCase()) {
       case 'error':
-        return 'log-error'
+        return 'text-red-400'
       case 'warn':
       case 'warning':
-        return 'log-warning'
+        return 'text-yellow-400'
       case 'info':
-        return 'log-info'
+        return 'text-blue-400'
       case 'debug':
-        return 'log-debug'
+        return 'text-indigo-400'
       default:
         return ''
     }
   }
 
   return (
-    <div className="job-detail-overlay" onClick={onClose}>
-      <div className="job-detail-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Job Details</h2>
-          <button onClick={onClose} className="btn-close">
-            ×
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <div className="job-info-grid">
-            <div className="info-item">
-              <span className="info-label">Job ID:</span>
-              <span className="info-value">{currentJob.id}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Type:</span>
-              <span className="info-value">{currentJob.type}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Target:</span>
-              <span className="info-value">{currentJob.target}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Status:</span>
-              <span className="info-value">
-                <span className={`status-badge status-${currentJob.status}`}>
-                  {currentJob.status}
-                </span>
-                {currentJob.manual && <span className="manual-badge">Manual</span>}
-              </span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Created:</span>
-              <span className="info-value">{formatDate(currentJob.created_at)}</span>
-            </div>
-            {currentJob.started_at && (
-              <div className="info-item">
-                <span className="info-label">Started:</span>
-                <span className="info-value">{formatDate(currentJob.started_at)}</span>
-              </div>
-            )}
-            {currentJob.completed_at && (
-              <div className="info-item">
-                <span className="info-label">Completed:</span>
-                <span className="info-value">{formatDate(currentJob.completed_at)}</span>
-              </div>
-            )}
-            {currentJob.duration_seconds && (
-              <div className="info-item">
-                <span className="info-label">Duration:</span>
-                <span className="info-value">{currentJob.duration_seconds.toFixed(2)}s</span>
-              </div>
-            )}
-            {currentJob.backup_path && (
-              <div className="info-item info-item-full">
-                <span className="info-label">Backup Path:</span>
-                <span className="info-value">{currentJob.backup_path}</span>
-              </div>
-            )}
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Job Details</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
+        </DialogHeader>
 
-          {currentJob.progress && (
-            <div className="progress-section">
-              <h3>Progress</h3>
-              <JobProgress progress={currentJob.progress} />
-            </div>
-          )}
-
-          {currentJob.error && (
-            <div className="error-section">
-              <h3>Error</h3>
-              <pre className="error-message">{currentJob.error}</pre>
-            </div>
-          )}
-
-          <div className="logs-section">
-            <div className="logs-header">
-              <h3>Logs</h3>
-              {connected && <span className="ws-status ws-connected">● Live</span>}
-              {!connected &&
-                (currentJob.status === 'running' || currentJob.status === 'queued') && (
-                  <span className="ws-status ws-disconnected">● Connecting...</span>
-                )}
-            </div>
-
-            <div className="logs-viewer">
-              {allLogs.length === 0 ? (
-                <div className="logs-empty">No logs available</div>
-              ) : (
-                allLogs.map((log, index) => (
-                  <div key={index} className={`log-entry ${getLogLevelClass(log.level)}`}>
-                    <span className="log-timestamp">{log.timestamp}</span>
-                    <span className="log-level">[{log.level.toUpperCase()}]</span>
-                    <span className="log-message">{log.message}</span>
-                  </div>
-                ))
+        <ScrollArea className="flex-1 pr-4">
+          <div className="space-y-6">
+            {/* Job Info Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Job ID
+                </p>
+                <p className="text-sm font-mono">{currentJob.id}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Type
+                </p>
+                <p className="text-sm">{currentJob.type}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Target
+                </p>
+                <p className="text-sm">{currentJob.target}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Status
+                </p>
+                <div className="flex items-center gap-2">
+                  <StatusBadge
+                    status={
+                      currentJob.status as
+                        | 'running'
+                        | 'idle'
+                        | 'queued'
+                        | 'completed'
+                        | 'failed'
+                        | 'cancelled'
+                        | 'cancelling'
+                    }
+                  />
+                  {currentJob.manual && (
+                    <Badge className="bg-yellow-100 text-yellow-800 text-xs">Manual</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Created
+                </p>
+                <p className="text-sm">{formatDate(currentJob.created_at)}</p>
+              </div>
+              {currentJob.started_at && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Started
+                  </p>
+                  <p className="text-sm">{formatDate(currentJob.started_at)}</p>
+                </div>
               )}
-              <div ref={logsEndRef} />
+              {currentJob.completed_at && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Completed
+                  </p>
+                  <p className="text-sm">{formatDate(currentJob.completed_at)}</p>
+                </div>
+              )}
+              {currentJob.duration_seconds && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Duration
+                  </p>
+                  <p className="text-sm">{currentJob.duration_seconds.toFixed(2)}s</p>
+                </div>
+              )}
+              {currentJob.backup_path && (
+                <div className="col-span-2 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Backup Path
+                  </p>
+                  <p className="text-sm break-all">{currentJob.backup_path}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Progress Section */}
+            {currentJob.progress && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Progress</h3>
+                <JobProgress progress={currentJob.progress} />
+              </div>
+            )}
+
+            {/* Error Section */}
+            {currentJob.error && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold">Error</h3>
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <pre className="whitespace-pre-wrap break-all font-mono text-xs">
+                      {currentJob.error}
+                    </pre>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            {/* Logs Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Logs</h3>
+                {connected && (
+                  <span className="text-xs font-semibold text-green-600">● Live</span>
+                )}
+                {!connected &&
+                  (currentJob.status === 'running' || currentJob.status === 'queued') && (
+                    <span className="text-xs font-semibold text-yellow-600">● Connecting...</span>
+                  )}
+              </div>
+
+              <div className="bg-slate-800 text-slate-200 rounded p-4 max-h-96 overflow-y-auto font-mono text-xs leading-relaxed">
+                {allLogs.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">No logs available</div>
+                ) : (
+                  allLogs.map((log, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-2 py-1 border-b border-slate-700 last:border-0"
+                    >
+                      <span className="text-slate-500 shrink-0">{log.timestamp}</span>
+                      <span className={cn('shrink-0 font-semibold', getLogLevelClass(log.level))}>
+                        [{log.level.toUpperCase()}]
+                      </span>
+                      <span className="flex-1 break-words">{log.message}</span>
+                    </div>
+                  ))
+                )}
+                <div ref={logsEndRef} />
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   )
 }

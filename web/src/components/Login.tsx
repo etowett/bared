@@ -1,5 +1,10 @@
 import { FormEvent, useState } from 'react'
 import { setAuth } from '../api/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 interface LoginProps {
   onLogin: () => void
@@ -42,15 +47,15 @@ export function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <h1>BareD</h1>
-        <h2>Backup Dashboard</h2>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-500 to-purple-700">
+      <div className="bg-background p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 className="text-4xl font-bold mb-2 text-primary">BareD</h1>
+        <h2 className="text-xl text-muted-foreground mb-8">Backup Dashboard</h2>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
               id="username"
               type="text"
               value={username}
@@ -61,9 +66,9 @@ export function Login({ onLogin }: LoginProps) {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
               id="password"
               type="password"
               value={password}
@@ -73,11 +78,16 @@ export function Login({ onLogin }: LoginProps) {
             />
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-          <button type="submit" disabled={loading} className="btn-primary">
+          <Button type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
