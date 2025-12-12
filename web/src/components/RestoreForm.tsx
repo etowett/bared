@@ -189,9 +189,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
   }
 
   if (isLoading) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">Loading restore targets...</div>
-    )
+    return <div className="text-center py-8 text-muted-foreground">Loading restore targets...</div>
   }
 
   return (
@@ -315,8 +313,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
             </DialogTitle>
             <DialogDescription className="space-y-2 pt-4">
               <p>
-                You are about to restore database{' '}
-                <strong>{selectedTargetInfo?.database}</strong> on{' '}
+                You are about to restore database <strong>{selectedTargetInfo?.database}</strong> on{' '}
                 <strong>{selectedTargetInfo?.host}</strong>.
               </p>
               <p className="font-semibold">This will overwrite the existing database!</p>

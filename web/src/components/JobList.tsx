@@ -96,7 +96,9 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
                 )}
               </TableCell>
               <TableCell className="font-mono text-sm">{formatDate(job.created_at)}</TableCell>
-              <TableCell className="font-mono text-sm">{formatDuration(job.duration_seconds)}</TableCell>
+              <TableCell className="font-mono text-sm">
+                {formatDuration(job.duration_seconds)}
+              </TableCell>
               <TableCell>
                 {(job.status === 'running' ||
                   job.status === 'queued' ||

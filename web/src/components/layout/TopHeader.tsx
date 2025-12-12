@@ -1,9 +1,9 @@
-import { HardDrive, LogOut } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { Button } from '@/components/ui/button';
+import { HardDrive, LogOut } from 'lucide-react'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { Button } from '@/components/ui/button'
 
 interface TopHeaderProps {
-  onLogout: () => void;
+  onLogout: () => void
 }
 
 export function TopHeader({ onLogout }: TopHeaderProps) {
@@ -15,26 +15,19 @@ export function TopHeader({ onLogout }: TopHeaderProps) {
           <HardDrive className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-semibold tracking-tight">
             <span className="text-primary">BareD</span>
-            <span className="ml-2 text-muted-foreground text-sm font-normal">
-              Backup Dashboard
-            </span>
+            <span className="ml-2 text-muted-foreground text-sm font-normal">Backup Dashboard</span>
           </h1>
         </div>
 
         {/* Right: Theme Toggle & Logout */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onLogout}
-            className="gap-2"
-          >
+          <Button variant="ghost" size="sm" onClick={onLogout} className="gap-2">
             <LogOut className="h-4 w-4" />
             Logout
           </Button>
         </div>
       </div>
     </header>
-  );
+  )
 }

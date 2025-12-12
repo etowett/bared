@@ -77,7 +77,8 @@
 /* Terminal color utilities */
 @layer utilities {
   .font-mono-terminal {
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+    font-family:
+      'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
   }
 
   .text-terminal-green {

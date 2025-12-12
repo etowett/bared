@@ -27,9 +27,7 @@ export function Dashboard() {
   )
 
   if (dashboardLoading) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">Loading dashboard...</div>
-    )
+    return <div className="text-center py-12 text-muted-foreground">Loading dashboard...</div>
   }
 
   return (

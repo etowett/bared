@@ -3,14 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '../test/utils'
 import userEvent from '@testing-library/user-event'
 import { Dashboard } from './Dashboard'
-import * as apiClient from '../api/client'
 import * as useDashboardHook from '../hooks/useDashboard'
 import * as useJobsHook from '../hooks/useJobs'
-
-// Mock API client
-vi.mock('../api/client', () => ({
-  clearAuth: vi.fn(),
-}))
 
 // Mock hooks
 vi.mock('../hooks/useDashboard', () => ({
@@ -51,8 +45,6 @@ vi.mock('./JobDetail', () => ({
 }))
 
 describe('Dashboard Component', () => {
-  const mockOnLogout = vi.fn()
-
   const mockDashboardData = {
     targets: [
       { name: 'db1', type: 'mysql', database: 'test', is_running: false },
@@ -98,7 +90,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     expect(screen.getByText(/loading dashboard/i)).toBeInTheDocument()
   })
@@ -113,10 +105,10 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
-    expect(screen.getByText(/BareD - Backup Dashboard/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument()
+    // Check for section headings and components
+    expect(screen.getByText('Overview')).toBeInTheDocument()
     expect(screen.getByTestId('restore-form')).toBeInTheDocument()
     expect(screen.getByTestId('target-list')).toBeInTheDocument()
     expect(screen.getByTestId('job-list')).toBeInTheDocument()
@@ -132,7 +124,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     expect(screen.getByText('Targets')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument() // 2 targets
@@ -167,30 +159,10 @@ describe('Dashboard Component', () => {
         isLoading: false,
       } as any)
 
-      const { unmount } = render(<Dashboard onLogout={mockOnLogout} />)
+      const { unmount } = render(<Dashboard />)
       expect(screen.getByText(expected)).toBeInTheDocument()
       unmount()
     })
-  })
-
-  it('handles logout correctly', async () => {
-    const user = userEvent.setup()
-    vi.spyOn(useDashboardHook, 'useDashboard').mockReturnValue({
-      data: mockDashboardData,
-      isLoading: false,
-    } as any)
-    vi.spyOn(useJobsHook, 'useJobs').mockReturnValue({
-      data: mockJobsData,
-      isLoading: false,
-    } as any)
-
-    render(<Dashboard onLogout={mockOnLogout} />)
-
-    const logoutButton = screen.getByRole('button', { name: /logout/i })
-    await user.click(logoutButton)
-
-    expect(apiClient.clearAuth).toHaveBeenCalled()
-    expect(mockOnLogout).toHaveBeenCalled()
   })
 
   it('shows loading state for jobs section', () => {
@@ -203,7 +175,7 @@ describe('Dashboard Component', () => {
       isLoading: true,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     expect(screen.getByText(/loading jobs/i)).toBeInTheDocument()
     expect(screen.queryByTestId('job-list')).not.toBeInTheDocument()
@@ -219,7 +191,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     const filterSelect = screen.getByRole('combobox')
     expect(filterSelect).toBeInTheDocument()
@@ -247,7 +219,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     // Initially called with undefined (no filter)
     expect(mockUseJobs).toHaveBeenCalledWith(undefined)
@@ -272,7 +244,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     expect(screen.queryByTestId('job-detail')).not.toBeInTheDocument()
 
@@ -296,7 +268,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     // Open modal
     await user.click(screen.getByText('Select First Job'))
@@ -320,7 +292,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     expect(screen.getByText(/TargetList - 2 targets/)).toBeInTheDocument()
     expect(screen.getByText(/JobList - 2 jobs/)).toBeInTheDocument()
@@ -336,7 +308,7 @@ describe('Dashboard Component', () => {
       isLoading: false,
     } as any)
 
-    render(<Dashboard onLogout={mockOnLogout} />)
+    render(<Dashboard />)
 
     const zeros = screen.getAllByText('0')
     expect(zeros.length).toBeGreaterThanOrEqual(3) // Multiple zeros for stats

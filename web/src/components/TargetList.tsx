@@ -23,9 +23,7 @@ export function TargetList({ targets }: TargetListProps) {
   }
 
   if (targets.length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">No targets configured</div>
-    )
+    return <div className="text-center py-12 text-muted-foreground">No targets configured</div>
   }
 
   return (
@@ -64,7 +62,9 @@ export function TargetList({ targets }: TargetListProps) {
               {target.next_scheduled && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground font-medium">Next Run:</span>
-                  <span className="text-foreground font-mono">{formatDate(target.next_scheduled)}</span>
+                  <span className="text-foreground font-mono">
+                    {formatDate(target.next_scheduled)}
+                  </span>
                 </div>
               )}
             </div>

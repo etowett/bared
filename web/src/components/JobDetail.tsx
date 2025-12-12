@@ -4,12 +4,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { JobProgress } from './JobProgress'
 import type { Job } from '../types'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -179,9 +174,7 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Logs</h3>
-                {connected && (
-                  <span className="text-xs font-semibold text-green-600">● Live</span>
-                )}
+                {connected && <span className="text-xs font-semibold text-green-600">● Live</span>}
                 {!connected &&
                   (currentJob.status === 'running' || currentJob.status === 'queued') && (
                     <span className="text-xs font-semibold text-yellow-600">● Connecting...</span>

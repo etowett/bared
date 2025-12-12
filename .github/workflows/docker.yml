@@ -90,6 +90,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
+            # For branch builds: ensure we always have at least one tag
+            type=ref,event=branch
+            type=sha,format=short
             # For tagged releases: v1.2.3 -> 1.2.3, 1.2, 1, latest
             type=semver,pattern={{version}},enable=${{ steps.meta.outputs.is_tag == 'true' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ steps.meta.outputs.is_tag == 'true' }}

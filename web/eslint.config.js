@@ -6,7 +6,7 @@ import tsparser from '@typescript-eslint/parser'
 
 export default [
   {
-    ignores: ['dist', 'node_modules', '*.config.js'],
+    ignores: ['dist', 'node_modules'],
   },
   {
     files: ['**/*.{ts,tsx}'],
@@ -23,6 +23,7 @@ export default [
         fetch: 'readonly',
         btoa: 'readonly',
         sessionStorage: 'readonly',
+        localStorage: 'readonly',
         WebSocket: 'readonly',
         confirm: 'readonly',
         alert: 'readonly',
@@ -30,6 +31,15 @@ export default [
         URLSearchParams: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
+        HTMLParagraphElement: 'readonly',
+        HTMLHeadingElement: 'readonly',
+        HTMLButtonElement: 'readonly',
+        HTMLTableElement: 'readonly',
+        HTMLTableSectionElement: 'readonly',
+        HTMLTableRowElement: 'readonly',
+        HTMLTableCellElement: 'readonly',
+        HTMLTableCaptionElement: 'readonly',
+        HTMLTextAreaElement: 'readonly',
         MouseEvent: 'readonly',
         Node: 'readonly',
         React: 'readonly',
@@ -53,6 +63,30 @@ export default [
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-unused-vars': 'off', // Disable base rule as it's handled by @typescript-eslint
+    },
+  },
+  {
+    files: ['vite.config.ts', '*.config.ts'],
+    languageOptions: {
+      parser: tsparser,
+      ecmaVersion: 2020,
+      sourceType: 'module',
+      globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      'no-unused-vars': 'off',
     },
   },
 ]
