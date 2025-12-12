@@ -33,6 +33,7 @@ jobs:
   build:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
+    environment: prod
     needs: [check-ci]
     # Allow build to run even if check-ci is skipped (for main branch pushes)
     if: always() && (needs.check-ci.result == 'success' || needs.check-ci.result == 'skipped')

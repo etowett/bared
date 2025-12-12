@@ -88,7 +88,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
                 <SelectItem value="queued">Queued</SelectItem>
                 <SelectItem value="running">Running</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
