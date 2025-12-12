@@ -31,7 +31,7 @@ export function TargetList({ targets }: TargetListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {targets.map((target) => (
-        <Card key={target.name} className="bg-slate-100">
+        <Card key={target.name} className="border-border/50 hover:border-border transition-colors">
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle className="text-xl">{target.name}</CardTitle>
@@ -47,24 +47,24 @@ export function TargetList({ targets }: TargetListProps) {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground font-medium">Database:</span>
-                <span className="text-foreground">{target.database}</span>
+                <span className="text-foreground font-mono">{target.database}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground font-medium">Last Backup:</span>
-                <span className="text-foreground">
+                <span className="text-foreground font-mono">
                   {target.last_backup ? formatDate(target.last_backup) : 'Never'}
                 </span>
               </div>
               {target.schedule && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground font-medium">Schedule:</span>
-                  <span className="text-foreground">{target.schedule}</span>
+                  <span className="text-foreground font-mono">{target.schedule}</span>
                 </div>
               )}
               {target.next_scheduled && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground font-medium">Next Run:</span>
-                  <span className="text-foreground">{formatDate(target.next_scheduled)}</span>
+                  <span className="text-foreground font-mono">{formatDate(target.next_scheduled)}</span>
                 </div>
               )}
             </div>

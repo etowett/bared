@@ -48,6 +48,13 @@ export default {
           DEFAULT: '#f59e0b',
           foreground: '#ffffff',
         },
+        // Terminal semantic colors
+        terminal: {
+          success: 'hsl(142 76% 46%)', // #10b981 - Terminal green
+          error: 'hsl(0 72% 60%)',     // #ef4444 - Bright red
+          info: 'hsl(188 94% 60%)',    // #22d3ee - Bright cyan
+          warning: 'hsl(38 92% 50%)',  // #f59e0b - Amber
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -56,7 +63,7 @@ export default {
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        mono: ['"Courier New"', 'monospace'],
+        mono: ['"JetBrains Mono"', '"Fira Code"', '"SF Mono"', 'Monaco', '"Cascadia Code"', '"Courier New"', 'monospace'],
       },
     },
   },

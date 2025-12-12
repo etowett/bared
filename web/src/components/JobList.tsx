@@ -58,7 +58,11 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
             <TableRow
               key={job.id}
               onClick={() => onSelectJob(job)}
-              className={cn('cursor-pointer', selectedJobId === job.id && 'bg-blue-50')}
+              className={cn(
+                'cursor-pointer transition-colors',
+                'hover:bg-accent/50',
+                selectedJobId === job.id && 'bg-primary/10 hover:bg-primary/15'
+              )}
             >
               <TableCell className="font-mono text-sm">{job.id.slice(0, 8)}</TableCell>
               <TableCell>{job.type}</TableCell>
@@ -78,7 +82,9 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
                     }
                   />
                   {job.manual && (
-                    <Badge className="bg-yellow-100 text-yellow-800 text-xs">Manual</Badge>
+                    <Badge className="bg-terminal-warning/20 text-terminal-yellow border border-terminal-warning/30 text-xs">
+                      Manual
+                    </Badge>
                   )}
                 </div>
               </TableCell>
@@ -89,8 +95,8 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
                   <span className="text-muted-foreground">-</span>
                 )}
               </TableCell>
-              <TableCell>{formatDate(job.created_at)}</TableCell>
-              <TableCell>{formatDuration(job.duration_seconds)}</TableCell>
+              <TableCell className="font-mono text-sm">{formatDate(job.created_at)}</TableCell>
+              <TableCell className="font-mono text-sm">{formatDuration(job.duration_seconds)}</TableCell>
               <TableCell>
                 {(job.status === 'running' ||
                   job.status === 'queued' ||
