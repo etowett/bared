@@ -9,6 +9,14 @@ type Config struct {
 	Notifiers      map[string]*Notifier `yaml:"notifiers"`
 	Targets        []*Target            `yaml:"targets"`
 	RestoreTargets []*RestoreTarget     `yaml:"restore_targets,omitempty"`
+	Persistence    *Persistence         `yaml:"persistence,omitempty"`
+}
+
+// Persistence configuration
+type Persistence struct {
+	Enabled bool   `yaml:"enabled"`
+	Type    string `yaml:"type"` // sqlite, postgres, mysql
+	DSN     string `yaml:"dsn"`  // Data Source Name
 }
 
 // Storage configuration
