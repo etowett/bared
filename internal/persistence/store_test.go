@@ -78,6 +78,9 @@ func TestSQLStore(t *testing.T) {
 
 	// Acquire again
 	acquired3, err := store.AcquireLock(ctx, "lock1", time.Minute)
+	if err != nil {
+		t.Errorf("AcquireLock failed: %v", err)
+	}
 	if acquired3 != true {
 		t.Error("Expected to re-acquire lock")
 	}

@@ -122,7 +122,9 @@ func (m *Manager) executeJob(job *Job) {
 
 			// Update job in store on failure/cancel
 			if m.store != nil {
-				_ = m.store.UpdateJob(job.Context(), job)
+				if err := m.store.UpdateJob(job.Context(), job); err != nil {
+					util.Error("Failed to update job %s status: %v", job.ID, err)
+				}
 			}
 			return
 		}
@@ -130,7 +132,9 @@ func (m *Manager) executeJob(job *Job) {
 
 		// Update job in store on success
 		if m.store != nil {
-			_ = m.store.UpdateJob(job.Context(), job)
+			if err := m.store.UpdateJob(job.Context(), job); err != nil {
+				util.Error("Failed to update job %s status: %v", job.ID, err)
+			}
 		}
 		util.Info("Job %s completed successfully", job.ID)
 
@@ -151,7 +155,9 @@ func (m *Manager) executeJob(job *Job) {
 
 			// Update job in store on failure/cancel
 			if m.store != nil {
-				_ = m.store.UpdateJob(job.Context(), job)
+				if err := m.store.UpdateJob(job.Context(), job); err != nil {
+					util.Error("Failed to update job %s status: %v", job.ID, err)
+				}
 			}
 			return
 		}
@@ -159,7 +165,9 @@ func (m *Manager) executeJob(job *Job) {
 
 		// Update job in store on success
 		if m.store != nil {
-			_ = m.store.UpdateJob(job.Context(), job)
+			if err := m.store.UpdateJob(job.Context(), job); err != nil {
+				util.Error("Failed to update job %s status: %v", job.ID, err)
+			}
 		}
 		util.Info("Job %s completed successfully", job.ID)
 

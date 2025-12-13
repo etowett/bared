@@ -1,3 +1,4 @@
+// Package daemon implements the background process for scheduling and running jobs.
 package daemon
 
 import (

@@ -1,3 +1,4 @@
+// Package persistence implements the storage layer for various backends.
 package persistence
 
 import (
@@ -30,14 +31,14 @@ func NewSQLStore(driver, dsn string) (*SQLStore, error) {
 	}
 
 	store := &SQLStore{db: db}
-	if err := store.initSchema(driver); err != nil {
+	if err := store.initSchema(); err != nil {
 		return nil, err
 	}
 
 	return store, nil
 }
 
-func (s *SQLStore) initSchema(driver string) error {
+func (s *SQLStore) initSchema() error {
 	// Simple schema for SQLite/Postgres compatibility
 	// Note: In production, use migrations. This is a simplified approach.
 
@@ -85,7 +86,11 @@ func (s *SQLStore) UpdateJob(ctx context.Context, job *jobs.Job) error {
 	// Serialize result if present
 	var resultJSON []byte
 	if job.Result != nil {
-		resultJSON, _ = json.Marshal(job.Result)
+		var err error
+		resultJSON, err = json.Marshal(job.Result)
+		if err != nil {
+			return fmt.Errorf("failed to marshal result: %w", err)
+		}
 	}
 
 	var errStr string
@@ -150,14 +155,18 @@ func (s *SQLStore) GetJob(ctx context.Context, id jobs.JobID) (*jobs.Job, error)
 	return &job, nil
 }
 
-func (s *SQLStore) ListJobs(ctx context.Context, filter JobFilter) ([]*jobs.Job, error) {
+func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs.Job, error) {
 	// Basic implementation
 	query := `SELECT id, type, target_name, status, created_at, started_at, completed_at, result_json, error, manual FROM jobs ORDER BY created_at DESC LIMIT ?`
 	rows, err := s.db.QueryContext(ctx, query, filter.Limit)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			_ = err
+		}
+	}()
 
 	var result []*jobs.Job
 	for rows.Next() {
@@ -191,7 +200,10 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter JobFilter) ([]*jobs.Job,
 func (s *SQLStore) AcquireLock(ctx context.Context, lockName string, ttl time.Duration) (bool, error) {
 	// Clean up expired locks first (lazy cleanup)
 	// In production, use a background reaper
-	_, _ = s.db.Exec(`DELETE FROM locks WHERE expires_at < ?`, time.Now())
+	if _, err := s.db.Exec(`DELETE FROM locks WHERE expires_at < ?`, time.Now()); err != nil {
+		// Ignore cleanup error
+		_ = err
+	}
 
 	expiresAt := time.Now().Add(ttl)
 
