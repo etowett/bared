@@ -32,3 +32,11 @@ const localStorageMock = {
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 })
+
+// Mock pointer capture for Radix UI components
+HTMLElement.prototype.hasPointerCapture = vi.fn()
+HTMLElement.prototype.setPointerCapture = vi.fn()
+HTMLElement.prototype.releasePointerCapture = vi.fn()
+
+// Mock scrollIntoView for Radix UI Select
+HTMLElement.prototype.scrollIntoView = vi.fn()

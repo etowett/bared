@@ -1,7 +1,9 @@
-import type { Progress } from '../types'
+import { Progress } from '@/components/ui/progress'
+import { formatBytes } from '@/lib/utils'
+import type { Progress as ProgressType } from '../types'
 
 interface JobProgressProps {
-  progress: Progress
+  progress: ProgressType
   compact?: boolean
 }
 
@@ -32,49 +34,38 @@ export function JobProgress({ progress, compact = false }: JobProgressProps) {
     }
   }
 
-  const formatBytes = (bytes: number): string => {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB']
-    let size = bytes
-    let unitIndex = 0
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024
-      unitIndex++
-    }
-    return `${size.toFixed(2)} ${units[unitIndex]}`
-  }
-
   if (compact) {
     return (
-      <div className="job-progress-compact">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${Math.min(progress.percent, 100)}%` }} />
-        </div>
-        <span className="progress-text">{progress.percent.toFixed(1)}%</span>
+      <div className="flex items-center gap-2 min-w-[120px]">
+        <Progress value={Math.min(progress.percent, 100)} className="flex-1" />
+        <span className="text-xs font-semibold text-muted-foreground min-w-[45px]">
+          {progress.percent.toFixed(1)}%
+        </span>
       </div>
     )
   }
 
   return (
-    <div className="job-progress-full">
-      <div className="progress-header">
-        <span className="progress-stage">{progress.stage}</span>
-        <span className="progress-percent">{progress.percent.toFixed(1)}%</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between text-sm">
+        <span className="font-medium text-foreground">{progress.stage}</span>
+        <span className="font-semibold text-primary">{progress.percent.toFixed(1)}%</span>
       </div>
 
-      <div className="progress-bar">
-        <div className="progress-fill" style={{ width: `${Math.min(progress.percent, 100)}%` }} />
-      </div>
+      <Progress value={Math.min(progress.percent, 100)} />
 
-      <div className="progress-details">
+      <div className="flex justify-between text-xs text-muted-foreground">
         {progress.bytes_total > 0 && (
-          <div className="progress-bytes">
+          <div>
             {formatBytes(progress.bytes_processed)} / {formatBytes(progress.bytes_total)}
           </div>
         )}
-        {progress.eta && <div className="progress-eta">ETA: {formatETA(progress.eta)}</div>}
+        {progress.eta && <div>ETA: {formatETA(progress.eta)}</div>}
       </div>
 
-      {progress.message && <div className="progress-message">{progress.message}</div>}
+      {progress.message && (
+        <div className="text-xs text-muted-foreground italic">{progress.message}</div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { isAuthenticated } from './api/client'
 import { Dashboard } from './components/Dashboard'
+import { AppLayout } from './components/layout/AppLayout'
 import { Login } from './components/Login'
+import { ThemeProvider } from './contexts/ThemeContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,10 +38,16 @@ export function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="app">
-        {authenticated ? <Dashboard onLogout={handleLogout} /> : <Login onLogin={handleLogin} />}
-      </div>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        {authenticated ? (
+          <AppLayout onLogout={handleLogout}>
+            <Dashboard />
+          </AppLayout>
+        ) : (
+          <Login onLogin={handleLogin} />
+        )}
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }

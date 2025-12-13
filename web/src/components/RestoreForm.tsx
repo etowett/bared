@@ -2,6 +2,27 @@ import { useEffect, useRef, useState } from 'react'
 import { useTriggerRestore } from '../hooks/useJobs'
 import { useRestoreTargets } from '../hooks/useRestoreTargets'
 import type { RestoreTarget } from '../types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Info, AlertTriangle } from 'lucide-react'
 
 interface RestoreFormProps {
   onSuccess?: () => void
@@ -28,7 +49,6 @@ function saveBackupPath(path: string) {
   }
   try {
     const history = loadBackupPathHistory()
-    // Remove if already exists and add to front
     const filtered = history.filter((p) => p !== path)
     const updated = [path, ...filtered].slice(0, MAX_HISTORY)
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
@@ -130,7 +150,6 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
       return
     }
 
-    // Show confirmation for non-dry-run restores
     if (!dryRun) {
       setShowConfirm(true)
       return
@@ -151,10 +170,8 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
         dryRun ? 'Restore validation job queued successfully!' : 'Restore job queued successfully!'
       )
 
-      // Save successful backup path to history
       saveBackupPath(backupPath)
 
-      // Only clear form fields on success
       setBackupPath('')
       setDryRun(true)
       setShowConfirm(false)
@@ -162,9 +179,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
       if (onSuccess) onSuccess()
     } catch (error) {
-      // On error, preserve all form values so user doesn't have to retype
       alert(`Failed to trigger restore: ${error}`)
-      // backupPath, selectedTarget, and dryRun are preserved automatically
     }
   }
 
@@ -173,135 +188,148 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
     executeRestore()
   }
 
-  const handleCancel = () => {
-    setShowConfirm(false)
-  }
-
   if (isLoading) {
-    return <div className="restore-form loading">Loading restore targets...</div>
+    return <div className="text-center py-8 text-muted-foreground">Loading restore targets...</div>
   }
 
   return (
-    <div className="restore-form">
-      <h3>Restore Database</h3>
-
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="restore-target">Restore Target:</label>
-          <select
-            id="restore-target"
-            value={selectedTarget}
-            onChange={(e) => setSelectedTarget(e.target.value)}
-            className="form-select"
-            required
-          >
-            <option value="">-- Select Restore Target --</option>
-            {restoreTargets?.restore_targets.map((target: RestoreTarget) => (
-              <option key={target.name} value={target.name}>
-                {target.name} ({target.type} - {target.database}@{target.host})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedTargetInfo && selectedTargetInfo.description && (
-          <div className="form-info">
-            <strong>Description:</strong> {selectedTargetInfo.description}
-          </div>
-        )}
-
-        {selectedTargetInfo && selectedTargetInfo.source_target && (
-          <div className="form-info">
-            <strong>Source Target:</strong> {selectedTargetInfo.source_target}
-          </div>
-        )}
-
-        <div className="form-group" style={{ position: 'relative' }}>
-          <label htmlFor="backup-path">Backup Path:</label>
-          <input
-            ref={inputRef}
-            id="backup-path"
-            type="text"
-            value={backupPath}
-            onChange={(e) => setBackupPath(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => {
-              if (suggestions.length > 0) {
-                setShowSuggestions(true)
-              }
-            }}
-            className="form-input"
-            placeholder="e.g., et-backups/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
-            required
-            autoComplete="off"
-          />
-          {showSuggestions && suggestions.length > 0 && (
-            <div ref={suggestionsRef} className="autocomplete-suggestions">
-              {suggestions.map((suggestion, index) => (
-                <div
-                  key={suggestion}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={index === selectedIndex ? 'selected' : ''}
-                >
-                  {suggestion}
-                </div>
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="restore-target">Restore Target</Label>
+          <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+            <SelectTrigger id="restore-target">
+              <SelectValue placeholder="-- Select Restore Target --" />
+            </SelectTrigger>
+            <SelectContent>
+              {restoreTargets?.restore_targets.map((target: RestoreTarget) => (
+                <SelectItem key={target.name} value={target.name}>
+                  {target.name} ({target.type} - {target.database}@{target.host})
+                </SelectItem>
               ))}
-            </div>
-          )}
-          <small className="form-help">
+            </SelectContent>
+          </Select>
+        </div>
+
+        {selectedTargetInfo?.description && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Description:</strong> {selectedTargetInfo.description}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {selectedTargetInfo?.source_target && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Source Target:</strong> {selectedTargetInfo.source_target}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="space-y-2">
+          <Label htmlFor="backup-path">Backup Path</Label>
+          <div className="relative">
+            <Input
+              ref={inputRef}
+              id="backup-path"
+              type="text"
+              value={backupPath}
+              onChange={(e) => setBackupPath(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                if (suggestions.length > 0) {
+                  setShowSuggestions(true)
+                }
+              }}
+              placeholder="e.g., et-backups/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
+              required
+              autoComplete="off"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute top-full left-0 right-0 mt-1 z-50 border border-input bg-popover rounded-md shadow-md max-h-[200px] overflow-y-auto"
+              >
+                {suggestions.map((suggestion, index) => (
+                  <div
+                    key={suggestion}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    className={`px-3 py-2 cursor-pointer transition-colors border-b last:border-b-0 ${
+                      index === selectedIndex ? 'bg-accent' : 'hover:bg-accent/50'
+                    }`}
+                  >
+                    {suggestion}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
             Enter the backup file path or 'latest' to restore the most recent backup
-          </small>
+          </p>
         </div>
 
-        <div className="form-group checkbox-group">
-          <label>
-            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
-            <span>Dry-run (validate only, do not restore)</span>
-          </label>
-          <small className="form-help">
-            Recommended: Run validation first before actual restore
-          </small>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="dry-run"
+            checked={dryRun}
+            onCheckedChange={(checked) => setDryRun(checked === true)}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="dry-run" className="font-normal cursor-pointer">
+              Dry-run (validate only, do not restore)
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Recommended: Run validation first before actual restore
+            </p>
+          </div>
         </div>
 
-        <div className="form-actions">
-          <button
+        <div className="flex justify-end">
+          <Button
             type="submit"
             disabled={triggerRestore.isPending || !selectedTarget || !backupPath}
-            className={dryRun ? 'btn-secondary' : 'btn-danger'}
+            variant={dryRun ? 'secondary' : 'destructive'}
           >
             {triggerRestore.isPending
               ? 'Submitting...'
               : dryRun
                 ? 'Validate Restore'
                 : 'Execute Restore'}
-          </button>
+          </Button>
         </div>
       </form>
 
-      {showConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-content confirm-dialog">
-            <h3>⚠️ Confirm Restore</h3>
-            <p>
-              You are about to restore database <strong>{selectedTargetInfo?.database}</strong> on{' '}
-              <strong>{selectedTargetInfo?.host}</strong>.
-            </p>
-            <p>
-              <strong>This will overwrite the existing database!</strong>
-            </p>
-            <p>Backup path: {backupPath}</p>
-            <div className="modal-actions">
-              <button onClick={handleCancel} className="btn-secondary">
-                Cancel
-              </button>
-              <button onClick={handleConfirm} className="btn-danger">
-                Yes, Restore Database
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm Restore
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-4">
+              <p>
+                You are about to restore database <strong>{selectedTargetInfo?.database}</strong> on{' '}
+                <strong>{selectedTargetInfo?.host}</strong>.
+              </p>
+              <p className="font-semibold">This will overwrite the existing database!</p>
+              <p className="text-sm">Backup path: {backupPath}</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirm}>
+              Yes, Restore Database
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

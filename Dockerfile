@@ -39,23 +39,21 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
     -o brd ./cmd/brd
 
 # Stage 3: Runtime
-FROM debian:trixie-slim
+FROM alpine:3.21
 
 # Install runtime dependencies (database clients + wget for health checks)
-# Note: mariadb-client provides mysql/mysqldump commands compatible with both MySQL and MariaDB
-# MySQL and MariaDB clients conflict in package managers, so we use mariadb-client which works with both
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    mariadb-client \
+# Note: mysql-client provides mysql/mysqldump commands compatible with both MySQL and MariaDB
+# MySQL and MariaDB clients conflict in package managers, so we use mysql-client which works with both
+RUN apk add --no-cache \
+    mysql-client \
     postgresql-client \
-    redis-tools \
+    redis \
     ca-certificates \
-    wget && \
-    rm -rf /var/lib/apt/lists/*
+    wget
 
 # Create non-root user
-RUN groupadd -r -g 1000 bared && \
-    useradd -r -u 1000 -g bared bared
+RUN addgroup -g 1000 -S bared && \
+    adduser -u 1000 -S -G bared bared
 
 # Create directories
 RUN mkdir -p /backups /etc/bared /tmp && \

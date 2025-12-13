@@ -1,6 +1,18 @@
 import { useCancelJob } from '../hooks/useJobs'
 import { JobProgress } from './JobProgress'
 import type { Job } from '../types'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { formatDate, formatDuration, cn } from '@/lib/utils'
 
 interface JobListProps {
   jobs: Job[]
@@ -22,107 +34,89 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
     }
   }
 
-  const formatDate = (dateStr?: string): string => {
-    if (!dateStr) return 'N/A'
-    try {
-      return new Date(dateStr).toLocaleString()
-    } catch {
-      return dateStr
-    }
-  }
-
-  const formatDuration = (seconds?: number): string => {
-    if (!seconds) return 'N/A'
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = Math.floor(seconds % 60)
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`
-    } else {
-      return `${secs}s`
-    }
-  }
-
-  const getStatusClass = (status: string): string => {
-    switch (status) {
-      case 'queued':
-        return 'status-queued'
-      case 'running':
-        return 'status-running'
-      case 'completed':
-        return 'status-completed'
-      case 'failed':
-        return 'status-failed'
-      case 'cancelled':
-      case 'cancelling':
-        return 'status-cancelled'
-      default:
-        return ''
-    }
-  }
-
   if (jobs.length === 0) {
-    return <div className="empty-state">No jobs found</div>
+    return <div className="text-center py-12 text-muted-foreground">No jobs found</div>
   }
 
   return (
-    <div className="job-list">
-      <table className="job-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Type</th>
-            <th>Target</th>
-            <th>Status</th>
-            <th>Progress</th>
-            <th>Created</th>
-            <th>Duration</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Target</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Progress</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {jobs.map((job) => (
-            <tr
+            <TableRow
               key={job.id}
               onClick={() => onSelectJob(job)}
-              className={`job-row ${selectedJobId === job.id ? 'selected' : ''}`}
+              className={cn(
+                'cursor-pointer transition-colors',
+                'hover:bg-accent/50',
+                selectedJobId === job.id && 'bg-primary/10 hover:bg-primary/15'
+              )}
             >
-              <td className="job-id">{job.id.slice(0, 8)}</td>
-              <td className="job-type">{job.type}</td>
-              <td className="job-target">{job.target}</td>
-              <td>
-                <span className={`status-badge ${getStatusClass(job.status)}`}>{job.status}</span>
-                {job.manual && <span className="manual-badge">Manual</span>}
-              </td>
-              <td className="job-progress">
+              <TableCell className="font-mono text-sm">{job.id.slice(0, 8)}</TableCell>
+              <TableCell>{job.type}</TableCell>
+              <TableCell>{job.target}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <StatusBadge
+                    status={
+                      job.status as
+                        | 'running'
+                        | 'idle'
+                        | 'queued'
+                        | 'completed'
+                        | 'failed'
+                        | 'cancelled'
+                        | 'cancelling'
+                    }
+                  />
+                  {job.manual && (
+                    <Badge className="bg-terminal-warning/20 text-terminal-yellow border border-terminal-warning/30 text-xs">
+                      Manual
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
                 {job.progress ? (
                   <JobProgress progress={job.progress} compact />
                 ) : (
-                  <span className="progress-none">-</span>
+                  <span className="text-muted-foreground">-</span>
                 )}
-              </td>
-              <td className="job-created">{formatDate(job.created_at)}</td>
-              <td className="job-duration">{formatDuration(job.duration_seconds)}</td>
-              <td className="job-actions">
+              </TableCell>
+              <TableCell className="font-mono text-sm">{formatDate(job.created_at)}</TableCell>
+              <TableCell className="font-mono text-sm">
+                {formatDuration(job.duration_seconds)}
+              </TableCell>
+              <TableCell>
                 {(job.status === 'running' ||
                   job.status === 'queued' ||
                   job.status === 'cancelling') && (
-                  <button
+                  <Button
                     onClick={(e) => handleCancel(e, job.id)}
                     disabled={cancelJob.isPending || job.status === 'cancelling'}
-                    className="btn-danger btn-sm"
+                    variant="destructive"
+                    size="sm"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }

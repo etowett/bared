@@ -2,6 +2,7 @@
 import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from '../contexts/ThemeContext'
 
 // Create a fresh QueryClient for each test
 const createTestQueryClient = () =>
@@ -21,7 +22,9 @@ export function renderWithQuery(
   { queryClient = createTestQueryClient(), ...renderOptions }: CustomRenderOptions = {}
 ) {
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
   )
   return {
     ...render(ui, { wrapper: Wrapper, ...renderOptions }),

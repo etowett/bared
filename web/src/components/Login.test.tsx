@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '../test/utils'
 import userEvent from '@testing-library/user-event'
 import { Login } from './Login'
 import * as apiClient from '../api/client'
@@ -119,7 +119,7 @@ describe('Login Component', () => {
 
     // Button should show loading state
     expect(screen.getByRole('button', { name: /signing in.../i })).toBeInTheDocument()
-    expect(screen.getByRole('button')).toBeDisabled()
+    expect(screen.getByRole('button', { name: /signing in.../i })).toBeDisabled()
 
     // Inputs should be disabled
     expect(screen.getByLabelText(/username/i)).toBeDisabled()
