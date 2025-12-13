@@ -34,7 +34,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          mariadb-client \
+          default-mysql-client \
           postgresql-client \
           redis-tools
 
@@ -43,7 +43,15 @@ jobs:
       run: |
         brew update
         brew install mysql-client postgresql redis
-        echo "/usr/local/opt/mysql-client/bin" >> $GITHUB_PATH
+        # mysql-client is keg-only, so its binaries (e.g. mysqldump) are not on PATH by default.
+        echo "$(brew --prefix mysql-client)/bin" >> "$GITHUB_PATH"
+        # Ensure common DB tool bins are on PATH regardless of Homebrew prefix.
+        if brew --prefix postgresql@14 >/dev/null 2>&1; then
+          echo "$(brew --prefix postgresql@14)/bin" >> "$GITHUB_PATH"
+        else
+          echo "$(brew --prefix postgresql)/bin" >> "$GITHUB_PATH"
+        fi
+        echo "$(brew --prefix redis)/bin" >> "$GITHUB_PATH"
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -76,7 +84,7 @@ jobs:
       run: go test -v -race -coverprofile=coverage.out ./...
 
     - name: Upload coverage
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25'
+      if: matrix.os == 'ubuntu-latest' && startsWith(matrix.go-version, '1.25')
       uses: codecov/codecov-action@v4
       with:
         files: ./coverage.out
@@ -165,7 +173,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: web-dist
-        path: web/dist
+        path: internal/web/dist
 
     - name: Build binary with embedded web
       run: make build

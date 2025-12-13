@@ -23,11 +23,12 @@ type Manager struct {
 	wg            sync.WaitGroup
 	mu            sync.RWMutex
 
-	cfg *config.Config
+	cfg   *config.Config
+	store JobStore
 }
 
 // NewManager creates a new job manager
-func NewManager(cfg *config.Config, maxConcurrent, maxHistory int) *Manager {
+func NewManager(cfg *config.Config, store JobStore, maxConcurrent, maxHistory int) *Manager {
 	return &Manager{
 		jobs:          make(map[JobID]*Job),
 		runningJobs:   make(map[string]*Job),
@@ -36,6 +37,7 @@ func NewManager(cfg *config.Config, maxConcurrent, maxHistory int) *Manager {
 		maxHistory:    maxHistory,
 		shutdown:      make(chan struct{}),
 		cfg:           cfg,
+		store:         store,
 	}
 }
 
@@ -117,9 +119,23 @@ func (m *Manager) executeJob(job *Job) {
 				job.MarkFailed(err)
 				util.Error("Job %s failed: %v", job.ID, err)
 			}
+
+			// Update job in store on failure/cancel
+			if m.store != nil {
+				if err := m.store.UpdateJob(job.Context(), job); err != nil {
+					util.Error("Failed to update job %s status: %v", job.ID, err)
+				}
+			}
 			return
 		}
 		job.MarkCompleted(result)
+
+		// Update job in store on success
+		if m.store != nil {
+			if err := m.store.UpdateJob(job.Context(), job); err != nil {
+				util.Error("Failed to update job %s status: %v", job.ID, err)
+			}
+		}
 		util.Info("Job %s completed successfully", job.ID)
 
 	case JobTypeRestore:
@@ -136,9 +152,23 @@ func (m *Manager) executeJob(job *Job) {
 				job.MarkFailed(err)
 				util.Error("Job %s failed: %v", job.ID, err)
 			}
+
+			// Update job in store on failure/cancel
+			if m.store != nil {
+				if err := m.store.UpdateJob(job.Context(), job); err != nil {
+					util.Error("Failed to update job %s status: %v", job.ID, err)
+				}
+			}
 			return
 		}
 		job.MarkCompleted(result)
+
+		// Update job in store on success
+		if m.store != nil {
+			if err := m.store.UpdateJob(job.Context(), job); err != nil {
+				util.Error("Failed to update job %s status: %v", job.ID, err)
+			}
+		}
 		util.Info("Job %s completed successfully", job.ID)
 
 	default:
@@ -161,6 +191,14 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	m.jobs[job.ID] = job
 	m.runningJobs[target.Name] = job
 	m.mu.Unlock()
+
+	// Persist job
+	if m.store != nil {
+		if err := m.store.CreateJob(ctx, job); err != nil {
+			util.Error("Failed to persist job %s: %v", job.ID, err)
+			// We log but continue, as in-memory tracking is primary fallback
+		}
+	}
 
 	// Queue job
 	select {
@@ -195,6 +233,13 @@ func (m *Manager) SubmitRestoreWithOptions(ctx context.Context, target *config.T
 	m.runningJobs[target.Name] = job
 	m.mu.Unlock()
 
+	// Persist job
+	if m.store != nil {
+		if err := m.store.CreateJob(ctx, job); err != nil {
+			util.Error("Failed to persist job %s: %v", job.ID, err)
+		}
+	}
+
 	// Queue job
 	select {
 	case m.jobQueue <- job:
@@ -216,6 +261,10 @@ func (m *Manager) GetJob(jobID JobID) (*Job, error) {
 
 	job, exists := m.jobs[jobID]
 	if !exists {
+		// Fallback to store if not in memory (e.g. restart)
+		// NOTE: This would require loading result/logs/etc from DB which might be partial
+		// For now, we only support in-memory + write-behind persistence.
+		// Reading from DB for historical jobs is future work or API driven.
 		return nil, fmt.Errorf("job not found: %s", jobID)
 	}
 

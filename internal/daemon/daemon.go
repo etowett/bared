@@ -1,4 +1,4 @@
-// Package daemon provides the daemon server with scheduling and HTTP API capabilities.
+// Package daemon implements the background process for scheduling and running jobs.
 package daemon
 
 import (
@@ -15,6 +15,8 @@ import (
 	"bared/internal/api"
 	"bared/internal/config"
 	"bared/internal/jobs"
+	"bared/internal/persistence"
+	"bared/internal/util"
 )
 
 // Daemon represents the backup daemon
@@ -22,6 +24,7 @@ type Daemon struct {
 	cfg        *config.Config
 	scheduler  *cron.Cron
 	jobManager *jobs.Manager
+	store      jobs.JobStore
 	ctx        context.Context
 	cancel     context.CancelFunc
 
@@ -74,12 +77,36 @@ func WithShutdownTimeout(timeout time.Duration) Option {
 func New(cfg *config.Config, opts ...Option) *Daemon {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Initialize persistence
+	var store jobs.JobStore
+	if cfg.Persistence != nil && cfg.Persistence.Enabled {
+		var err error
+		// Default to sqlite if not specified but enabled
+		driver := cfg.Persistence.Type
+		if driver == "" {
+			driver = "sqlite3"
+		}
+
+		dsn := cfg.Persistence.DSN
+		if dsn == "" && driver == "sqlite3" {
+			dsn = "bared.db"
+		}
+
+		store, err = persistence.NewSQLStore(driver, dsn)
+		if err != nil {
+			log.Printf("Failed to initialize persistence: %v. Running in-memory only.", err)
+		} else {
+			log.Printf("Persistence enabled: %s", driver)
+		}
+	}
+
 	// Create daemon with defaults
 	d := &Daemon{
 		cfg:               cfg,
 		scheduler:         cron.New(),
 		ctx:               ctx,
 		cancel:            cancel,
+		store:             store,
 		maxConcurrentJobs: 3,
 		jobHistorySize:    10,
 		shutdownTimeout:   1 * time.Hour,
@@ -91,7 +118,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 	}
 
 	// Create job manager
-	d.jobManager = jobs.NewManager(cfg, d.maxConcurrentJobs, d.jobHistorySize)
+	d.jobManager = jobs.NewManager(cfg, store, d.maxConcurrentJobs, d.jobHistorySize)
 
 	// Initialize HTTP server if configured
 	if d.httpAddr != "" {
@@ -196,7 +223,14 @@ func (d *Daemon) Stop() error {
 		log.Println("All jobs completed successfully")
 	}
 
-	// 4. Cancel daemon context
+	// 4. Close persistence if active
+	if d.store != nil {
+		if err := d.store.Close(); err != nil {
+			log.Printf("Error closing persistence layer: %v", err)
+		}
+	}
+
+	// 5. Cancel daemon context
 	d.cancel()
 
 	log.Println("Daemon stopped")
@@ -220,6 +254,30 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 	// Create a closure that captures the target
 	targetCopy := target
 	job := func() {
+		// Use distributed locking if persistence is enabled
+		if d.store != nil {
+			// Lock key format: cron:target_name:YYYYMMDDHHMM
+			// Bucketed to minute to allow one run per minute per target
+			now := time.Now()
+			lockKey := fmt.Sprintf("cron:%s:%s", targetCopy.Name, now.Format("200601021504"))
+			ttl := 1 * time.Hour // Hold lock for an hour (simulates "job ran")
+
+			acquired, err := d.store.AcquireLock(d.ctx, lockKey, ttl)
+			if err != nil {
+				util.Error("Failed to acquire lock for %s: %v", targetCopy.Name, err)
+				return // Fail safe
+			}
+			if !acquired {
+				util.Info("Skipping scheduled run for %s (lock held by another instance)", targetCopy.Name)
+				return
+			}
+
+			// Note: We don't release the lock immediately. We want it to persist for the
+			// duration of the "bucket" (the minute) so no other pod picks it up.
+			// Actually, if we want to run once per schedule tick, holding it is correct.
+			// The TTL handles the eventual cleanup.
+		}
+
 		log.Printf("[%s] Starting scheduled backup", targetCopy.Name)
 
 		// Submit job to job manager

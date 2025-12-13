@@ -49,7 +49,7 @@ func TestNewManager(t *testing.T) {
 				Targets: []*config.Target{fixtures.MySQLTarget()},
 			}
 
-			mgr := NewManager(cfg, tt.maxConcurrent, tt.maxHistory)
+			mgr := NewManager(cfg, nil, tt.maxConcurrent, tt.maxHistory)
 
 			require.NotNil(t, mgr)
 			assert.Equal(t, tt.maxConcurrent, mgr.maxConcurrent)
@@ -68,7 +68,7 @@ func TestManager_StartAndShutdown(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 	mgr.Start()
 
 	// Give workers time to start
@@ -87,7 +87,7 @@ func TestManager_ShutdownTimeout(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 1, 100)
+	mgr := NewManager(cfg, nil, 1, 100)
 	mgr.Start()
 
 	// Give workers time to start
@@ -110,7 +110,7 @@ func TestManager_GetJob(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Create and add a job manually
 	job := NewJob(JobTypeBackup, "mysql-prod", true)
@@ -157,7 +157,7 @@ func TestManager_ListJobs(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Initially empty
 	jobs := mgr.ListJobs()
@@ -184,7 +184,7 @@ func TestManager_ListJobsForTarget(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Add jobs for different targets
 	job1 := NewJob(JobTypeBackup, "mysql-prod", true)
@@ -237,7 +237,7 @@ func TestManager_IsTargetRunning(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Initially not running
 	assert.False(t, mgr.IsTargetRunning("mysql-prod"))
@@ -266,7 +266,7 @@ func TestManager_CancelJob(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	tests := []struct {
 		name          string
@@ -350,7 +350,7 @@ func TestManager_CancelJob_NotFound(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	err := mgr.CancelJob(JobID("non-existent-id"))
 	require.Error(t, err)
@@ -362,7 +362,7 @@ func TestManager_CleanupOldJobs(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	now := time.Now()
 
@@ -405,7 +405,7 @@ func TestManager_StartCleanupRoutine(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	now := time.Now()
 
@@ -437,7 +437,7 @@ func TestManager_ConcurrentJobOperations(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	var wg sync.WaitGroup
 	operations := 50
@@ -477,7 +477,7 @@ func TestManager_DuplicateTargetPrevention(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Add a running job for target
 	job := NewJob(JobTypeBackup, "mysql-prod", true)
@@ -502,7 +502,7 @@ func TestManager_JobQueueCapacity(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 1, 100)
+	mgr := NewManager(cfg, nil, 1, 100)
 
 	// Job queue has capacity of 100
 	assert.Equal(t, 100, cap(mgr.jobQueue))
@@ -516,7 +516,7 @@ func TestManager_MultipleTargetsAndJobTypes(t *testing.T) {
 		},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Create different job types for different targets
 	job1 := NewJob(JobTypeBackup, "mysql-prod", true)
@@ -548,7 +548,7 @@ func TestManager_GetJob_ThreadSafety(_ *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Add a job
 	job := NewJob(JobTypeBackup, "mysql-prod", true)
@@ -577,7 +577,7 @@ func TestManager_EmptyManagerOperations(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 
-	mgr := NewManager(cfg, 2, 100)
+	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Operations on empty manager should not panic
 	assert.Len(t, mgr.ListJobs(), 0)

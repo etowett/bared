@@ -1,4 +1,4 @@
-.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format build-with-web validate-all compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build clean install uninstall test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web validate-all compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -484,8 +484,19 @@ web-clean:
 	@echo "Cleaning web frontend..."
 	rm -rf web/dist web/node_modules
 
+# Sync built web assets into the Go embed directory (internal/web/dist)
+web-sync-dist:
+	@echo "Syncing web assets into internal/web/dist..."
+	@mkdir -p internal/web/dist
+	@if [ -d "web/dist" ]; then \
+		rm -rf internal/web/dist/*; \
+		cp -R web/dist/. internal/web/dist/; \
+	else \
+		echo "web/dist not found; leaving internal/web/dist as-is"; \
+	fi
+
 # Build with web frontend
-build-with-web: web-build build
+build-with-web: web-build web-sync-dist build
 	@echo "Build complete with embedded web UI"
 
 # Validate everything (Go + Web)
