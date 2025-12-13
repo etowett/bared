@@ -29,6 +29,7 @@ export default [
         alert: 'readonly',
         RequestInit: 'readonly',
         URLSearchParams: 'readonly',
+        HTMLElement: 'readonly',
         HTMLDivElement: 'readonly',
         HTMLInputElement: 'readonly',
         HTMLParagraphElement: 'readonly',

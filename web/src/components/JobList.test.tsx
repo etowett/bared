@@ -90,11 +90,12 @@ describe('JobList Component', () => {
     ]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    expect(screen.getByText('queued').className).toContain('status-queued')
-    expect(screen.getByText('running').className).toContain('status-running')
-    expect(screen.getByText('completed').className).toContain('status-completed')
-    expect(screen.getByText('failed').className).toContain('status-failed')
-    expect(screen.getByText('cancelled').className).toContain('status-cancelled')
+    // Check that status badges are rendered with terminal colors
+    expect(screen.getByText('queued').className).toContain('text-terminal-yellow')
+    expect(screen.getByText('running').className).toContain('text-terminal-cyan')
+    expect(screen.getByText('completed').className).toContain('text-terminal-green')
+    expect(screen.getByText('failed').className).toContain('text-terminal-red')
+    expect(screen.getByText('cancelled').className).toContain('text-muted-foreground')
   })
 
   it('displays manual badge for manual jobs', () => {
@@ -179,8 +180,8 @@ describe('JobList Component', () => {
 
     const rows = screen.getAllByRole('row')
     // First row is header, second is selected job
-    expect(rows[1].className).toContain('selected')
-    expect(rows[2].className).not.toContain('selected')
+    expect(rows[1].className).toContain('bg-primary')
+    expect(rows[2].className).not.toContain('bg-primary')
   })
 
   it('shows cancel button for running, queued, and cancelling jobs', () => {
