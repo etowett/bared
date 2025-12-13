@@ -173,7 +173,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: web-dist
-        path: web/dist
+        path: internal/web/dist
 
     - name: Build binary with embedded web
       run: make build
