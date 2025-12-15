@@ -382,8 +382,7 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 // sendRestoreNotifications sends notifications to all configured notifiers for restore operations
 func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *config.Target, result *RestoreResult, err error) {
-	notifiers := cfg.GetAllNotifiers()
-	if len(notifiers) == 0 {
+	if cfg == nil || len(cfg.Notifiers) == 0 {
 		return
 	}
 
@@ -430,21 +429,37 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 		}
 	}
 
-	for _, notifierCfg := range notifiers {
+	for notifierName, notifierCfg := range cfg.Notifiers {
 		notifier, notifyErr := notify.New(notifierCfg)
 		if notifyErr != nil {
-			log.Printf("Warning: failed to create notifier: %v", notifyErr)
+			log.Printf("[notify] failed to create notifier name=%s type=%s dest=%s err=%v",
+				notifierName, notifierCfg.Type, notifierDestination(notifierCfg), notifyErr)
 			continue
 		}
 
+		dest := notifierDestination(notifierCfg)
+		start := time.Now()
+
 		// Send success or failure notification
 		if err != nil {
+			log.Printf("[notify] sending op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s",
+				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
 			if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
-				log.Printf("Warning: failed to send restore failure notification: %v", sendErr)
+				log.Printf("[notify] failed op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
+					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+			} else {
+				log.Printf("[notify] sent op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
+					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
 			}
 		} else if notifier.ShouldNotifySuccess() {
+			log.Printf("[notify] sending op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s",
+				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
 			if sendErr := notifier.NotifySuccess(ctx, msg); sendErr != nil {
-				log.Printf("Warning: failed to send restore success notification: %v", sendErr)
+				log.Printf("[notify] failed op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
+					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+			} else {
+				log.Printf("[notify] sent op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
+					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
 			}
 		}
 	}

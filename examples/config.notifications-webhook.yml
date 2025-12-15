@@ -1,0 +1,163 @@
+# BareD Configuration Example - Webhook Notifications
+# This example demonstrates various webhook integrations
+
+# Persistence
+persistence:
+  enabled: true
+  type: sqlite3
+  dsn: bared.db
+
+# Storage
+storages:
+  s3:
+    type: s3
+    bucket: backups
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    keep: 30
+
+# Webhook integrations
+notifiers:
+  # Zapier webhook (no auth required)
+  webhook-zapier:
+    type: webhook
+    url: https://hooks.zapier.com/hooks/catch/12345678/abcdefg/
+    on_success: true
+    webhook_method: POST
+
+  # n8n workflow automation
+  webhook-n8n:
+    type: webhook
+    url: https://n8n.company.com/webhook/backup-monitor
+    on_success: true
+    webhook_method: POST
+
+  # Make.com (Integromat) scenario
+  webhook-make:
+    type: webhook
+    url: https://hook.us1.make.com/abcdefghijklmnopqrstuvwxyz
+    on_success: true
+
+  # Datadog events API
+  webhook-datadog:
+    type: webhook
+    url: https://api.datadoghq.com/api/v1/events
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+    webhook_auth:
+      type: header
+      header_name: DD-API-KEY
+      header_value: ${DATADOG_API_KEY}
+
+  # Custom monitoring API with Bearer token
+  webhook-monitoring:
+    type: webhook
+    url: https://monitoring.company.com/api/v1/events
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+      X-Service: bared-backups
+      X-Environment: production
+    webhook_auth:
+      type: bearer
+      token: ${MONITORING_API_TOKEN}
+
+  # Internal API with Basic Auth
+  webhook-internal:
+    type: webhook
+    url: https://internal.company.com/webhooks/backups
+    on_success: false  # Only failures
+    webhook_auth:
+      type: basic
+      username: webhook-user
+      password: ${INTERNAL_WEBHOOK_PASSWORD}
+
+  # Custom dashboard with API key
+  webhook-dashboard:
+    type: webhook
+    url: https://dashboard.company.com/api/backup-events
+    on_success: true
+    webhook_method: POST
+    webhook_auth:
+      type: header
+      header_name: X-API-Key
+      header_value: ${DASHBOARD_API_KEY}
+
+  # PagerDuty Events API v2
+  webhook-pagerduty:
+    type: webhook
+    url: https://events.pagerduty.com/v2/enqueue
+    on_success: false  # Only alert on failures
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+    webhook_auth:
+      type: header
+      header_name: Authorization
+      header_value: Token token=${PAGERDUTY_TOKEN}
+
+  # Microsoft Teams incoming webhook
+  webhook-teams:
+    type: webhook
+    url: https://outlook.office.com/webhook/${TEAMS_WEBHOOK_ID}
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+
+  # Discord webhook
+  webhook-discord:
+    type: webhook
+    url: https://discord.com/api/webhooks/${DISCORD_WEBHOOK_ID}/${DISCORD_WEBHOOK_TOKEN}
+    on_success: false
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+
+  # Elasticsearch/OpenSearch
+  webhook-elasticsearch:
+    type: webhook
+    url: https://elasticsearch.company.com/backup-events/_doc
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+    webhook_auth:
+      type: basic
+      username: ${ES_USER}
+      password: ${ES_PASSWORD}
+
+  # Custom analytics platform
+  webhook-analytics:
+    type: webhook
+    url: https://analytics.company.com/api/events
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+      X-Client-ID: bared-backup-system
+      X-Client-Version: "1.0"
+    webhook_auth:
+      type: bearer
+      token: ${ANALYTICS_TOKEN}
+
+targets:
+  - name: postgres-db
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: production
+      host: localhost
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    schedule: "0 3 * * *"
