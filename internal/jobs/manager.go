@@ -86,14 +86,17 @@ func (m *Manager) executeJob(job *Job) {
 	var logFlushDone chan struct{}
 	var logBuffer []LogEntry
 	var logBufferMu sync.Mutex
+	var flushWg sync.WaitGroup
 
 	if m.store != nil {
 		logFlushDone = make(chan struct{})
 		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
 
 		// Start periodic log flusher
+		flushWg.Add(1)
 		go func() {
+			defer flushWg.Done()
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
@@ -131,7 +134,7 @@ func (m *Manager) executeJob(job *Job) {
 	defer func() {
 		if logFlushDone != nil {
 			close(logFlushDone)
-			time.Sleep(100 * time.Millisecond) // Give flush goroutine time to complete
+			flushWg.Wait() // Properly wait for flush to complete
 		}
 	}()
 
