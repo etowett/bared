@@ -171,7 +171,7 @@ docker-compose down
 ### Documentation
 
 - Update README.md for user-facing changes
-- Update plan.md for architectural changes
+- Update docs/architecture/original-plan.md for architectural changes
 - Add inline comments for complex logic
 - Update example configurations
 
@@ -291,7 +291,7 @@ go tool pprof cpu.prof
 ## Getting Help
 
 - Check existing issues and pull requests
-- Review the documentation in `README.md` and `plan.md`
+- Review the documentation in `README.md` and `docs/`
 - Ask questions in issues with the "question" label
 
 ## Code of Conduct

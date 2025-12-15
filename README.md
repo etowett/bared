@@ -141,6 +141,34 @@ targets:
 ./bin/brd daemon --config bared.yml
 ```
 
+## Documentation
+
+📚 **[Complete Documentation Hub](docs/README.md)** - Navigate all documentation by audience and topic
+
+### Quick Links
+
+**For Users**:
+- [Getting Started](docs/user-guide/getting-started.md) - New to BareD? Start here
+- [Configuration Guide](docs/user-guide/configuration.md) - Configure BareD for your needs
+- [Configuration Examples](examples/) - Ready-to-use YAML configs
+- [Notification Setup](examples/NOTIFICATIONS.md) - Set up Slack, Email, or Webhooks
+- [Web Interface](docs/user-guide/web-interface.md) - Use the web dashboard
+
+**For Operators**:
+- [Deployment Guide](docs/operations/deployment.md) - Deploy in production
+- [Docker Deployment](docs/operations/docker.md) - Docker and Docker Compose
+- [Systemd Service](docs/operations/systemd.md) - Run as a system service
+- [Troubleshooting](docs/operations/troubleshooting.md) - Fix common issues
+
+**For Developers**:
+- [Development Setup](docs/development/setup.md) - Set up dev environment
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute
+- [System Architecture](docs/development/architecture.md) - How BareD works
+
+**For Integrators**:
+- [REST API](docs/api/endpoints.md) - HTTP API reference
+- [WebSocket API](docs/api/websocket.md) - Real-time log streaming
+
 ## Architecture
 
 ### Pipeline Flow
@@ -185,7 +213,7 @@ bared/
 │   ├── retention/        # Retention policies (coming soon)
 │   └── util/             # Utilities (paths, retry, shell)
 ├── examples/             # Example configurations
-└── plan.md               # Detailed implementation plan
+└── docs/                 # Complete documentation
 ```
 
 ## Requirements
@@ -206,7 +234,7 @@ bared/
 
 ## Development
 
-See `plan.md` for the complete implementation plan and architectural details.
+See `docs/` for complete documentation including user guides, operations, and architecture details.
 
 ### Building
 
@@ -233,4 +261,4 @@ To be determined
 
 ## Contributing
 
-Contributions welcome! Please see the `plan.md` for implementation details and architecture.
+Contributions welcome! Please see `CONTRIBUTING.md` and `docs/development/` for implementation details and architecture.
