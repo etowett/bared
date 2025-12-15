@@ -219,7 +219,7 @@ func TestJob_MarkFailed(t *testing.T) {
 
 	require.NotNil(t, job.CompletedAt)
 	assert.Equal(t, JobStatusFailed, job.GetStatus())
-	assert.Equal(t, testErr, job.Error)
+	assert.Equal(t, testErr.Error(), job.Error)
 	assert.True(t, job.CompletedAt.After(beforeMark) || job.CompletedAt.Equal(beforeMark))
 	assert.True(t, job.CompletedAt.Before(afterMark) || job.CompletedAt.Equal(afterMark))
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"html"
 	"net/smtp"
 	"strings"
 	"time"
@@ -75,7 +76,16 @@ func (e *Email) buildSuccessHTML(msg *Message) string {
 		opTitle += " (DRY-RUN)"
 	}
 
-	html := `<!DOCTYPE html>
+	// Escape all user-controlled fields to prevent HTML injection
+	escapedTarget := html.EscapeString(msg.Target)
+	escapedScheduledBy := html.EscapeString(msg.ScheduledBy)
+	escapedStorageName := html.EscapeString(msg.StorageName)
+	escapedStorageType := html.EscapeString(msg.StorageType)
+	escapedPath := html.EscapeString(msg.Path)
+	escapedDatabaseName := html.EscapeString(msg.DatabaseName)
+	escapedDatabaseType := html.EscapeString(msg.DatabaseType)
+
+	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -107,35 +117,35 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 <div class="content">
 <div class="section">
 <h2>Summary</h2>
-<div class="metric"><span class="label">Target</span><span class="value">` + msg.Target + `</span></div>
+<div class="metric"><span class="label">Target</span><span class="value">` + escapedTarget + `</span></div>
 <div class="metric"><span class="label">Duration</span><span class="value">` + msg.Duration.String() + `</span></div>`
 
 	// Add trigger info
 	if msg.Manual {
-		html += `<div class="metric"><span class="label">Trigger</span><span class="value">Manual</span></div>`
+		htmlContent += `<div class="metric"><span class="label">Trigger</span><span class="value">Manual</span></div>`
 	} else if msg.ScheduledBy != "" {
-		html += `<div class="metric"><span class="label">Trigger</span><span class="value">Scheduled (` + msg.ScheduledBy + `)</span></div>`
+		htmlContent += `<div class="metric"><span class="label">Trigger</span><span class="value">Scheduled (` + escapedScheduledBy + `)</span></div>`
 	}
 
-	html += `<div class="metric"><span class="label">Time</span><span class="value">` + msg.Timestamp.Format("2006-01-02 15:04:05") + `</span></div>
+	htmlContent += `<div class="metric"><span class="label">Time</span><span class="value">` + msg.Timestamp.Format("2006-01-02 15:04:05") + `</span></div>
 </div>`
 
 	// Size metrics section for backups
 	if msg.Operation == "backup" && msg.Size > 0 {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Size Metrics</h2>`
 		if msg.UncompressedSize > 0 {
-			html += `<div class="metric"><span class="label">Uncompressed Size</span><span class="value">` + formatBytes(msg.UncompressedSize) + `</span></div>`
-			html += `<div class="metric"><span class="label">Compressed Size</span><span class="value">` + formatBytes(msg.Size) + `</span></div>`
+			htmlContent += `<div class="metric"><span class="label">Uncompressed Size</span><span class="value">` + formatBytes(msg.UncompressedSize) + `</span></div>`
+			htmlContent += `<div class="metric"><span class="label">Compressed Size</span><span class="value">` + formatBytes(msg.Size) + `</span></div>`
 			if msg.CompressionRatio > 0 {
-				html += `<div class="metric"><span class="label">Compression Ratio</span><span class="value">` + fmt.Sprintf("%.1f%% reduction", msg.CompressionRatio) + `</span></div>`
+				htmlContent += `<div class="metric"><span class="label">Compression Ratio</span><span class="value">` + fmt.Sprintf("%.1f%% reduction", msg.CompressionRatio) + `</span></div>`
 			}
 		} else {
-			html += `<div class="metric"><span class="label">Size</span><span class="value">` + formatBytes(msg.Size) + `</span></div>`
+			htmlContent += `<div class="metric"><span class="label">Size</span><span class="value">` + formatBytes(msg.Size) + `</span></div>`
 		}
-		html += `</div>`
+		htmlContent += `</div>`
 	} else if msg.Operation == "restore" && msg.Size > 0 {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Backup Details</h2>
 <div class="metric"><span class="label">Backup Size</span><span class="value">` + formatBytes(msg.Size) + `</span></div>
 </div>`
@@ -143,28 +153,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 
 	// Storage section
 	if msg.StorageName != "" {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Storage</h2>
-<div class="metric"><span class="label">Storage Name</span><span class="value">` + msg.StorageName + `</span></div>
-<div class="metric"><span class="label">Storage Type</span><span class="value">` + msg.StorageType + `</span></div>`
+<div class="metric"><span class="label">Storage Name</span><span class="value">` + escapedStorageName + `</span></div>
+<div class="metric"><span class="label">Storage Type</span><span class="value">` + escapedStorageType + `</span></div>`
 		if msg.Path != "" {
-			html += `<div class="metric"><span class="label">Path</span><span class="value">` + msg.Path + `</span></div>`
+			htmlContent += `<div class="metric"><span class="label">Path</span><span class="value">` + escapedPath + `</span></div>`
 		}
-		html += `</div>`
+		htmlContent += `</div>`
 	}
 
 	// Database section
 	if msg.DatabaseName != "" {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Database</h2>
-<div class="metric"><span class="label">Database Name</span><span class="value">` + msg.DatabaseName + `</span></div>
-<div class="metric"><span class="label">Database Type</span><span class="value">` + msg.DatabaseType + `</span></div>
+<div class="metric"><span class="label">Database Name</span><span class="value">` + escapedDatabaseName + `</span></div>
+<div class="metric"><span class="label">Database Type</span><span class="value">` + escapedDatabaseType + `</span></div>
 </div>`
 	}
 
 	// Restore validations
 	if msg.Operation == "restore" && len(msg.Validations) > 0 {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Validations</h2>
 <div class="metric"><span class="label">Validations Passed</span><span class="value">` + fmt.Sprintf("%d", msg.ValidationsPassed) + `</span></div>
 </div>`
@@ -172,7 +182,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 
 	// Stages section
 	if len(msg.Stages) > 0 {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Stages</h2>
 <ul class="stages">`
 		for _, stage := range msg.Stages {
@@ -181,13 +191,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 			case "failed":
 				icon = "✗"
 			}
-			html += `<li><span class="stage-name">` + icon + ` ` + stage.Name + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
+			escapedStageName := html.EscapeString(stage.Name)
+			htmlContent += `<li><span class="stage-name">` + icon + ` ` + escapedStageName + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
 		}
-		html += `</ul>
+		htmlContent += `</ul>
 </div>`
 	}
 
-	html += `</div>
+	htmlContent += `</div>
 <div class="footer">
 BareD Backup System | ` + time.Now().Format("2006") + `
 </div>
@@ -195,7 +206,7 @@ BareD Backup System | ` + time.Now().Format("2006") + `
 </body>
 </html>`
 
-	return html
+	return htmlContent
 }
 
 // buildFailureHTML builds HTML email for failure notification
@@ -205,7 +216,16 @@ func (e *Email) buildFailureHTML(msg *Message) string {
 		opTitle = "Restore"
 	}
 
-	html := `<!DOCTYPE html>
+	// Escape all user-controlled fields to prevent HTML injection
+	escapedTarget := html.EscapeString(msg.Target)
+	escapedScheduledBy := html.EscapeString(msg.ScheduledBy)
+	escapedStorageName := html.EscapeString(msg.StorageName)
+	escapedStorageType := html.EscapeString(msg.StorageType)
+	escapedDatabaseName := html.EscapeString(msg.DatabaseName)
+	escapedDatabaseType := html.EscapeString(msg.DatabaseType)
+	escapedError := html.EscapeString(fmt.Sprintf("%v", msg.Error))
+
+	htmlContent := `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -238,47 +258,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 </div>
 <div class="content">
 <div class="error-box">
-<div class="error-text">` + fmt.Sprintf("%v", msg.Error) + `</div>
+<div class="error-text">` + escapedError + `</div>
 </div>
 <div class="section">
 <h2>Details</h2>
-<div class="metric"><span class="label">Target</span><span class="value">` + msg.Target + `</span></div>`
+<div class="metric"><span class="label">Target</span><span class="value">` + escapedTarget + `</span></div>`
 
 	// Add trigger info
 	if msg.Manual {
-		html += `<div class="metric"><span class="label">Trigger</span><span class="value">Manual</span></div>`
+		htmlContent += `<div class="metric"><span class="label">Trigger</span><span class="value">Manual</span></div>`
 	} else if msg.ScheduledBy != "" {
-		html += `<div class="metric"><span class="label">Trigger</span><span class="value">Scheduled (` + msg.ScheduledBy + `)</span></div>`
+		htmlContent += `<div class="metric"><span class="label">Trigger</span><span class="value">Scheduled (` + escapedScheduledBy + `)</span></div>`
 	}
 
 	if msg.Duration > 0 {
-		html += `<div class="metric"><span class="label">Duration</span><span class="value">` + msg.Duration.String() + `</span></div>`
+		htmlContent += `<div class="metric"><span class="label">Duration</span><span class="value">` + msg.Duration.String() + `</span></div>`
 	}
 
-	html += `<div class="metric"><span class="label">Time</span><span class="value">` + msg.Timestamp.Format("2006-01-02 15:04:05") + `</span></div>
+	htmlContent += `<div class="metric"><span class="label">Time</span><span class="value">` + msg.Timestamp.Format("2006-01-02 15:04:05") + `</span></div>
 </div>`
 
 	// Database section
 	if msg.DatabaseName != "" {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Database</h2>
-<div class="metric"><span class="label">Database Name</span><span class="value">` + msg.DatabaseName + `</span></div>
-<div class="metric"><span class="label">Database Type</span><span class="value">` + msg.DatabaseType + `</span></div>
+<div class="metric"><span class="label">Database Name</span><span class="value">` + escapedDatabaseName + `</span></div>
+<div class="metric"><span class="label">Database Type</span><span class="value">` + escapedDatabaseType + `</span></div>
 </div>`
 	}
 
 	// Storage section
 	if msg.StorageName != "" {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Storage</h2>
-<div class="metric"><span class="label">Storage Name</span><span class="value">` + msg.StorageName + `</span></div>
-<div class="metric"><span class="label">Storage Type</span><span class="value">` + msg.StorageType + `</span></div>
+<div class="metric"><span class="label">Storage Name</span><span class="value">` + escapedStorageName + `</span></div>
+<div class="metric"><span class="label">Storage Type</span><span class="value">` + escapedStorageType + `</span></div>
 </div>`
 	}
 
 	// Stages section
 	if len(msg.Stages) > 0 {
-		html += `<div class="section">
+		htmlContent += `<div class="section">
 <h2>Stages</h2>
 <ul class="stages">`
 		for _, stage := range msg.Stages {
@@ -289,13 +309,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 			case "running":
 				icon = "⋯"
 			}
-			html += `<li><span class="stage-name">` + icon + ` ` + stage.Name + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
+			escapedStageName := html.EscapeString(stage.Name)
+			htmlContent += `<li><span class="stage-name">` + icon + ` ` + escapedStageName + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
 		}
-		html += `</ul>
+		htmlContent += `</ul>
 </div>`
 	}
 
-	html += `</div>
+	htmlContent += `</div>
 <div class="footer">
 BareD Backup System | ` + time.Now().Format("2006") + `
 </div>
@@ -303,7 +324,7 @@ BareD Backup System | ` + time.Now().Format("2006") + `
 </body>
 </html>`
 
-	return html
+	return htmlContent
 }
 
 // sendWithRetry sends email with retry logic

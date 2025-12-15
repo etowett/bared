@@ -520,7 +520,7 @@ func TestRestoreResult_Fields(t *testing.T) {
 	assert.Equal(t, "local", result.StorageName)
 	assert.True(t, result.DryRun)
 	assert.Len(t, result.Validations, 1)
-	assert.Nil(t, result.Error)
+	assert.Empty(t, result.Error)
 }
 
 func TestRestoreResult_WithError(t *testing.T) {

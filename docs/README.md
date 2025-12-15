@@ -95,7 +95,7 @@ Looking for configuration examples? See the **[examples/](../examples/)** direct
 - **[Project README](../README.md)** - Main project overview
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
 - **[Configuration Examples](../examples/)** - YAML config files and setup guides
-- **[GitHub Repository](https://github.com/etowett/bared))** - Source code
+- **[GitHub Repository](https://github.com/etowett/bared)** - Source code
 
 ## 💡 Documentation Tips
 

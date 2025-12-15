@@ -483,8 +483,8 @@ Planned features:
 
 For issues, questions, or feature requests:
 
-- GitHub Issues: <https://github.com/etowett/bared/issues>
-- Documentation: <https://github.com/etowett/bared/docs>
+- GitHub Issues: <https://github.com/etowett/bared)/issues>
+- Documentation: <https://github.com/etowett/bared)/docs>
 
 ## License
 

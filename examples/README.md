@@ -88,7 +88,7 @@ source .env
 ./bin/brd daemon --config config.yml
 
 # Trigger manual backup (in another terminal)
-curl -X POST http://localhost:8080/api/backups \
+curl -X POST http://localhost:8080/api/jobs/backup \
   -H "Content-Type: application/json" \
   -d '{"target": "your-target-name"}'
 ```
