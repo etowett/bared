@@ -1,0 +1,178 @@
+# BareD Configuration Example - Persistence Enabled
+# This example demonstrates job history and log persistence
+
+# Persistence Configuration
+# Store job history and logs in a database for:
+# - Surviving daemon restarts
+# - Historical log retrieval via API
+# - Distributed locking for multi-instance deployments
+persistence:
+  enabled: true
+  type: sqlite3              # Currently only sqlite3 is supported
+  dsn: /var/lib/bared/bared.db  # Database file path
+
+# For development/testing, you can use:
+# dsn: bared.db  # Relative path (stores in current directory)
+
+# For production, recommended paths:
+# - Linux: /var/lib/bared/bared.db
+# - macOS: /usr/local/var/bared/bared.db
+# - Docker: /data/bared.db (mount volume)
+
+# Benefits of Persistence:
+# 1. Job History: View completed jobs after daemon restart
+# 2. Log Retention: Access historical logs via API
+# 3. Distributed Locking: Run multiple instances safely
+# 4. Audit Trail: Track all backup/restore operations
+# 5. API Access: GET /api/jobs/{job-id} works for old jobs
+
+# Storage
+storages:
+  local:
+    type: local
+    path: /var/backups
+    keep: 30
+
+# Simple Slack notification
+notifiers:
+  slack-alerts:
+    type: slack
+    url: ${SLACK_WEBHOOK_URL}
+    on_success: false
+
+# Backup target
+targets:
+  - name: postgres-prod
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: production
+      host: localhost
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: local
+    schedule: "0 2 * * *"
+
+# Database Schema (created automatically):
+#
+# jobs table:
+#   - id: Job identifier (UUID)
+#   - type: Job type (backup/restore)
+#   - target_name: Target name
+#   - status: Job status (pending/running/completed/failed)
+#   - created_at: Job creation time
+#   - started_at: Job start time
+#   - completed_at: Job completion time
+#   - result_json: Serialized result data
+#   - error: Error message (if failed)
+#   - manual: Whether job was manually triggered
+#   - schedule: Cron schedule (for scheduled jobs)
+#
+# job_logs table:
+#   - id: Log entry identifier
+#   - job_id: Foreign key to jobs table
+#   - timestamp: Log entry timestamp
+#   - level: Log level (debug/info/warn/error)
+#   - message: Log message
+#   - stage: Operation stage (VALIDATING/DUMPING/etc.)
+#
+# locks table:
+#   - name: Lock name
+#   - holder: Lock holder identifier
+#   - expires_at: Lock expiration time
+#
+# Indexes:
+#   - idx_job_logs_job_id: Fast log retrieval by job
+#   - idx_job_logs_timestamp: Time-based log queries
+
+# API Endpoints (when persistence is enabled):
+#
+# GET /api/jobs
+#   - Returns all jobs (in-memory + persisted)
+#   - Query params: ?target=name&status=completed&limit=50
+#
+# GET /api/jobs/{job-id}
+#   - Returns specific job with details
+#   - Works for historical jobs after restart
+#
+# GET /api/jobs/{job-id}/logs
+#   - Returns logs for specific job
+#   - Available for historical jobs
+#   - Query params: ?since=2025-12-15T00:00:00Z
+#
+# GET /api/jobs/{job-id}/logs/stream
+#   - Real-time log streaming (WebSocket)
+#   - Works for running jobs
+#   - Example: websocat ws://localhost:8080/api/jobs/{job-id}/logs/stream
+
+# Multi-Instance Deployment:
+# When running multiple BareD instances with shared persistence:
+#
+# 1. Use shared database (network-accessible SQLite or future PostgreSQL support)
+# 2. Distributed locks prevent duplicate scheduled runs
+# 3. Lock format: "cron:{target}:{YYYYMMDDHHMM}"
+# 4. Lock TTL: 1 hour (prevents concurrent runs)
+# 5. Graceful handling: Instance skips run if lock held
+#
+# Example multi-instance setup:
+#
+# Instance 1:
+#   persistence:
+#     enabled: true
+#     dsn: /shared/storage/bared.db
+#
+# Instance 2:
+#   persistence:
+#     enabled: true
+#     dsn: /shared/storage/bared.db
+#
+# Result: Only one instance executes each scheduled backup
+
+# Performance Considerations:
+#
+# - Log writes are batched (100 entries or 5 seconds)
+# - Jobs written immediately on creation
+# - Jobs updated on completion
+# - Indexes optimize query performance
+# - SQLite handles ~50k writes/sec (sufficient for logs)
+#
+# Recommended for:
+# - Production deployments
+# - Multi-instance setups
+# - Compliance/audit requirements
+# - Long-term job history needs
+#
+# Optional for:
+# - Single-instance dev/test environments
+# - Short-lived backup jobs
+# - Memory-constrained systems (uses ~10MB RAM + disk)
+
+# Backup and Maintenance:
+#
+# The persistence database itself should be backed up:
+#
+# # Backup the database
+# cp /var/lib/bared/bared.db /var/lib/bared/bared.db.backup
+#
+# # Or use SQLite backup command
+# sqlite3 /var/lib/bared/bared.db ".backup /var/lib/bared/bared.db.backup"
+#
+# # Vacuum to reclaim space (optional, done periodically)
+# sqlite3 /var/lib/bared/bared.db "VACUUM;"
+#
+# # Check database integrity
+# sqlite3 /var/lib/bared/bared.db "PRAGMA integrity_check;"
+
+# Migration from non-persistent setup:
+#
+# 1. Stop BareD daemon
+# 2. Add persistence config
+# 3. Start BareD daemon
+# 4. Database created automatically
+# 5. New jobs will be persisted
+# 6. Old in-memory jobs are lost (expected)

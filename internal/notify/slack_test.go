@@ -78,11 +78,13 @@ func TestSlack_NotifySuccess(t *testing.T) {
 			name:      "successful notification",
 			onSuccess: true,
 			msg: &Message{
-				Target:    "mysql-prod",
-				Operation: "backup",
-				Duration:  5 * time.Second,
-				Path:      "/backups/mysql-prod/2025-12-02/backup.sql.tar.gz",
-				Timestamp: time.Date(2025, 12, 2, 10, 30, 0, 0, time.UTC),
+				Target:      "mysql-prod",
+				Operation:   "backup",
+				Duration:    5 * time.Second,
+				Path:        "/backups/mysql-prod/2025-12-02/backup.sql.tar.gz",
+				StorageName: "s3-backups",
+				StorageType: "s3",
+				Timestamp:   time.Date(2025, 12, 2, 10, 30, 0, 0, time.UTC),
 			},
 			validateFunc: func(t *testing.T, payload map[string]interface{}) {
 				attachments := payload["attachments"].([]interface{})
@@ -95,6 +97,7 @@ func TestSlack_NotifySuccess(t *testing.T) {
 				assert.Contains(t, text, "✓ *Backup Successful*")
 				assert.Contains(t, text, "Target: `mysql-prod`")
 				assert.Contains(t, text, "Duration: 5s")
+				assert.Contains(t, text, "Storage: s3-backups (s3)")
 				assert.Contains(t, text, "Path: `/backups/mysql-prod/2025-12-02/backup.sql.tar.gz`")
 				assert.Contains(t, text, "Time: 2025-12-02 10:30:00")
 				assert.Equal(t, "good", color)
@@ -411,12 +414,14 @@ func TestSlack_MessageFormatting(t *testing.T) {
 		{
 			name: "success with all fields",
 			msg: &Message{
-				Target:    "mysql-staging",
-				Operation: "backup",
-				Duration:  10*time.Minute + 30*time.Second,
-				Size:      1024 * 1024 * 100, // 100MB
-				Path:      "/backups/mysql-staging/2025-12-02T10-30-00Z/db.sql.tar.gz",
-				Timestamp: time.Date(2025, 12, 2, 10, 30, 0, 0, time.UTC),
+				Target:      "mysql-staging",
+				Operation:   "backup",
+				Duration:    10*time.Minute + 30*time.Second,
+				Size:        1024 * 1024 * 100, // 100MB
+				Path:        "/backups/mysql-staging/2025-12-02T10-30-00Z/db.sql.tar.gz",
+				StorageName: "s3-prod",
+				StorageType: "s3",
+				Timestamp:   time.Date(2025, 12, 2, 10, 30, 0, 0, time.UTC),
 			},
 			notifyFunc: func(s *Slack, ctx context.Context, msg *Message) error {
 				return s.NotifySuccess(ctx, msg)
@@ -425,6 +430,8 @@ func TestSlack_MessageFormatting(t *testing.T) {
 				"✓ *Backup Successful*",
 				"Target: `mysql-staging`",
 				"Duration: 10m30s",
+				"Size: 100.0 MB",
+				"Storage: s3-prod (s3)",
 				"Path: `/backups/mysql-staging/2025-12-02T10-30-00Z/db.sql.tar.gz`",
 				"Time: 2025-12-02 10:30:00",
 			},
@@ -442,7 +449,7 @@ func TestSlack_MessageFormatting(t *testing.T) {
 				return s.NotifyFailure(ctx, msg)
 			},
 			expectedStrings: []string{
-				"✗ *Backup Failed*",
+				"✗ *Restore Failed*",
 				"Target: `postgres-dev`",
 				"Error: database connection refused",
 				"Time: 2025-12-02 14:15:00",
@@ -531,6 +538,36 @@ func TestSlack_PayloadStructure(t *testing.T) {
 	color, ok := attachment["color"].(string)
 	require.True(t, ok)
 	assert.NotEmpty(t, color)
+}
+
+func TestSlack_ChannelOverride_InPayloadWhenConfigured(t *testing.T) {
+	var receivedPayload map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &receivedPayload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	slack := NewSlack(&config.Notifier{
+		Type:      "slack",
+		URL:       server.URL,
+		OnSuccess: true,
+		Channel:   "#alerts",
+	})
+
+	msg := &Message{
+		Target:    "test",
+		Timestamp: time.Now(),
+	}
+
+	ctx := context.Background()
+	err := slack.NotifySuccess(ctx, msg)
+	require.NoError(t, err)
+
+	// If configured, we include it in the webhook payload.
+	require.Contains(t, receivedPayload, "channel")
+	assert.Equal(t, "#alerts", receivedPayload["channel"])
 }
 
 func TestSlack_ConcurrentNotifications(t *testing.T) {

@@ -1,7 +1,19 @@
 # BareD Configuration Example
+# Complete configuration with all features demonstrated
 
 # Default storage backend for all targets
 default_storage: s3
+
+# Persistence configuration (optional)
+# Store job history and logs in database
+persistence:
+  enabled: true
+  type: sqlite3              # Currently only sqlite3 is supported
+  dsn: bared.db              # Database file path (or connection string for other DBs)
+  # Features:
+  # - Job history survives daemon restart
+  # - Historical log retrieval via API
+  # - Distributed locking for multi-instance deployments
 
 # Storage backend definitions
 storages:
@@ -33,11 +45,91 @@ storages:
     keep: 90
 
 # Notification definitions
+# Multiple notifiers can be configured and will all receive notifications
 notifiers:
-  slack:
+  # Slack notifications with rich formatting
+  slack-team:
     type: slack
     url: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-    on_success: false  # Only notify on failure
+    on_success: false  # Set to true to get success notifications
+    # Features:
+    # - Compression metrics (size reduction %)
+    # - Storage and database details
+    # - Manual vs scheduled indicator
+    # - Stage timeline with durations
+    # - Support for both backup and restore notifications
+
+  # Email notifications with HTML formatting
+  email-admins:
+    type: email
+    on_success: true   # Send both success and failure emails
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    smtp_username: backups@company.com
+    smtp_password: ${SMTP_PASSWORD}  # Use environment variables for security
+    smtp_from: backups@company.com
+    smtp_to:
+      - admin@company.com
+      - ops-team@company.com
+    smtp_use_tls: true
+    # Features:
+    # - Beautiful HTML emails with responsive design
+    # - Color-coded (green for success, red for failure)
+    # - All metrics displayed in organized sections
+    # - Mobile-friendly layout
+    # - Automatic retries (3 attempts with exponential backoff)
+
+  # Email notification for failures only (production monitoring)
+  email-oncall:
+    type: email
+    on_success: false  # Only failures
+    smtp_host: smtp.office365.com
+    smtp_port: 587
+    smtp_username: alerts@company.com
+    smtp_password: ${O365_PASSWORD}
+    smtp_from: alerts@company.com
+    smtp_to:
+      - oncall@company.com
+    smtp_use_tls: true
+
+  # Generic webhook for custom integrations
+  webhook-monitoring:
+    type: webhook
+    url: https://api.example.com/v1/backup-events
+    on_success: true
+    webhook_method: POST  # Default is POST, can also use PUT, PATCH, etc.
+    webhook_headers:
+      Content-Type: application/json
+      X-Service: bared-backups
+    webhook_auth:
+      type: bearer
+      token: ${WEBHOOK_TOKEN}
+    # Features:
+    # - Complete JSON payload with all metrics
+    # - Flexible authentication (bearer, basic, custom header)
+    # - Custom HTTP headers
+    # - Automatic retries (3 attempts)
+    # - Works with: Zapier, n8n, Make.com, custom services
+
+  # Webhook with basic authentication
+  webhook-internal:
+    type: webhook
+    url: https://internal.company.com/webhooks/backups
+    on_success: false
+    webhook_auth:
+      type: basic
+      username: webhook-user
+      password: ${WEBHOOK_PASSWORD}
+
+  # Webhook with custom header authentication (e.g., API key)
+  webhook-api:
+    type: webhook
+    url: https://api.monitoring.com/events
+    on_success: true
+    webhook_auth:
+      type: header
+      header_name: X-API-Key
+      header_value: ${API_KEY}
 
 # Backup targets
 targets:

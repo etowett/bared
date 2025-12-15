@@ -80,7 +80,6 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 	// Initialize persistence
 	var store jobs.JobStore
 	if cfg.Persistence != nil && cfg.Persistence.Enabled {
-		var err error
 		// Default to sqlite if not specified but enabled
 		driver := cfg.Persistence.Type
 		if driver == "" {
@@ -92,11 +91,13 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 			dsn = "bared.db"
 		}
 
-		store, err = persistence.NewSQLStore(driver, dsn)
+		sqlStore, err := persistence.NewSQLStore(driver, dsn)
 		if err != nil {
 			log.Printf("Failed to initialize persistence: %v. Running in-memory only.", err)
+			store = nil // Explicitly set to nil to avoid nil pointer in interface
 		} else {
 			log.Printf("Persistence enabled: %s", driver)
+			store = sqlStore // Only assign if successful
 		}
 	}
 
@@ -122,6 +123,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 
 	// Initialize HTTP server if configured
 	if d.httpAddr != "" {
+		log.Printf("Creating HTTP server: %s", d.httpAddr)
 		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg)
 	}
 

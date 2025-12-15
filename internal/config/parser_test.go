@@ -45,6 +45,42 @@ targets:
 			},
 		},
 		{
+			name: "config with slack channel override",
+			configData: `
+default_storage: local
+storages:
+  local:
+    type: local
+    path: /tmp/backups
+    keep: 5
+notifiers:
+  slack:
+    type: slack
+    url: https://hooks.slack.com/services/TEST/WEBHOOK
+    channel: "#alerts"
+    on_success: true
+targets:
+  - name: test_db
+    conn:
+      type: mysql
+      user: root
+      password: testpass
+      database: testdb
+      host: localhost
+      port: 3306
+`,
+			wantErr: false,
+			validate: func(t *testing.T, cfg *Config) {
+				require.NotNil(t, cfg.Notifiers)
+				n, ok := cfg.Notifiers["slack"]
+				require.True(t, ok)
+				assert.Equal(t, "slack", n.Type)
+				assert.Equal(t, "https://hooks.slack.com/services/TEST/WEBHOOK", n.URL)
+				assert.Equal(t, "#alerts", n.Channel)
+				assert.True(t, n.OnSuccess)
+			},
+		},
+		{
 			name: "config with environment variable expansion",
 			configData: `
 storages:

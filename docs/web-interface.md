@@ -58,6 +58,7 @@ These stats auto-refresh every 5 seconds.
 ### Backup Targets
 
 Each target card shows:
+
 - **Name** - Target identifier
 - **Type** - Database type (MySQL, PostgreSQL, Redis)
 - **Database** - Database name
@@ -67,6 +68,7 @@ Each target card shows:
 - **Status** - Current state (Idle / Running)
 
 **Actions**:
+
 - Click **"Backup Now"** to trigger manual backup
 - Button is disabled if backup is already running
 
@@ -75,6 +77,7 @@ Each target card shows:
 The job list shows all backup/restore operations:
 
 **Columns**:
+
 - **ID** - First 8 characters of job UUID
 - **Type** - backup or restore
 - **Target** - Target name
@@ -83,6 +86,7 @@ The job list shows all backup/restore operations:
   - 🔵 Running - Currently executing
   - 🟢 Completed - Successfully finished
   - 🔴 Failed - Encountered error
+  - 🟡 Cancelling - Cancellation in progress
   - ⚫ Cancelled - User cancelled
 - **Progress** - Visual progress bar with percentage
 - **Created** - When job was created
@@ -90,10 +94,12 @@ The job list shows all backup/restore operations:
 - **Actions** - Cancel button for running jobs
 
 **Filters**:
+
 - Filter by status using dropdown menu
 - List auto-refreshes every 3 seconds
 
 **Interaction**:
+
 - Click any row to open detailed job view
 - Selected row is highlighted in blue
 
@@ -102,6 +108,7 @@ The job list shows all backup/restore operations:
 Click any job to see full details:
 
 ### Job Information
+
 - **Job ID** - Full UUID
 - **Type** - backup or restore
 - **Target** - Target name
@@ -116,6 +123,7 @@ Click any job to see full details:
 ### Progress Section (Running Jobs Only)
 
 Shows detailed progress information:
+
 - **Stage** - Current stage (validating, dumping, compressing, uploading)
 - **Percentage** - Overall completion (0-100%)
 - **Progress Bar** - Visual indicator
@@ -126,12 +134,14 @@ Shows detailed progress information:
 ### Error Section (Failed Jobs Only)
 
 If job failed, displays:
+
 - Full error message
 - Stack trace (if available)
 
 ### Logs Section
 
 Real-time streaming logs with:
+
 - **Timestamp** - When log entry was created
 - **Level** - Severity (ERROR, WARN, INFO, DEBUG)
 - **Message** - Log content
@@ -142,6 +152,7 @@ Real-time streaming logs with:
   - 🟣 Purple - DEBUG
 
 **Features**:
+
 - Auto-scroll to bottom as new logs arrive
 - WebSocket connection status indicator:
   - 🟢 Live - Connected and streaming
@@ -153,17 +164,24 @@ Real-time streaming logs with:
 
 ### How Progress is Calculated
 
-Backup progress is divided into weighted stages:
+Progress is calculated dynamically on a per-stage basis using bytes processed versus total bytes:
 
-1. **Validating** (0%) - Quick validation checks
-2. **Dumping** (40%) - Database dump to file
-3. **Compressing** (30%) - Compress dump file
-4. **Uploading** (30%) - Upload to storage backend
-5. **Cleanup** (100%) - Final cleanup
+- **Stage-Based Tracking** - Each stage (validating, dumping, compressing, uploading) tracks its own progress independently based on actual bytes processed
+- **Dynamic Calculation** - Progress percentage = (bytes processed / total bytes) × 100 for the current stage
+- **Counter Reset** - When transitioning to a new stage via SetStage, progress counters reset to zero rather than applying fixed percentage weights
+- **Bytes Reporting** - Each stage reports its actual data throughput, providing accurate real-time progress within that stage
+
+Stages include:
+
+1. **Validating** - Pre-flight validation checks
+2. **Dumping** - Database dump to file
+3. **Compressing** - Compress dump file
+4. **Uploading** - Upload to storage backend
+5. **Cleanup** - Final cleanup operations
 
 ### ETA Calculation
 
-- Uses exponential moving average (EMA) for smoothing
+- Uses exponential moving average (EMA) with alpha=0.3 for smoothing
 - Only displayed after 10% progress (more accurate)
 - Updates in real-time as job progresses
 - Shows time remaining in human-readable format (e.g., "2h 15m")
@@ -346,22 +364,26 @@ Caddy automatically handles HTTPS and WebSocket upgrades.
 For programmatic access, see API endpoints:
 
 ### Health Check
+
 ```bash
 curl http://localhost:8080/api/health
 ```
 
 ### Dashboard
+
 ```bash
 curl -u admin:changeme http://localhost:8080/api/dashboard
 ```
 
 ### List Jobs
+
 ```bash
 curl -u admin:changeme http://localhost:8080/api/jobs
 curl -u admin:changeme http://localhost:8080/api/jobs?status=running
 ```
 
 ### Trigger Backup
+
 ```bash
 curl -u admin:changeme -X POST \
   http://localhost:8080/api/jobs/backup \
@@ -370,12 +392,14 @@ curl -u admin:changeme -X POST \
 ```
 
 ### Cancel Job
+
 ```bash
 curl -u admin:changeme -X DELETE \
   http://localhost:8080/api/jobs/{job-id}
 ```
 
 ### Stream Logs (WebSocket)
+
 ```bash
 # Using websocat
 websocat -H "Authorization: Basic $(echo -n admin:changeme | base64)" \
@@ -423,11 +447,13 @@ websocat -H "Authorization: Basic $(echo -n admin:changeme | base64)" \
 ## Browser Compatibility
 
 Tested and supported:
+
 - ✅ Chrome/Edge 90+
 - ✅ Firefox 88+
 - ✅ Safari 14+
 
 Requires:
+
 - JavaScript enabled
 - WebSocket support
 - sessionStorage support
@@ -436,6 +462,7 @@ Requires:
 ## Mobile Support
 
 The web interface is responsive and works on mobile devices:
+
 - Optimized layouts for small screens
 - Touch-friendly buttons
 - Readable on phones and tablets
@@ -451,6 +478,7 @@ The web interface is responsive and works on mobile devices:
 ## Future Enhancements
 
 Planned features:
+
 - [ ] Dark mode toggle
 - [ ] Email notifications
 - [ ] Backup retention policy management
@@ -462,8 +490,9 @@ Planned features:
 ## Support
 
 For issues, questions, or feature requests:
-- GitHub Issues: https://github.com/yourusername/bared/issues
-- Documentation: https://github.com/yourusername/bared/docs
+
+- GitHub Issues: <https://github.com/etowett/bared/issues>
+- Documentation: <https://github.com/etowett/bared/docs>
 
 ## License
 

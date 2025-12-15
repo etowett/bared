@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -85,12 +86,13 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("--target flag is required")
 		}
 
+		log.Printf("Working with target: %s", targetName)
+
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Initialize logger with configured level
 		logLevel := util.ParseLogLevel(cfg.LogLevel)
 		util.InitLogger(logLevel)
 
@@ -103,6 +105,8 @@ var backupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		log.Printf("Target found: %s", target.Name)
 
 		// Execute backup
 		ctx := context.Background()

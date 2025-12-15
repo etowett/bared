@@ -421,6 +421,265 @@ func TestValidate(t *testing.T) {
 			errContains: "url is required",
 		},
 		{
+			name: "email notifier without smtp_host",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPPort: 587,
+						SMTPFrom: "test@example.com",
+						SMTPTo:   []string{"recipient@example.com"},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "smtp_host is required",
+		},
+		{
+			name: "email notifier without smtp_port",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPHost: "smtp.example.com",
+						SMTPFrom: "test@example.com",
+						SMTPTo:   []string{"recipient@example.com"},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "smtp_port is required",
+		},
+		{
+			name: "email notifier with invalid smtp_port",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPHost: "smtp.example.com",
+						SMTPPort: 70000,
+						SMTPFrom: "test@example.com",
+						SMTPTo:   []string{"recipient@example.com"},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "smtp_port must be between",
+		},
+		{
+			name: "email notifier without smtp_from",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPHost: "smtp.example.com",
+						SMTPPort: 587,
+						SMTPTo:   []string{"recipient@example.com"},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "smtp_from is required",
+		},
+		{
+			name: "email notifier without smtp_to",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPHost: "smtp.example.com",
+						SMTPPort: 587,
+						SMTPFrom: "test@example.com",
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "smtp_to is required",
+		},
+		{
+			name: "webhook notifier without URL",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "url is required",
+		},
+		{
+			name: "webhook notifier with invalid auth type",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+						URL:  "https://example.com/webhook",
+						WebhookAuth: &WebhookAuth{
+							Type: "invalid_auth_type",
+						},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "unsupported webhook_auth type",
+		},
+		{
+			name: "webhook notifier with basic auth missing username",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+						URL:  "https://example.com/webhook",
+						WebhookAuth: &WebhookAuth{
+							Type:     "basic",
+							Password: "password",
+						},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "username is required",
+		},
+		{
+			name: "webhook notifier with bearer auth missing token",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+						URL:  "https://example.com/webhook",
+						WebhookAuth: &WebhookAuth{
+							Type: "bearer",
+						},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "token is required",
+		},
+		{
+			name: "webhook notifier with header auth missing header_name",
+			config: &Config{
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+						URL:  "https://example.com/webhook",
+						WebhookAuth: &WebhookAuth{
+							Type:        "header",
+							HeaderValue: "value",
+						},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "header_name is required",
+		},
+		{
+			name: "valid email notifier",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"email": {
+						Type:     "email",
+						SMTPHost: "smtp.gmail.com",
+						SMTPPort: 587,
+						SMTPFrom: "backup@example.com",
+						SMTPTo:   []string{"admin@example.com"},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid webhook notifier with bearer auth",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Notifiers: map[string]*Notifier{
+					"webhook": {
+						Type: "webhook",
+						URL:  "https://example.com/webhook",
+						WebhookAuth: &WebhookAuth{
+							Type:  "bearer",
+							Token: "secret-token",
+						},
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"}},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "target references non-existent storage",
 			config: &Config{
 				DefaultStorage: "local",

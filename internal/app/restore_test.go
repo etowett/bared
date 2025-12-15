@@ -437,7 +437,7 @@ func TestRestoreTargetWithOptions_ResultStructure(t *testing.T) {
 	assert.NotZero(t, result.Duration)
 	assert.Equal(t, "local", result.StorageName)
 	assert.NotEmpty(t, result.Validations)
-	assert.Nil(t, result.Error)
+	assert.Empty(t, result.Error)
 }
 
 func TestRestoreTargetWithOptions_ValidationMessages(t *testing.T) {
@@ -520,7 +520,7 @@ func TestRestoreResult_Fields(t *testing.T) {
 	assert.Equal(t, "local", result.StorageName)
 	assert.True(t, result.DryRun)
 	assert.Len(t, result.Validations, 1)
-	assert.Nil(t, result.Error)
+	assert.Empty(t, result.Error)
 }
 
 func TestRestoreResult_WithError(t *testing.T) {
@@ -529,11 +529,11 @@ func TestRestoreResult_WithError(t *testing.T) {
 	result := &RestoreResult{
 		Target:  "test-target",
 		Success: false,
-		Error:   testErr,
+		Error:   testErr.Error(),
 	}
 
 	assert.False(t, result.Success)
-	assert.Equal(t, testErr, result.Error)
+	assert.Equal(t, "restore failed", result.Error)
 }
 
 // Helper function

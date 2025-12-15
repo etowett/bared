@@ -1,11 +1,10 @@
 name: Docker
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*.*.*'
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -15,27 +14,12 @@ env:
   REGISTRY_IMAGE: ektowett/bared
 
 jobs:
-  # Wait for CI to pass before building Docker images on tag pushes
-  check-ci:
-    name: Check CI Status
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Wait for CI to succeed
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.ref }}
-          check-name: 'Build'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
   build:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
     environment: prod
-    needs: [check-ci]
-    # Allow build to run even if check-ci is skipped (for main branch pushes)
-    if: always() && (needs.check-ci.result == 'success' || needs.check-ci.result == 'skipped')
+    # Only run if the Release workflow succeeded
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -54,16 +38,29 @@ jobs:
           BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          # Extract version based on ref type
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
-            echo "is_tag=true" >> $GITHUB_OUTPUT
+          # Extract version from the release that triggered this workflow
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            # Get the tag that triggered the release workflow
+            VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
+            if [[ "$VERSION" == v*.*.* ]]; then
+              echo "version=${VERSION}" >> $GITHUB_OUTPUT
+              echo "is_tag=true" >> $GITHUB_OUTPUT
+            else
+              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+              echo "is_tag=false" >> $GITHUB_OUTPUT
+            fi
           else
-            VERSION="main-${COMMIT_SHA}"
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
-            echo "is_tag=false" >> $GITHUB_OUTPUT
+            # Manual workflow_dispatch
+            VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
+            if [[ "$VERSION" == v*.*.* ]]; then
+              echo "version=${VERSION}" >> $GITHUB_OUTPUT
+              echo "is_tag=true" >> $GITHUB_OUTPUT
+            else
+              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+              echo "is_tag=false" >> $GITHUB_OUTPUT
+            fi
           fi
+          echo "Detected version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -89,16 +86,13 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            # For branch builds: ensure we always have at least one tag
-            type=ref,event=branch
-            type=sha,format=short
             # For tagged releases: v1.2.3 -> 1.2.3, 1.2, 1, latest
-            type=semver,pattern={{version}},enable=${{ steps.meta.outputs.is_tag == 'true' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.meta.outputs.is_tag == 'true' }}
-            type=semver,pattern={{major}},enable=${{ steps.meta.outputs.is_tag == 'true' && !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=semver,pattern={{version}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
+            type=semver,pattern={{major}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.is_tag == 'true' }}
-            # For main branch: latest only
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && steps.meta.outputs.is_tag == 'false' }}
+            # Fallback for non-release builds
+            type=raw,value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'false' }}
           labels: |
             org.opencontainers.image.title=BareD
             org.opencontainers.image.description=Backup and Restore Daemon for databases
@@ -107,6 +101,7 @@ jobs:
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}/blob/main/README.md
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

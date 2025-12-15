@@ -1,0 +1,114 @@
+# BareD Configuration Example - Email Notifications
+# This example focuses on email-only notifications with multiple SMTP providers
+
+# Persistence
+persistence:
+  enabled: true
+  type: sqlite3
+  dsn: bared.db
+
+# Storage
+storages:
+  s3:
+    type: s3
+    bucket: backups
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    keep: 30
+
+# Email notifications with different providers
+notifiers:
+  # Gmail with App Password
+  email-gmail:
+    type: email
+    on_success: true
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    smtp_username: backups@gmail.com
+    smtp_password: ${GMAIL_APP_PASSWORD}  # 16-character app password
+    smtp_from: backups@gmail.com
+    smtp_to:
+      - admin@company.com
+      - ops@company.com
+    smtp_use_tls: true
+
+  # Office 365 / Outlook
+  email-office365:
+    type: email
+    on_success: false  # Only failures
+    smtp_host: smtp.office365.com
+    smtp_port: 587
+    smtp_username: alerts@company.com
+    smtp_password: ${O365_PASSWORD}
+    smtp_from: alerts@company.com
+    smtp_to:
+      - oncall@company.com
+    smtp_use_tls: true
+
+  # SendGrid (transactional email service)
+  email-sendgrid:
+    type: email
+    on_success: true
+    smtp_host: smtp.sendgrid.net
+    smtp_port: 587
+    smtp_username: apikey  # Literal string "apikey"
+    smtp_password: ${SENDGRID_API_KEY}
+    smtp_from: noreply@company.com
+    smtp_to:
+      - monitoring@company.com
+    smtp_use_tls: true
+
+  # Mailgun (transactional email service)
+  email-mailgun:
+    type: email
+    on_success: false
+    smtp_host: smtp.mailgun.org
+    smtp_port: 587
+    smtp_username: postmaster@mg.company.com
+    smtp_password: ${MAILGUN_SMTP_PASSWORD}
+    smtp_from: backups@mg.company.com
+    smtp_to:
+      - alerts@company.com
+    smtp_use_tls: true
+
+  # Custom SMTP server (corporate email)
+  email-corporate:
+    type: email
+    on_success: true
+    smtp_host: mail.company.com
+    smtp_port: 25  # No TLS for internal server
+    smtp_from: backups@company.com
+    smtp_to:
+      - it-team@company.com
+    smtp_use_tls: false
+
+  # Mailtrap (testing/staging environment)
+  email-test:
+    type: email
+    on_success: true
+    smtp_host: smtp.mailtrap.io
+    smtp_port: 587
+    smtp_username: ${MAILTRAP_USER}
+    smtp_password: ${MAILTRAP_PASS}
+    smtp_from: test@company.com
+    smtp_to:
+      - developer@company.com
+    smtp_use_tls: true
+
+targets:
+  - name: mysql-db
+    conn:
+      type: mysql
+      user: backup_user
+      password: ${MYSQL_PASSWORD}
+      database: myapp
+      host: localhost
+      port: 3306
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    schedule: "0 2 * * *"

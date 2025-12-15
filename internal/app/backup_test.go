@@ -117,7 +117,7 @@ func TestBackupResult_Fields(t *testing.T) {
 	result := &BackupResult{
 		Target:      "mysql-prod",
 		Success:     true,
-		Error:       nil,
+		Error:       "",
 		Duration:    5 * time.Second,
 		BackupPath:  "mysql-prod/2025-12-02/backup.sql",
 		Size:        1024,
@@ -126,7 +126,7 @@ func TestBackupResult_Fields(t *testing.T) {
 
 	assert.Equal(t, "mysql-prod", result.Target)
 	assert.True(t, result.Success)
-	assert.Nil(t, result.Error)
+	assert.Empty(t, result.Error)
 	assert.Equal(t, 5*time.Second, result.Duration)
 	assert.Equal(t, "mysql-prod/2025-12-02/backup.sql", result.BackupPath)
 	assert.Equal(t, int64(1024), result.Size)
@@ -138,12 +138,12 @@ func TestBackupResult_WithError(t *testing.T) {
 	result := &BackupResult{
 		Target:  "mysql-prod",
 		Success: false,
-		Error:   testErr,
+		Error:   testErr.Error(),
 	}
 
 	assert.False(t, result.Success)
-	assert.Error(t, result.Error)
-	assert.Equal(t, testErr, result.Error)
+	assert.NotEmpty(t, result.Error)
+	assert.Equal(t, "backup failed", result.Error)
 }
 
 func TestBackupTarget_DifferentDatabaseTypes(t *testing.T) {

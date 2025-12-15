@@ -1,0 +1,94 @@
+# BareD Configuration Example - All Notification Types
+# This example demonstrates all three notification types working together
+
+# Persistence for job history and logs
+persistence:
+  enabled: true
+  type: sqlite3
+  dsn: bared.db
+
+# Storage backends
+storages:
+  s3:
+    type: s3
+    bucket: my-backup-bucket
+    region: us-east-1
+    access_key_id: ${AWS_ACCESS_KEY_ID}
+    secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    path: backups/
+    keep: 30
+
+# Multiple notifiers - all will receive notifications
+notifiers:
+  # Slack for quick team alerts (failures only to reduce noise)
+  slack-team:
+    type: slack
+    url: ${SLACK_WEBHOOK_URL}
+    on_success: false
+
+  # Email for admins with detailed reports (all events)
+  email-admins:
+    type: email
+    on_success: true
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    smtp_username: backups@company.com
+    smtp_password: ${SMTP_PASSWORD}
+    smtp_from: backups@company.com
+    smtp_to:
+      - admin1@company.com
+      - admin2@company.com
+    smtp_use_tls: true
+
+  # Email for on-call team (failures only)
+  email-oncall:
+    type: email
+    on_success: false
+    smtp_host: smtp.office365.com
+    smtp_port: 587
+    smtp_username: alerts@company.com
+    smtp_password: ${O365_PASSWORD}
+    smtp_from: alerts@company.com
+    smtp_to:
+      - oncall@company.com
+    smtp_use_tls: true
+
+  # Webhook to monitoring system (all events)
+  webhook-monitoring:
+    type: webhook
+    url: https://api.datadog.com/api/v1/events
+    on_success: true
+    webhook_method: POST
+    webhook_headers:
+      Content-Type: application/json
+    webhook_auth:
+      type: header
+      header_name: DD-API-KEY
+      header_value: ${DATADOG_API_KEY}
+
+  # Webhook to internal dashboard (all events)
+  webhook-dashboard:
+    type: webhook
+    url: https://dashboard.company.com/api/backup-events
+    on_success: true
+    webhook_auth:
+      type: bearer
+      token: ${DASHBOARD_TOKEN}
+
+# Backup targets
+targets:
+  - name: production-db
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: production
+      host: localhost
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    schedule: "0 2 * * *"  # Daily at 2 AM

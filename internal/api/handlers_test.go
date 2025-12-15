@@ -165,7 +165,7 @@ func TestHandleGetJob_InvalidPath(t *testing.T) {
 func TestHandleTriggerBackup_MethodNotAllowed(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("GET", "/api/backups/trigger", nil)
+	req := httptest.NewRequest("GET", "/api/jobs/backup", nil)
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerBackup(rr, req)
@@ -176,7 +176,7 @@ func TestHandleTriggerBackup_MethodNotAllowed(t *testing.T) {
 func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("POST", "/api/backups/trigger", bytes.NewBufferString("invalid json"))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerBackup(rr, req)
@@ -190,7 +190,7 @@ func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
 	reqBody := TriggerBackupRequest{Target: ""}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/backups/trigger", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerBackup(rr, req)
@@ -204,7 +204,7 @@ func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 	reqBody := TriggerBackupRequest{Target: "nonexistent-target"}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/backups/trigger", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerBackup(rr, req)
@@ -215,7 +215,7 @@ func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("POST", "/api/restore/trigger", bytes.NewBufferString("invalid json"))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerRestore(rr, req)
@@ -232,7 +232,7 @@ func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/restore/trigger", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerRestore(rr, req)
@@ -249,7 +249,7 @@ func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/restore/trigger", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	server.handleTriggerRestore(rr, req)

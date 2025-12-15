@@ -203,8 +203,65 @@ func validateNotifier(name string, notifier *Notifier) error {
 		if notifier.URL == "" {
 			return fmt.Errorf("notifier '%s': url is required for slack", name)
 		}
+	case "email":
+		if notifier.SMTPHost == "" {
+			return fmt.Errorf("notifier '%s': smtp_host is required for email", name)
+		}
+		if notifier.SMTPPort == 0 {
+			return fmt.Errorf("notifier '%s': smtp_port is required for email", name)
+		}
+		if notifier.SMTPPort < 1 || notifier.SMTPPort > 65535 {
+			return fmt.Errorf("notifier '%s': smtp_port must be between 1 and 65535", name)
+		}
+		if notifier.SMTPFrom == "" {
+			return fmt.Errorf("notifier '%s': smtp_from is required for email", name)
+		}
+		if len(notifier.SMTPTo) == 0 {
+			return fmt.Errorf("notifier '%s': smtp_to is required for email (at least one recipient)", name)
+		}
+	case "webhook":
+		if notifier.URL == "" {
+			return fmt.Errorf("notifier '%s': url is required for webhook", name)
+		}
+		// Validate webhook authentication if configured
+		if notifier.WebhookAuth != nil {
+			if err := validateWebhookAuth(name, notifier.WebhookAuth); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("notifier '%s': unsupported type '%s'", name, notifier.Type)
+	}
+
+	return nil
+}
+
+func validateWebhookAuth(notifierName string, auth *WebhookAuth) error {
+	if auth.Type == "" {
+		return fmt.Errorf("notifier '%s': webhook_auth type is required", notifierName)
+	}
+
+	switch auth.Type {
+	case "basic":
+		if auth.Username == "" {
+			return fmt.Errorf("notifier '%s': webhook_auth username is required for basic auth", notifierName)
+		}
+		if auth.Password == "" {
+			return fmt.Errorf("notifier '%s': webhook_auth password is required for basic auth", notifierName)
+		}
+	case "bearer":
+		if auth.Token == "" {
+			return fmt.Errorf("notifier '%s': webhook_auth token is required for bearer auth", notifierName)
+		}
+	case "header":
+		if auth.HeaderName == "" {
+			return fmt.Errorf("notifier '%s': webhook_auth header_name is required for header auth", notifierName)
+		}
+		if auth.HeaderValue == "" {
+			return fmt.Errorf("notifier '%s': webhook_auth header_value is required for header auth", notifierName)
+		}
+	default:
+		return fmt.Errorf("notifier '%s': unsupported webhook_auth type '%s' (supported: basic, bearer, header)", notifierName, auth.Type)
 	}
 
 	return nil

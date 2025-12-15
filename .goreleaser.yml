@@ -1,0 +1,163 @@
+# GoReleaser configuration for BareD
+# Documentation: https://goreleaser.com
+
+project_name: brd
+
+before:
+  hooks:
+    # Build web frontend and sync to embed location
+    - sh -c "cd web && npm ci && npm run build"
+    - sh -c "mkdir -p internal/web && cp -r web/dist internal/web/dist"
+    # Tidy dependencies
+    - go mod tidy
+
+builds:
+  - id: brd
+    main: ./cmd/brd
+    binary: brd
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X bared/internal/version.Version={{.Version}}
+      - -X bared/internal/version.Commit={{.ShortCommit}}
+      - -X bared/internal/version.BuildDate={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Ignore combinations that don't make sense
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - examples/**/*
+      - docs/**/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  use: github-native
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: '🚀 Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: '💥 Breaking Changes'
+      regexp: '^.*?!:'
+      order: 1
+    - title: '🐛 Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: '📚 Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: '🔧 Maintenance'
+      regexp: '^.*?chore(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: ektowett
+    name: bared
+  draft: false
+  prerelease: auto
+  mode: append
+  name_template: "{{ .Tag }}"
+  header: |
+    ## BareD {{ .Tag }}
+
+    Backup and Restore Daemon for databases (MySQL, PostgreSQL, Redis).
+
+    ### Installation
+
+    Download the appropriate binary for your platform:
+
+    #### Linux (amd64)
+    ```bash
+    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-amd64.tar.gz
+    tar xzf brd-{{ .Version }}-linux-amd64.tar.gz
+    sudo mv brd /usr/local/bin/
+    sudo chmod +x /usr/local/bin/brd
+    ```
+
+    #### Linux (arm64)
+    ```bash
+    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-arm64.tar.gz
+    tar xzf brd-{{ .Version }}-linux-arm64.tar.gz
+    sudo mv brd /usr/local/bin/
+    sudo chmod +x /usr/local/bin/brd
+    ```
+
+    #### macOS (Intel)
+    ```bash
+    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-amd64.tar.gz
+    tar xzf brd-{{ .Version }}-darwin-amd64.tar.gz
+    sudo mv brd /usr/local/bin/
+    sudo chmod +x /usr/local/bin/brd
+    ```
+
+    #### macOS (Apple Silicon)
+    ```bash
+    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-arm64.tar.gz
+    tar xzf brd-{{ .Version }}-darwin-arm64.tar.gz
+    sudo mv brd /usr/local/bin/
+    sudo chmod +x /usr/local/bin/brd
+    ```
+
+    #### Windows (amd64)
+    Download the `.zip` file, extract it, and add `brd.exe` to your PATH.
+
+    ### Verify Download
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+
+    ### Docker
+    ```bash
+    docker pull ektowett/bared:{{ .Version }}
+    ```
+
+  footer: |
+    ---
+
+    **Full Changelog**: https://github.com/ektowett/bared/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ## Need Help?
+
+    - 📖 [Documentation](https://github.com/ektowett/bared/tree/main/docs)
+    - 🐛 [Report Bug](https://github.com/ektowett/bared/issues/new)
+    - 💡 [Request Feature](https://github.com/ektowett/bared/issues/new)
+
+# Disable features we don't need yet
+snapcrafts:
+  - skip_publish: true
+brews:
+  - skip_upload: true
+scoops:
+  - skip_upload: true

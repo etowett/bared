@@ -11,6 +11,15 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
+# On recent macOS versions, `go test -race` can emit noisy (but harmless) ld warnings like:
+#   "malformed LC_DYSYMTAB ..."
+# This is an Apple ld/toolchain issue; suppress warnings for test binaries on Darwin.
+UNAME_S := $(shell uname -s)
+GO_TEST_LDFLAGS :=
+ifeq ($(UNAME_S),Darwin)
+GO_TEST_LDFLAGS := -ldflags=-extldflags=-Wl,-w
+endif
+
 # Build the binary
 build:
 	@echo "Building ${BINARY_NAME}..."
@@ -66,7 +75,7 @@ test: test-unit
 # Run unit tests (fast, no external dependencies)
 test-unit:
 	@echo "Running unit tests..."
-	go test -v -race -short -coverprofile=coverage.out ./...
+	go test -v -race -short $(GO_TEST_LDFLAGS) -coverprofile=coverage.out ./...
 
 # Run integration tests (requires Docker services)
 test-integration:
@@ -148,7 +157,11 @@ check: fmt vet lint
 # Run the daemon in development mode
 run-daemon: build
 	@echo "Starting daemon in development mode..."
-	./${BIN_DIR}/${BINARY_NAME} daemon --config examples/config.example.yml
+	./${BIN_DIR}/${BINARY_NAME} daemon \
+		--config examples/config.example.yml \
+		--http :8080 \
+		--http-user admin \
+		--http-pass changeme
 
 # Development setup
 dev:
