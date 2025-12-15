@@ -190,9 +190,14 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 
 	if err != nil {
 		stageTracker.FailStage(err)
-		result.Error = fmt.Errorf("backup failed: %w", err).Error()
+		wrappedErr := fmt.Errorf("backup failed: %w", err)
+		result.Error = wrappedErr.Error()
 		result.Stages = stageTracker.GetAllStages()
-		return result, fmt.Errorf("backup failed: %w", err)
+
+		// Send failure notifications before returning
+		sendNotifications(ctx, cfg, target, result, wrappedErr)
+
+		return result, wrappedErr
 	}
 
 	// Populate result with metadata

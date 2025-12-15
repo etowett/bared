@@ -450,5 +450,8 @@ func (e *Email) send(ctx context.Context, subject, body string) error {
 	}
 
 	// Non-TLS connection
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return smtp.SendMail(addr, auth, from, to, []byte(message))
 }

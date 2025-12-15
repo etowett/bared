@@ -158,7 +158,7 @@ check: fmt vet lint
 run-daemon: build
 	@echo "Starting daemon in development mode..."
 	./${BIN_DIR}/${BINARY_NAME} daemon \
-		--config config.yml \
+		--config examples/config.example.yml \
 		--http :8080 \
 		--http-user admin \
 		--http-pass changeme

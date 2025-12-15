@@ -86,6 +86,7 @@ The job list shows all backup/restore operations:
   - 🔵 Running - Currently executing
   - 🟢 Completed - Successfully finished
   - 🔴 Failed - Encountered error
+  - 🟡 Cancelling - Cancellation in progress
   - ⚫ Cancelled - User cancelled
 - **Progress** - Visual progress bar with percentage
 - **Created** - When job was created
@@ -163,17 +164,24 @@ Real-time streaming logs with:
 
 ### How Progress is Calculated
 
-Backup progress is divided into weighted stages:
+Progress is calculated dynamically on a per-stage basis using bytes processed versus total bytes:
 
-1. **Validating** (0%) - Quick validation checks
-2. **Dumping** (40%) - Database dump to file
-3. **Compressing** (30%) - Compress dump file
-4. **Uploading** (30%) - Upload to storage backend
-5. **Cleanup** (100%) - Final cleanup
+- **Stage-Based Tracking** - Each stage (validating, dumping, compressing, uploading) tracks its own progress independently based on actual bytes processed
+- **Dynamic Calculation** - Progress percentage = (bytes processed / total bytes) × 100 for the current stage
+- **Counter Reset** - When transitioning to a new stage via SetStage, progress counters reset to zero rather than applying fixed percentage weights
+- **Bytes Reporting** - Each stage reports its actual data throughput, providing accurate real-time progress within that stage
+
+Stages include:
+
+1. **Validating** - Pre-flight validation checks
+2. **Dumping** - Database dump to file
+3. **Compressing** - Compress dump file
+4. **Uploading** - Upload to storage backend
+5. **Cleanup** - Final cleanup operations
 
 ### ETA Calculation
 
-- Uses exponential moving average (EMA) for smoothing
+- Uses exponential moving average (EMA) with alpha=0.3 for smoothing
 - Only displayed after 10% progress (more accurate)
 - Updates in real-time as job progresses
 - Shows time remaining in human-readable format (e.g., "2h 15m")
@@ -483,8 +491,8 @@ Planned features:
 
 For issues, questions, or feature requests:
 
-- GitHub Issues: <https://github.com/etowett/bared)/issues>
-- Documentation: <https://github.com/etowett/bared)/docs>
+- GitHub Issues: <https://github.com/etowett/bared/issues>
+- Documentation: <https://github.com/etowett/bared/docs>
 
 ## License
 

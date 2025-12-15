@@ -67,6 +67,7 @@ curl -u admin:password http://localhost:8080/api/jobs
 **Trigger Backup**:
 
 ```bash
+# Canonical endpoint for manual backups
 curl -u admin:password -X POST \
   http://localhost:8080/api/jobs/backup \
   -H "Content-Type: application/json" \
@@ -77,11 +78,12 @@ curl -u admin:password -X POST \
 
 ```bash
 # Using websocat (WebSocket client)
+# Note: BareD uses WebSocket protocol (RFC 6455), NOT Server-Sent Events (SSE)
 websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
   ws://localhost:8080/api/jobs/{job-id}/logs/stream
 
 # Or using any WebSocket client library
-# Protocol: WebSocket (RFC 6455)
+# Protocol: WebSocket (RFC 6455) - the only supported real-time protocol
 # Auth: HTTP Basic Authentication
 # Format: JSON messages streamed in real-time
 ```
@@ -106,9 +108,9 @@ websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
 
 | Endpoint | Purpose | Protocol |
 |----------|---------|----------|
-| `/api/jobs/{id}/logs/stream` | Real-time log streaming | WebSocket (not SSE) |
+| `/api/jobs/{id}/logs/stream` | Real-time log streaming | WebSocket (RFC 6455) |
 
-**Note**: Log streaming uses WebSocket protocol (RFC 6455), not Server-Sent Events (SSE).
+**Important**: Log streaming uses **WebSocket protocol only**. Server-Sent Events (SSE) is NOT supported. Use any WebSocket client or library to connect.
 
 **See**: [WebSocket API](websocket.md) for complete documentation
 
