@@ -359,7 +359,7 @@ func (m *Manager) GetJob(jobID JobID) (*Job, error) {
 				// Populate log buffer with historical logs
 				storedJob.Logs = NewLogBuffer(1000)
 				for _, entry := range logs {
-					storedJob.Logs.WriteWithStage(entry.Level, entry.Message, entry.Stage)
+					storedJob.Logs.WriteWithStageAndTimestamp(entry.Level, entry.Message, entry.Stage, entry.Timestamp)
 				}
 			}
 

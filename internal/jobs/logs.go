@@ -42,8 +42,13 @@ func (lb *LogBuffer) Write(level, message string) {
 
 // WriteWithStage adds a log entry with a stage to the buffer
 func (lb *LogBuffer) WriteWithStage(level, message, stage string) {
+	lb.WriteWithStageAndTimestamp(level, message, stage, time.Now())
+}
+
+// WriteWithStageAndTimestamp adds a log entry with a stage and explicit timestamp to the buffer
+func (lb *LogBuffer) WriteWithStageAndTimestamp(level, message, stage string, timestamp time.Time) {
 	entry := LogEntry{
-		Timestamp: time.Now(),
+		Timestamp: timestamp,
 		Level:     level,
 		Message:   message,
 		Stage:     stage,

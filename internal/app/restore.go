@@ -204,6 +204,7 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	if restoreErr != nil {
 		result.Error = fmt.Errorf("restore failed: %w", restoreErr).Error()
+		result.Duration = time.Since(startTime)
 		result.Stages = stageTracker.GetAllStages()
 		log.Printf("[%s] Restore failed: %v", target.Name, restoreErr)
 

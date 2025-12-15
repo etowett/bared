@@ -73,12 +73,17 @@ curl -u admin:password -X POST \
   -d '{"target": "mydb"}'
 ```
 
-**Stream Logs** (WebSocket):
+**Stream Logs** (Real-time via WebSocket):
 
 ```bash
-# Using websocat
+# Using websocat (WebSocket client)
 websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
   ws://localhost:8080/api/jobs/{job-id}/logs/stream
+
+# Or using any WebSocket client library
+# Protocol: WebSocket (RFC 6455)
+# Auth: HTTP Basic Authentication
+# Format: JSON messages streamed in real-time
 ```
 
 ## API Overview
@@ -99,9 +104,11 @@ websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
 
 ### WebSocket Endpoints
 
-| Endpoint | Purpose |
-|----------|---------|
-| `/api/jobs/{id}/logs/stream` | Real-time log streaming |
+| Endpoint | Purpose | Protocol |
+|----------|---------|----------|
+| `/api/jobs/{id}/logs/stream` | Real-time log streaming | WebSocket (not SSE) |
+
+**Note**: Log streaming uses WebSocket protocol (RFC 6455), not Server-Sent Events (SSE).
 
 **See**: [WebSocket API](websocket.md) for complete documentation
 
