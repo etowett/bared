@@ -437,7 +437,7 @@ func TestRestoreTargetWithOptions_ResultStructure(t *testing.T) {
 	assert.NotZero(t, result.Duration)
 	assert.Equal(t, "local", result.StorageName)
 	assert.NotEmpty(t, result.Validations)
-	assert.Nil(t, result.Error)
+	assert.Empty(t, result.Error)
 }
 
 func TestRestoreTargetWithOptions_ValidationMessages(t *testing.T) {
