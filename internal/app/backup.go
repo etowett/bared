@@ -21,7 +21,7 @@ import (
 type BackupResult struct {
 	Target     string
 	Success    bool
-	Error      error
+	Error      string
 	Duration   time.Duration
 	BackupPath string
 
@@ -103,8 +103,8 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 			extension = ".sql"
 			backupPath := util.GenerateBackupPath(target.Name, target.Conn.Type, target.Conn.Database, extension)
 			result.BackupPath = backupPath
-			result.Error = fmt.Errorf("failed to create compressor: %w", compressErr)
-			return result, result.Error
+			result.Error = fmt.Errorf("failed to create compressor: %w", compressErr).Error()
+			return result, fmt.Errorf("failed to create compressor: %w", compressErr)
 		}
 		extension = compressor.Extension()
 	} else {
@@ -117,21 +117,21 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	// Create database dumper
 	dumper, err := database.NewDumper(target)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to create dumper: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to create dumper: %w", err).Error()
+		return result, fmt.Errorf("failed to create dumper: %w", err)
 	}
 
 	// Validate dumper
 	if validationErr := dumper.Validate(ctx); validationErr != nil {
-		result.Error = fmt.Errorf("dumper validation failed: %w", validationErr)
-		return result, result.Error
+		result.Error = fmt.Errorf("dumper validation failed: %w", validationErr).Error()
+		return result, fmt.Errorf("dumper validation failed: %w", validationErr)
 	}
 
 	// Get storage backend
 	storageCfg, err := cfg.GetStorageForTarget(target)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to get storage: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to get storage: %w", err).Error()
+		return result, fmt.Errorf("failed to get storage: %w", err)
 	}
 
 	// Set storage details early from config
@@ -144,14 +144,14 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 
 	stor, err := storage.New(storageCfg)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to create storage: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to create storage: %w", err).Error()
+		return result, fmt.Errorf("failed to create storage: %w", err)
 	}
 
 	// Validate storage
 	if storageErr := stor.Validate(ctx); storageErr != nil {
-		result.Error = fmt.Errorf("storage validation failed: %w", storageErr)
-		return result, result.Error
+		result.Error = fmt.Errorf("storage validation failed: %w", storageErr).Error()
+		return result, fmt.Errorf("storage validation failed: %w", storageErr)
 	}
 
 	log.Printf("[%s] Backup details:", target.Name)
@@ -190,9 +190,9 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 
 	if err != nil {
 		stageTracker.FailStage(err)
-		result.Error = fmt.Errorf("backup failed: %w", err)
+		result.Error = fmt.Errorf("backup failed: %w", err).Error()
 		result.Stages = stageTracker.GetAllStages()
-		return result, result.Error
+		return result, fmt.Errorf("backup failed: %w", err)
 	}
 
 	// Populate result with metadata

@@ -5,23 +5,29 @@ Resources for contributors and developers working on or extending BareD.
 ## Contents
 
 ### [Development Setup](setup.md)
+
 Complete guide to setting up your development environment, including prerequisites, cloning, building, and running tests.
 
 ### [Tooling Guide](tooling.md)
+
 Development tools, CI/CD pipelines, linters, formatters, and the full development workflow.
 
 ### [Testing Strategy](testing.md)
+
 Testing philosophy, unit tests, integration tests, and test coverage practices.
 
 ### [System Architecture](architecture.md)
+
 High-level overview of BareD's architecture, key components, and how they interact.
 
 ### [Contributing](../../CONTRIBUTING.md)
+
 Contribution guidelines, code style, pull request process, and how to get started contributing.
 
 ## Quick Start for Contributors
 
 ### 1. Set Up Development Environment
+
 ```bash
 # Clone repository
 git clone <repository-url>
@@ -40,6 +46,7 @@ make test
 **See**: [Development Setup](setup.md)
 
 ### 2. Make Your Changes
+
 - Follow [code style guidelines](../../CONTRIBUTING.md#code-style)
 - Add tests for new features
 - Update documentation
@@ -48,6 +55,7 @@ make test
 **See**: [Contributing Guide](../../CONTRIBUTING.md)
 
 ### 3. Submit Pull Request
+
 - Ensure all tests pass
 - Update relevant documentation
 - Add clear description
@@ -56,6 +64,7 @@ make test
 ## Adding New Features
 
 ### Adding a New Database Type
+
 1. Implement `Dumper` and `Restorer` interfaces in `internal/database/`
 2. Register in `internal/database/factory.go`
 3. Add validation in `internal/config/validator.go`
@@ -65,6 +74,7 @@ make test
 **See**: [Contributing - Adding Database Types](../../CONTRIBUTING.md#adding-a-new-database-type)
 
 ### Adding a New Storage Backend
+
 1. Implement `Storage` interface in `internal/storage/`
 2. Register in `internal/storage/factory.go`
 3. Add config options to `internal/config/config.go`
@@ -74,6 +84,7 @@ make test
 **See**: [Contributing - Adding Storage](../../CONTRIBUTING.md#adding-a-new-storage-backend)
 
 ### Adding a New Notifier
+
 1. Implement `Notifier` interface in `internal/notify/`
 2. Register in `internal/notify/factory.go`
 3. Add config options
@@ -85,6 +96,7 @@ make test
 ## Development Workflow
 
 ### Daily Development
+
 ```bash
 # Start Docker services for testing
 docker-compose up -d
@@ -106,6 +118,7 @@ make check
 ```
 
 ### Before Committing
+
 ```bash
 make check    # Run all checks
 make test     # Ensure tests pass
@@ -113,6 +126,7 @@ make validate # Validate example config
 ```
 
 ### Creating a Release
+
 ```bash
 # Tag release
 git tag -a v1.0.0 -m "Release v1.0.0"
@@ -134,6 +148,7 @@ Restore: [Retrieve] → [Decompress] → [Restore] → [Cleanup]
 ```
 
 **Key Design Principles**:
+
 - **Streaming**: No temp files between stages
 - **Interfaces**: Easy extensibility
 - **Minimal dependencies**: Stdlib-first
@@ -144,6 +159,7 @@ Restore: [Retrieve] → [Decompress] → [Restore] → [Cleanup]
 ## Testing
 
 ### Unit Tests
+
 ```bash
 # Run all unit tests
 make test
@@ -157,6 +173,7 @@ open coverage.html
 ```
 
 ### Integration Tests
+
 ```bash
 # Start test services
 docker-compose up -d
@@ -170,17 +187,20 @@ go test -tags=integration -v ./...
 ## Code Quality
 
 ### Linting
+
 ```bash
 make lint          # Run linter
 make lint-fix      # Auto-fix issues
 ```
 
 ### Formatting
+
 ```bash
 make fmt           # Format code
 ```
 
 ### Static Analysis
+
 ```bash
 make vet           # Run go vet
 ```
@@ -188,6 +208,7 @@ make vet           # Run go vet
 ## Common Development Tasks
 
 **Adding a configuration option**:
+
 1. Add field to struct in `internal/config/config.go`
 2. Add YAML tag
 3. Add validation
@@ -195,6 +216,7 @@ make vet           # Run go vet
 5. Document in README
 
 **Debugging**:
+
 ```bash
 # Enable verbose logging
 ./brd backup --config config.yml --target mydb 2>&1 | tee backup.log

@@ -529,11 +529,11 @@ func TestRestoreResult_WithError(t *testing.T) {
 	result := &RestoreResult{
 		Target:  "test-target",
 		Success: false,
-		Error:   testErr,
+		Error:   testErr.Error(),
 	}
 
 	assert.False(t, result.Success)
-	assert.Equal(t, testErr, result.Error)
+	assert.Equal(t, "restore failed", result.Error)
 }
 
 // Helper function

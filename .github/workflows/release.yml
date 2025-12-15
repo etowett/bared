@@ -9,147 +9,70 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     name: Build and Release
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: '1.25.5'
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.5'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version-file: web/.nvmrc
-        cache: 'npm'
-        cache-dependency-path: web/package-lock.json
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: web/.nvmrc
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
 
-    - name: Get version
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
 
-    - name: Build web frontend
-      run: |
-        cd web
-        npm ci
-        npm run build
-        cd ..
-        echo "Web frontend built successfully"
-        ls -lh web/dist/
+      - name: Build web frontend
+        run: |
+          cd web
+          npm ci
+          npm run build
+          cd ..
+          echo "✅ Web frontend built successfully"
+          ls -lh web/dist/
 
-    - name: Copy web dist to embed location
-      run: |
-        mkdir -p internal/web
-        cp -r web/dist internal/web/dist
-        echo "Web frontend copied to internal/web/dist for embedding"
+      - name: Copy web dist to embed location
+        run: |
+          mkdir -p internal/web
+          cp -r web/dist internal/web/dist
+          echo "✅ Web frontend copied to internal/web/dist for embedding"
 
-    - name: Build binaries
-      run: |
-        mkdir -p dist
-        VERSION=${{ steps.get_version.outputs.VERSION }}
-        COMMIT=$(git rev-parse --short HEAD)
-        BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-        LDFLAGS="-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_DATE}"
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-        # Linux amd64
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/brd-linux-amd64 ./cmd/brd
-
-        # Linux arm64
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/brd-linux-arm64 ./cmd/brd
-
-        # macOS amd64
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/brd-darwin-amd64 ./cmd/brd
-
-        # macOS arm64
-        CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o dist/brd-darwin-arm64 ./cmd/brd
-
-        # Windows amd64
-        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" -o dist/brd-windows-amd64.exe ./cmd/brd
-
-        echo "All binaries built with embedded web frontend"
-
-    - name: Verify binaries
-      run: |
-        cd dist
-        for file in brd-*; do
-          if [ ! -s "$file" ]; then
-            echo "Error: $file is empty or missing"
-            exit 1
-          fi
-          echo "✓ Verified: $file ($(du -h "$file" | cut -f1))"
-        done
-        echo "All binaries verified successfully"
-
-    - name: Create checksums
-      run: |
-        cd dist
-        sha256sum * > checksums.txt
-
-    - name: Create release archives
-      run: |
-        cd dist
-        tar czf brd-linux-amd64.tar.gz brd-linux-amd64
-        tar czf brd-linux-arm64.tar.gz brd-linux-arm64
-        tar czf brd-darwin-amd64.tar.gz brd-darwin-amd64
-        tar czf brd-darwin-arm64.tar.gz brd-darwin-arm64
-        zip brd-windows-amd64.zip brd-windows-amd64.exe
-
-    - name: Generate changelog
-      id: changelog
-      run: |
-        if git describe --tags --abbrev=0 HEAD^ >/dev/null 2>&1; then
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          git log ${PREV_TAG}..HEAD --pretty=format:"* %s (%h)" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        else
-          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
-          echo "* Initial release" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          dist/brd-linux-amd64.tar.gz
-          dist/brd-linux-arm64.tar.gz
-          dist/brd-darwin-amd64.tar.gz
-          dist/brd-darwin-arm64.tar.gz
-          dist/brd-windows-amd64.zip
-          dist/checksums.txt
-        body: |
-          ## What's Changed
-          ${{ steps.changelog.outputs.CHANGELOG }}
-
-          ## Installation
-
-          Download the appropriate binary for your platform and extract it:
-
-          ```bash
-          # Linux (amd64)
-          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.VERSION }}/brd-linux-amd64.tar.gz
-          tar xzf brd-linux-amd64.tar.gz
-          sudo mv brd-linux-amd64 /usr/local/bin/brd
-
-          # macOS (arm64)
-          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.get_version.outputs.VERSION }}/brd-darwin-arm64.tar.gz
-          tar xzf brd-darwin-arm64.tar.gz
-          sudo mv brd-darwin-arm64 /usr/local/bin/brd
-          ```
-
-          Verify the download:
-          ```bash
-          sha256sum -c checksums.txt
-          ```
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate summary
+        run: |
+          echo "## 🎉 Release ${{ steps.get_version.outputs.version }} Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL:** https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows (amd64)" >> $GITHUB_STEP_SUMMARY
+          echo "- Checksums (SHA256)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "Docker workflow will now build and push multi-platform images." >> $GITHUB_STEP_SUMMARY

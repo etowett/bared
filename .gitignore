@@ -69,6 +69,3 @@ temp/
 *.sqlite-trace-journal
 *.sqlite-trace-wal
 *.sqlite-trace-shm
-*.sqlite-trace-journal
-*.sqlite-trace-wal
-*.sqlite-trace-shm

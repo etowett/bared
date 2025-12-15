@@ -1,11 +1,13 @@
 # BareD Documentation Consolidation Plan
 
 ## Overview
+
 Consolidate all documentation from multiple locations into a single, logical structure under `docs/` directory. This will create a single source of truth for all documentation and make it easier for users and contributors to find what they need.
 
 ## Current Documentation Inventory
 
 ### Root Level (8 files)
+
 | File | Size | Purpose | Target Location |
 |------|------|---------|-----------------|
 | `README.md` | 5.8 KB | Main project overview | **Keep in root** (standard) |
@@ -18,6 +20,7 @@ Consolidate all documentation from multiple locations into a single, logical str
 | `TESTING_PLAN.md` | 23.4 KB | Testing strategy | Move to `docs/development/` |
 
 ### docs/ Directory (3 files)
+
 | File | Size | Purpose | Target Location |
 |------|------|---------|-----------------|
 | `compose.md` | 17 lines | Docker compose quick ref | Merge into deployment guide |
@@ -25,6 +28,7 @@ Consolidate all documentation from multiple locations into a single, logical str
 | `WEB_INTERFACE.md` | 471 lines | Web UI guide | **Keep**, move to `docs/user-guide/` |
 
 ### examples/ Directory (3 MD + 5 YAML)
+
 | File | Size | Purpose | Target Location |
 |------|------|---------|-----------------|
 | `README.md` | 13 KB | Examples navigation | **Keep** (examples should stay) |
@@ -33,12 +37,15 @@ Consolidate all documentation from multiple locations into a single, logical str
 | `config.*.yml` | Various | Config examples | **Keep** (examples) |
 
 ### Plan File (.claude/plans/)
+
 | File | Size | Purpose | Target Location |
 |------|------|---------|-----------------|
 | `quiet-munching-snowflake.md` | - | Logging/alerting plan | Archive to `docs/architecture/plans/` |
 
 ## Previous Implementation (COMPLETED ✅)
+
 The logging and alerting enhancement has been fully implemented:
+
 - ✅ **Logging**: Stage-based with clear markers and detailed status
 - ✅ **Log Persistence**: Store logs in database for historical access
 - ✅ **Notification Channels**: Email (SMTP) and Generic Webhook (+ enhanced Slack)
@@ -107,9 +114,11 @@ Root Directory (keep minimal)
 ## Documentation Categories
 
 ### 1. User-Facing Documentation (`docs/user-guide/`)
+
 **Audience**: End users who want to use BareD for backups
 
 **Content**:
+
 - Getting started guide
 - Configuration reference
 - Web interface usage
@@ -119,9 +128,11 @@ Root Directory (keep minimal)
 **Priority**: High - Most users start here
 
 ### 2. Operations Documentation (`docs/operations/`)
+
 **Audience**: DevOps/SRE teams deploying BareD in production
 
 **Content**:
+
 - Deployment strategies (Docker, bare metal, Kubernetes)
 - Systemd service configuration
 - Version management
@@ -131,9 +142,11 @@ Root Directory (keep minimal)
 **Priority**: High - Critical for production usage
 
 ### 3. Development Documentation (`docs/development/`)
+
 **Audience**: Contributors and developers extending BareD
 
 **Content**:
+
 - Development environment setup
 - Tooling guide
 - Testing strategy
@@ -143,9 +156,11 @@ Root Directory (keep minimal)
 **Priority**: Medium - For contributors
 
 ### 4. Architecture Documentation (`docs/architecture/`)
+
 **Audience**: Advanced developers, maintainers, system designers
 
 **Content**:
+
 - Design decisions
 - Streaming pipeline architecture
 - System components
@@ -155,9 +170,11 @@ Root Directory (keep minimal)
 **Priority**: Low - Reference material
 
 ### 5. API Documentation (`docs/api/`)
+
 **Audience**: Developers integrating with BareD programmatically
 
 **Content**:
+
 - REST API endpoints
 - WebSocket streaming
 - Authentication
@@ -170,9 +187,11 @@ Root Directory (keep minimal)
 ## Implementation Phases
 
 ### Phase 1: Create Directory Structure (Low Risk)
+
 **Objective**: Create new directory structure without moving files yet
 
 **Actions**:
+
 ```bash
 mkdir -p docs/user-guide
 mkdir -p docs/operations
@@ -182,6 +201,7 @@ mkdir -p docs/api
 ```
 
 **Files to Create**:
+
 - `docs/README.md` - Main navigation hub
 - Each subdirectory gets a `README.md` overview
 
@@ -190,9 +210,11 @@ mkdir -p docs/api
 ---
 
 ### Phase 2: Move Existing Files (Medium Risk)
+
 **Objective**: Relocate existing documentation to new structure
 
 **File Moves**:
+
 ```bash
 # From root to docs/
 git mv TOOLING.md docs/development/tooling.md
@@ -214,6 +236,7 @@ git rm docs/compose.md
 ```
 
 **Update Internal Links**:
+
 - `CONTRIBUTING.md` references to moved files
 - `README.md` references to moved files  - Any cross-references between docs
 
@@ -222,11 +245,13 @@ git rm docs/compose.md
 ---
 
 ### Phase 3: Create New Documentation Files (Low Risk)
+
 **Objective**: Fill gaps in documentation with new guides
 
 **New Files to Create**:
 
 **User Guide**:
+
 - `docs/user-guide/README.md` - Overview of user documentation
 - `docs/user-guide/getting-started.md` - Quick start guide
 - `docs/user-guide/configuration.md` - Configuration guide (references examples/)
@@ -234,6 +259,7 @@ git rm docs/compose.md
 - `docs/user-guide/restore-operations.md` - Restore procedures
 
 **Operations**:
+
 - `docs/operations/README.md` - Operations overview
 - `docs/operations/deployment.md` - General deployment (includes compose.md content)
 - `docs/operations/docker.md` - Docker-specific deployment
@@ -242,10 +268,12 @@ git rm docs/compose.md
 - `docs/operations/troubleshooting.md` - Common issues
 
 **Development**:
+
 - `docs/development/README.md` - Development overview
 - `docs/development/architecture.md` - System architecture
 
 **Architecture**:
+
 - `docs/architecture/README.md` - Architecture overview
 - `docs/architecture/design-decisions.md` - Key design decisions
 - `docs/architecture/streaming-pipeline.md` - Streaming architecture
@@ -253,6 +281,7 @@ git rm docs/compose.md
 - `docs/architecture/persistence-layer.md` - Persistence implementation
 
 **API**:
+
 - `docs/api/README.md` - API overview
 - `docs/api/endpoints.md` - REST API reference
 - `docs/api/websocket.md` - WebSocket streaming
@@ -262,15 +291,18 @@ git rm docs/compose.md
 ---
 
 ### Phase 4: Update Root README (High Impact)
+
 **Objective**: Update main README with new documentation structure
 
 **Changes to `README.md`**:
+
 - Add "Documentation" section near the top
 - Link to `docs/README.md` as the main docs hub
 - Link to `examples/README.md` for configuration
 - Keep README focused on project overview and quick start
 
 **Example Documentation Section**:
+
 ```markdown
 ## Documentation
 
@@ -289,9 +321,11 @@ Quick Links:
 ---
 
 ### Phase 5: Create Navigation Hubs (High Value)
+
 **Objective**: Create comprehensive README files for each category
 
 **`docs/README.md`** (Main Documentation Hub):
+
 ```markdown
 # BareD Documentation
 
@@ -336,6 +370,7 @@ See [examples/](../examples/) directory for:
 ```
 
 **Individual Category READMEs**:
+
 - Each subdirectory gets overview with links to docs within
 - Consistent structure across all categories
 - Clear navigation paths
@@ -347,12 +382,14 @@ See [examples/](../examples/) directory for:
 ## Key Decisions
 
 ### What Stays in Root
+
 - `README.md` - Main entry point (industry standard)
 - `CONTRIBUTING.md` - Contribution guidelines (GitHub standard)
 - `LICENSE` - License file (standard)
 - Source code directories (`cmd/`, `internal/`, etc.)
 
 ### What Moves to docs/
+
 - All technical documentation
 - Development guides
 - Operations guides
@@ -360,6 +397,7 @@ See [examples/](../examples/) directory for:
 - Historical implementation plans
 
 ### What Stays in examples/
+
 - Configuration examples (YAML files)
 - Notification setup guides (NOTIFICATIONS.md)
 - Quick reference (QUICK-REFERENCE.md)
@@ -368,6 +406,7 @@ See [examples/](../examples/) directory for:
 **Rationale**: Configuration examples are closely tied to actual config files and should stay together. Users looking for "how to configure" naturally look in examples/.
 
 ### examples/ vs docs/
+
 - `examples/` = Configuration files + setup guides
 - `docs/` = Conceptual guides + system documentation
 - Cross-reference between them extensively
@@ -377,6 +416,7 @@ See [examples/](../examples/) directory for:
 ## File Move Summary
 
 ### Moves (8 files)
+
 ```bash
 TOOLING.md                    → docs/development/tooling.md
 DEVELOPMENT.md                → docs/development/setup.md
@@ -389,16 +429,19 @@ docs/VERSIONING.md            → docs/operations/versioning.md
 ```
 
 ### Removes (1 file)
+
 ```bash
 docs/compose.md               → Content merged into docs/operations/deployment.md
 ```
 
 ### Archives (1 file)
+
 ```bash
 .claude/plans/quiet-munching-snowflake.md → docs/architecture/plans/logging-alerting.md
 ```
 
 ### Creates (23+ new files)
+
 - 5 category READMEs (docs/README.md + 4 subdirectories)
 - 6 user-guide docs
 - 6 operations docs
@@ -411,19 +454,23 @@ docs/compose.md               → Content merged into docs/operations/deployment
 ## Link Updates Required
 
 ### CONTRIBUTING.md
+
 - Update references to DEVELOPMENT.md → `docs/development/setup.md`
 - Update references to plan.md → `docs/architecture/original-plan.md`
 
 ### README.md (root)
+
 - Add "Documentation" section with links to docs/
 - Update any references to moved files
 
 ### docs/ Internal Links
+
 - Cross-reference between user-guide, operations, development
 - Link to examples/ for configuration
 - Link to architecture/ for deep dives
 
 ### examples/README.md
+
 - Link to docs/user-guide/ for conceptual guides
 - Reference docs/operations/ for deployment
 
@@ -432,27 +479,32 @@ docs/compose.md               → Content merged into docs/operations/deployment
 ## Benefits of This Structure
 
 ### For New Users
+
 - Clear entry point: `README.md` → `docs/README.md` → category
 - Natural progression: overview → getting started → configuration → operations
 - Examples directory dedicated to "how do I configure this?"
 
 ### For Operators
+
 - `docs/operations/` has everything for production deployment
 - Versioning, Docker, systemd, monitoring all in one place
 - Clear troubleshooting guide
 
 ### For Contributors
+
 - `docs/development/` has complete dev setup
 - Architecture docs for understanding system design
 - Historical plans for context on why decisions were made
 
 ### For Maintainers
+
 - Single source of truth in `docs/`
 - Consistent structure across categories
 - Easy to find and update documentation
 - Historical context preserved in `architecture/`
 
 ### For Documentation
+
 - Logical categorization by audience
 - Easy to maintain and extend
 - Clear navigation paths
@@ -463,6 +515,7 @@ docs/compose.md               → Content merged into docs/operations/deployment
 ## Implementation Checklist
 
 ### Phase 1: Directory Structure
+
 - [ ] Create `docs/user-guide/`
 - [ ] Create `docs/operations/`
 - [ ] Create `docs/development/`
@@ -470,12 +523,14 @@ docs/compose.md               → Content merged into docs/operations/deployment
 - [ ] Create `docs/api/`
 
 ### Phase 2: File Moves
+
 - [ ] Move root MD files to appropriate docs/ subdirectories
 - [ ] Move existing docs/ files to new structure
 - [ ] Archive plan file from .claude/plans/
 - [ ] Remove compose.md (merge content first)
 
 ### Phase 3: New Documentation
+
 - [ ] Create docs/README.md (main hub)
 - [ ] Create category README files (5 files)
 - [ ] Create user-guide documentation (6 files)
@@ -485,12 +540,14 @@ docs/compose.md               → Content merged into docs/operations/deployment
 - [ ] Create API documentation (3 files)
 
 ### Phase 4: Updates
+
 - [ ] Update root README.md with docs section
 - [ ] Update CONTRIBUTING.md links
 - [ ] Update internal doc cross-references
 - [ ] Update examples/README.md links
 
 ### Phase 5: Validation
+
 - [ ] Verify all links work
 - [ ] Check navigation flows
 - [ ] Ensure no broken references
@@ -513,6 +570,7 @@ docs/compose.md               → Content merged into docs/operations/deployment
 ## Success Criteria
 
 After implementation:
+
 - ✅ Single source of truth for all documentation in `docs/`
 - ✅ Clear categorization by audience (users, operators, developers, architects)
 - ✅ Easy navigation with README hubs at each level
@@ -527,6 +585,7 @@ After implementation:
 ## Future Enhancements
 
 After consolidation:
+
 - Add docs/ to GitHub Pages for nice web view
 - Add search functionality
 - Create video tutorials linked from docs

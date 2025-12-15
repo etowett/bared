@@ -5,6 +5,7 @@ Welcome to the complete BareD documentation! This guide will help you find exact
 ## 📚 Documentation by Audience
 
 ### For Users
+
 Start here if you're new to BareD or want to use it for database backups:
 
 - **[Getting Started](user-guide/getting-started.md)** - Quick start guide to get up and running
@@ -14,6 +15,7 @@ Start here if you're new to BareD or want to use it for database backups:
 - **[Restore Operations](user-guide/restore-operations.md)** - Restoring from backups
 
 ### For Operators
+
 Essential guides for deploying and managing BareD in production:
 
 - **[Deployment Guide](operations/deployment.md)** - Deploy BareD in various environments
@@ -24,6 +26,7 @@ Essential guides for deploying and managing BareD in production:
 - **[Troubleshooting](operations/troubleshooting.md)** - Fix common issues
 
 ### For Developers
+
 Resources for contributors and those extending BareD:
 
 - **[Development Setup](development/setup.md)** - Set up your development environment
@@ -33,6 +36,7 @@ Resources for contributors and those extending BareD:
 - **[Contributing](../CONTRIBUTING.md)** - Contribution guidelines
 
 ### For Architects
+
 Deep dives into system design and architectural decisions:
 
 - **[Architecture Overview](architecture/README.md)** - System architecture and components
@@ -43,6 +47,7 @@ Deep dives into system design and architectural decisions:
 - **[Implementation Plans](architecture/plans/)** - Historical development plans
 
 ### API Reference
+
 For developers integrating with BareD programmatically:
 
 - **[REST API](api/endpoints.md)** - HTTP API endpoints
@@ -50,7 +55,7 @@ For developers integrating with BareD programmatically:
 
 ## 🎯 Common Tasks
 
-### I want to...
+### I want to
 
 **...set up BareD for the first time**
 → Start with [Getting Started](user-guide/getting-started.md), then [Configuration Guide](user-guide/configuration.md)
@@ -90,7 +95,7 @@ Looking for configuration examples? See the **[examples/](../examples/)** direct
 - **[Project README](../README.md)** - Main project overview
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute
 - **[Configuration Examples](../examples/)** - YAML config files and setup guides
-- **[GitHub Repository](https://github.com/yourusername/bared)** - Source code
+- **[GitHub Repository](https://github.com/etowett/bared))** - Source code
 
 ## 💡 Documentation Tips
 

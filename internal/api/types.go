@@ -153,8 +153,8 @@ func JobToResponse(job *jobs.Job) JobResponse {
 	}
 
 	// Add error if present
-	if job.Error != nil {
-		resp.Error = job.Error.Error()
+	if job.Error != "" {
+		resp.Error = job.Error
 	}
 
 	// Add progress if available

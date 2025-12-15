@@ -195,7 +195,7 @@ sudo systemctl enable bared
 
 ### Manual Backup (via API)
 ```bash
-curl -X POST http://localhost:8080/api/backups \
+curl -X POST http://localhost:8080/api/jobs/backup \
   -H "Content-Type: application/json" \
   -d '{"target": "mysql-prod"}'
 ```
@@ -213,9 +213,11 @@ curl "http://localhost:8080/api/jobs?target=mysql-prod&status=completed"
 curl http://localhost:8080/api/jobs/{job-id}/logs
 ```
 
-### Stream Logs (Real-time)
+### Stream Logs (Real-time via WebSocket)
 ```bash
-curl -N http://localhost:8080/api/jobs/{job-id}/logs/stream
+# Using websocat
+websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
+  ws://localhost:8080/api/jobs/{job-id}/logs/stream
 ```
 
 ---

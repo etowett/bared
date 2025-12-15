@@ -27,7 +27,7 @@ type RestoreOptions struct {
 type RestoreResult struct {
 	Target     string
 	Success    bool
-	Error      error
+	Error      string
 	Duration   time.Duration
 	BackupPath string
 
@@ -87,8 +87,8 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	// Step 1: Create database restorer
 	restorer, err := database.NewRestorer(target)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to create restorer: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to create restorer: %w", err).Error()
+		return result, fmt.Errorf("failed to create restorer: %w", err)
 	}
 	result.Validations = append(result.Validations, "Database restorer created")
 
@@ -96,8 +96,8 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	if !options.SkipValidation {
 		log.Printf("[%s] Validating database connection...", target.Name)
 		if connErr := restorer.ValidateConnection(ctx); connErr != nil {
-			result.Error = fmt.Errorf("database connection validation failed: %w", connErr)
-			return result, result.Error
+			result.Error = fmt.Errorf("database connection validation failed: %w", connErr).Error()
+			return result, fmt.Errorf("database connection validation failed: %w", connErr)
 		}
 		result.Validations = append(result.Validations, "Database connection validated")
 		log.Printf("[%s] Database connection validated successfully", target.Name)
@@ -106,14 +106,14 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	// Step 3: Get storage backend
 	storageCfg, err := cfg.GetStorageForTarget(target)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to get storage: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to get storage: %w", err).Error()
+		return result, fmt.Errorf("failed to get storage: %w", err)
 	}
 
 	stor, err := storage.New(storageCfg)
 	if err != nil {
-		result.Error = fmt.Errorf("failed to create storage: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("failed to create storage: %w", err).Error()
+		return result, fmt.Errorf("failed to create storage: %w", err)
 	}
 
 	// Set storage details
@@ -127,8 +127,8 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	// Step 4: Validate storage
 	if err := stor.Validate(ctx); err != nil {
-		result.Error = fmt.Errorf("storage validation failed: %w", err)
-		return result, result.Error
+		result.Error = fmt.Errorf("storage validation failed: %w", err).Error()
+		return result, fmt.Errorf("storage validation failed: %w", err)
 	}
 	result.Validations = append(result.Validations, "Storage validated")
 
@@ -137,19 +137,19 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		log.Printf("[%s] Verifying backup file exists...", target.Name)
 		exists, err := stor.Exists(ctx, backupPath)
 		if err != nil {
-			result.Error = fmt.Errorf("failed to verify backup existence: %w", err)
-			return result, result.Error
+			result.Error = fmt.Errorf("failed to verify backup existence: %w", err).Error()
+			return result, fmt.Errorf("failed to verify backup existence: %w", err)
 		}
 		if !exists {
-			result.Error = fmt.Errorf("backup file not found: %s", backupPath)
-			return result, result.Error
+			result.Error = fmt.Errorf("backup file not found: %s", backupPath).Error()
+			return result, fmt.Errorf("backup file not found: %s", backupPath)
 		}
 
 		// Get backup file info
 		backupInfo, err := stor.GetInfo(ctx, backupPath)
 		if err != nil {
-			result.Error = fmt.Errorf("failed to get backup info: %w", err)
-			return result, result.Error
+			result.Error = fmt.Errorf("failed to get backup info: %w", err).Error()
+			return result, fmt.Errorf("failed to get backup info: %w", err)
 		}
 
 		// Store backup size
@@ -203,14 +203,14 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	}
 
 	if restoreErr != nil {
-		result.Error = fmt.Errorf("restore failed: %w", restoreErr)
+		result.Error = fmt.Errorf("restore failed: %w", restoreErr).Error()
 		result.Stages = stageTracker.GetAllStages()
 		log.Printf("[%s] Restore failed: %v", target.Name, restoreErr)
 
 		// Send failure notifications
 		sendRestoreNotifications(ctx, cfg, target, result, restoreErr)
 
-		return result, result.Error
+		return result, fmt.Errorf("restore failed: %w", restoreErr)
 	}
 
 	result.Success = true

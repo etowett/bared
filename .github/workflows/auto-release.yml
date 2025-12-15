@@ -1,0 +1,156 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create-release:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get merged PR number
+        id: pr
+        run: |
+          PR_NUMBER=$(gh pr list --search "${{ github.sha }}" --state merged --json number --jq '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No merged PR found for this commit, skipping release"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for release:skip label
+        id: check_skip
+        if: steps.pr.outputs.skip == 'false'
+        run: |
+          LABELS=$(gh pr view ${{ steps.pr.outputs.pr_number }} --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "release:skip"; then
+            echo "Release skipped due to release:skip label"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest tag
+        id: get_tag
+        if: steps.check_skip.outputs.skip == 'false'
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "Latest tag: ${LATEST_TAG}"
+
+      - name: Determine version bump
+        id: version_bump
+        if: steps.check_skip.outputs.skip == 'false'
+        run: |
+          LABELS=$(gh pr view ${{ steps.pr.outputs.pr_number }} --json labels --jq '.labels[].name')
+
+          if echo "$LABELS" | grep -q "release:major"; then
+            echo "bump=major" >> $GITHUB_OUTPUT
+            echo "Version bump: major"
+          elif echo "$LABELS" | grep -q "release:minor"; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "Version bump: minor"
+          elif echo "$LABELS" | grep -q "release:patch"; then
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Version bump: patch"
+          else
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Version bump: patch (default)"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate next version
+        id: next_version
+        if: steps.check_skip.outputs.skip == 'false'
+        run: |
+          CURRENT="${{ steps.get_tag.outputs.latest_tag }}"
+          BUMP="${{ steps.version_bump.outputs.bump }}"
+
+          # Remove 'v' prefix if present
+          CURRENT=${CURRENT#v}
+
+          # Split version into components
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT"
+          MAJOR="${VERSION_PARTS[0]:-0}"
+          MINOR="${VERSION_PARTS[1]:-0}"
+          PATCH="${VERSION_PARTS[2]:-0}"
+
+          # Calculate next version based on bump type
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEXT_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Next version: ${NEXT_VERSION}"
+
+      - name: Create and push tag
+        if: steps.check_skip.outputs.skip == 'false'
+        run: |
+          NEXT_VERSION="${{ steps.next_version.outputs.next_version }}"
+          PR_TITLE=$(gh pr view ${{ steps.pr.outputs.pr_number }} --json title --jq '.title')
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "${NEXT_VERSION}" -m "Release ${NEXT_VERSION}" -m "" -m "${PR_TITLE}"
+          git push origin "${NEXT_VERSION}"
+
+          echo "✅ Created and pushed tag: ${NEXT_VERSION}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate summary
+        if: steps.check_skip.outputs.skip == 'false'
+        run: |
+          echo "## 🚀 Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.next_version.outputs.next_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Previous:** ${{ steps.get_tag.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Bump Type:** ${{ steps.version_bump.outputs.bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "**PR:** #${{ steps.pr.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The release workflow will now build binaries and create a GitHub release." >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate skip summary
+        if: steps.check_skip.outputs.skip == 'true' || steps.pr.outputs.skip == 'true'
+        run: |
+          echo "## ⏭️ Release Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.pr.outputs.skip }}" == "true" ]; then
+            echo "No merged PR found for this commit." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "PR #${{ steps.pr.outputs.pr_number }} has the \`release:skip\` label." >> $GITHUB_STEP_SUMMARY
+          fi

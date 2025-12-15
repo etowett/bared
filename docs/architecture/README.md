@@ -5,30 +5,39 @@ Deep dives into BareD's system design, architectural decisions, and implementati
 ## Contents
 
 ### [Design Decisions](design-decisions.md)
+
 Key architectural choices, trade-offs considered, and rationale behind major design decisions.
 
 ### [Streaming Pipeline](streaming-pipeline.md)
+
 Detailed explanation of the streaming architecture using `io.Pipe`, how data flows through the system without temporary files.
 
 ### [Notification System](notification-system.md)
+
 Architecture of the notification system, message structure, delivery guarantees, and extensibility.
 
 ### [Persistence Layer](persistence-layer.md)
+
 Database persistence design for job history, log storage, and distributed locking.
 
 ### Historical Documents
 
 #### [Original Implementation Plan](original-plan.md)
+
 The original comprehensive plan that guided BareD's development. Historical reference.
 
 #### [Implementation Complete](implementation-complete.md)
+
 Summary of completed implementation phases and verification.
 
 #### [Release Uniformity](release-uniformity.md)
+
 Documentation of release process standardization.
 
 #### [Implementation Plans](plans/)
+
 Historical implementation plans for major features:
+
 - [Logging & Alerting Enhancement](plans/logging-alerting.md)
 
 ## System Overview
@@ -73,35 +82,42 @@ Historical implementation plans for major features:
 ### Core Components
 
 **Application Layer** (`internal/app/`):
+
 - High-level orchestration of backup/restore operations
 - Pipeline coordination
 - Result aggregation and reporting
 
 **Database Layer** (`internal/database/`):
+
 - Database-specific dump and restore implementations
 - Unified interface for all database types
 - Streaming output/input
 
 **Storage Layer** (`internal/storage/`):
+
 - Storage backend abstractions
 - Retry logic for network operations
 - Metadata management
 
 **Compression Layer** (`internal/compress/`):
+
 - Streaming compression using tar + gzip
 - No temporary files
 
 **Notification Layer** (`internal/notify/`):
+
 - Multi-channel notifications
 - Rich message formatting
 - Delivery tracking
 
 **Job Management** (`internal/jobs/`):
+
 - Job lifecycle management
 - Progress tracking
 - Log aggregation
 
 **Persistence** (`internal/persistence/`):
+
 - Job history storage
 - Log persistence
 - Distributed locking
@@ -109,9 +125,11 @@ Historical implementation plans for major features:
 ## Key Design Principles
 
 ### 1. Streaming Architecture
+
 No temporary files are created during backup or restore operations. Data streams through the pipeline using `io.Pipe`.
 
 **Benefits**:
+
 - Reduced disk I/O
 - Lower storage requirements
 - Better performance
@@ -120,13 +138,16 @@ No temporary files are created during backup or restore operations. Data streams
 **See**: [Streaming Pipeline](streaming-pipeline.md)
 
 ### 2. Interface-Driven Design
+
 Core functionality is abstracted behind interfaces:
+
 - `Dumper` / `Restorer` for databases
 - `Storage` for storage backends
 - `Compressor` / `Decompressor` for compression
 - `Notifier` for notifications
 
 **Benefits**:
+
 - Easy extensibility
 - Clear contracts
 - Testability
@@ -135,7 +156,9 @@ Core functionality is abstracted behind interfaces:
 **See**: [Design Decisions](design-decisions.md#interface-driven-design)
 
 ### 3. Graceful Error Handling
+
 Operations handle partial failures gracefully:
+
 - Retry logic with exponential backoff
 - Cleanup on failure
 - Detailed error messages
@@ -144,7 +167,9 @@ Operations handle partial failures gracefully:
 **See**: [Design Decisions](design-decisions.md#error-handling)
 
 ### 4. Minimal Dependencies
+
 Prefer standard library over external packages:
+
 - stdlib for compression (tar, gzip)
 - stdlib for HTTP server
 - Few external dependencies
@@ -212,11 +237,13 @@ The architecture is designed for extensibility:
 ## Performance Considerations
 
 ### Streaming Benefits
+
 - **Memory**: Fixed memory usage regardless of backup size
 - **Disk**: No temporary file creation
 - **Performance**: Parallel stages (dump while compressing while uploading)
 
 ### Optimization Opportunities
+
 - Concurrent backups (configurable limit)
 - Compression level tuning
 - Buffer size configuration
@@ -227,16 +254,19 @@ The architecture is designed for extensibility:
 ## Security Architecture
 
 ### Secrets Management
+
 - Environment variable expansion in config
 - No secrets in config files
 - Secure credential storage
 
 ### Access Control
+
 - Minimal database permissions required
 - Storage backend isolation
 - Network security
 
 ### Audit Trail
+
 - Job history persistence
 - Log retention
 - Notification tracking

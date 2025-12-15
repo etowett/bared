@@ -1,0 +1,18 @@
+# Label definitions for BareD releases
+# These labels are synced to the repository via the sync-labels workflow
+
+- name: "release:major"
+  color: "d73a4a"
+  description: "Breaking changes - triggers major version bump (x.0.0)"
+
+- name: "release:minor"
+  color: "0e8a16"
+  description: "New features - triggers minor version bump (0.x.0)"
+
+- name: "release:patch"
+  color: "0075ca"
+  description: "Bug fixes and small improvements - triggers patch version bump (0.0.x)"
+
+- name: "release:skip"
+  color: "ffffff"
+  description: "Skip release - no version bump or release will be created"

@@ -5,9 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"bared/internal/jobs"
@@ -20,9 +21,44 @@ type SQLStore struct {
 	db *sql.DB
 }
 
+// sanitizeDSN removes credentials from DSN for safe logging
+func sanitizeDSN(driver, dsn string) string {
+	// For SQLite, DSN is typically just a file path
+	if driver == "sqlite3" {
+		return fmt.Sprintf("driver=%s, type=file", driver)
+	}
+
+	// Try to parse as URL (postgres://user:pass@host:port/db)
+	// Only treat as URL if it has a recognized database scheme
+	if u, err := url.Parse(dsn); err == nil && u.Scheme != "" {
+		dbSchemes := map[string]bool{
+			"postgres":   true,
+			"postgresql": true,
+			"mysql":      true,
+			"mongodb":    true,
+			"redis":      true,
+		}
+
+		if dbSchemes[u.Scheme] {
+			// Remove user info (username and password)
+			u.User = nil
+			return fmt.Sprintf("driver=%s, url=%s", driver, u.String())
+		}
+	}
+
+	// Check if DSN contains sensitive keywords or @ symbol
+	// (for non-URL formats like "user:pass@tcp(host)/db" or "password=...")
+	if strings.Contains(dsn, "password") || strings.Contains(dsn, "@") {
+		return fmt.Sprintf("driver=%s, dsn=<redacted>", driver)
+	}
+
+	// If no sensitive data detected, log basic info
+	return fmt.Sprintf("driver=%s", driver)
+}
+
 // NewSQLStore creates a new SQL store
 func NewSQLStore(driver, dsn string) (*SQLStore, error) {
-	log.Printf("Opening database: %s", dsn)
+	log.Printf("Opening database connection: %s", sanitizeDSN(driver, dsn))
 
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
@@ -117,18 +153,13 @@ func (s *SQLStore) UpdateJob(ctx context.Context, job *jobs.Job) error {
 		}
 	}
 
-	var errStr string
-	if job.Error != nil {
-		errStr = job.Error.Error()
-	}
-
 	query := `
 		UPDATE jobs
 		SET status=?, started_at=?, completed_at=?, result_json=?, error=?
 		WHERE id=?
 	`
 	_, err := s.db.ExecContext(ctx, query,
-		job.Status, job.StartedAt, job.CompletedAt, string(resultJSON), errStr, job.ID)
+		job.Status, job.StartedAt, job.CompletedAt, string(resultJSON), job.Error, job.ID)
 	return err
 }
 
@@ -165,7 +196,7 @@ func (s *SQLStore) GetJob(ctx context.Context, id jobs.JobID) (*jobs.Job, error)
 		job.CompletedAt = &t
 	}
 	if errorStr.Valid && errorStr.String != "" {
-		job.Error = errors.New(errorStr.String)
+		job.Error = errorStr.String
 	}
 	if schedule.Valid {
 		job.ScheduledBy = schedule.String

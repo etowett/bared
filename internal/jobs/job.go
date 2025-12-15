@@ -44,7 +44,7 @@ type Job struct {
 	Status         JobStatus
 	Progress       *Progress
 	Result         interface{} // *app.BackupResult or *app.RestoreResult
-	Error          error
+	Error          string
 	CreatedAt      time.Time
 	StartedAt      *time.Time
 	CompletedAt    *time.Time
@@ -136,7 +136,7 @@ func (j *Job) MarkFailed(err error) {
 	now := time.Now()
 	j.CompletedAt = &now
 	j.Status = JobStatusFailed
-	j.Error = err
+	j.Error = err.Error()
 }
 
 // MarkCancelled marks the job as cancelled

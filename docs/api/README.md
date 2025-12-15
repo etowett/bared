@@ -5,9 +5,11 @@ Documentation for BareD's HTTP REST API and WebSocket interfaces.
 ## Contents
 
 ### [REST API Endpoints](endpoints.md)
+
 Complete reference for all HTTP API endpoints: health checks, backup triggering, job management, and dashboard queries.
 
 ### [WebSocket API](websocket.md)
+
 Real-time log streaming via WebSocket connections, authentication, and message formats.
 
 ## Quick Start
@@ -45,21 +47,25 @@ curl -u admin:password http://localhost:8080/api/dashboard
 ### Common Endpoints
 
 **Health Check** (no auth required):
+
 ```bash
 curl http://localhost:8080/api/health
 ```
 
 **Dashboard Stats**:
+
 ```bash
 curl -u admin:password http://localhost:8080/api/dashboard
 ```
 
 **List Jobs**:
+
 ```bash
 curl -u admin:password http://localhost:8080/api/jobs
 ```
 
 **Trigger Backup**:
+
 ```bash
 curl -u admin:password -X POST \
   http://localhost:8080/api/jobs/backup \
@@ -68,6 +74,7 @@ curl -u admin:password -X POST \
 ```
 
 **Stream Logs** (WebSocket):
+
 ```bash
 # Using websocat
 websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
@@ -224,6 +231,7 @@ All API errors return JSON:
 ```
 
 HTTP status codes:
+
 - `200` - Success
 - `400` - Bad request
 - `401` - Unauthorized
@@ -235,6 +243,7 @@ HTTP status codes:
 Currently, no official client libraries exist. The API is simple REST+JSON and works with standard HTTP clients in any language.
 
 **Examples**:
+
 - **curl**: See examples above
 - **JavaScript/TypeScript**: Use `fetch` or `axios`
 - **Python**: Use `requests`

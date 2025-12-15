@@ -27,7 +27,7 @@ type Stage struct {
 	EndTime   *time.Time             `json:"end_time,omitempty"`
 	Status    StageStatus            `json:"status"`
 	Metrics   map[string]interface{} `json:"metrics,omitempty"`
-	Error     error                  `json:"error,omitempty"`
+	Error     string                 `json:"error,omitempty"`
 }
 
 // Duration returns the duration of the stage
@@ -119,7 +119,7 @@ func (st *StageTracker) FailStage(err error) {
 	now := time.Now()
 	st.currentStage.EndTime = &now
 	st.currentStage.Status = StageStatusFailed
-	st.currentStage.Error = err
+	st.currentStage.Error = err.Error()
 
 	// Log failure
 	Error("[%s] Stage %s failed: %v", st.targetName, st.currentStage.Name, err)

@@ -46,14 +46,14 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 
 **Phase 5: Backup Pipeline** ✓
 
-- Streaming backup pipeline (dump → compress → upload)
+- Streaming backup pipeline (dump -> compress -> upload)
 - Path generation utilities
 - Backup command implementation
 - Progress logging
 
 **Phase 6: Restore Workflow** ✓
 
-- Restore pipeline (retrieve → decompress → restore)
+- Restore pipeline (retrieve -> decompress -> restore)
 - List backups command
 - "Latest" backup detection
 - Full restore command implementation
@@ -148,6 +148,7 @@ targets:
 ### Quick Links
 
 **For Users**:
+
 - [Getting Started](docs/user-guide/getting-started.md) - New to BareD? Start here
 - [Configuration Guide](docs/user-guide/configuration.md) - Configure BareD for your needs
 - [Configuration Examples](examples/) - Ready-to-use YAML configs
@@ -155,17 +156,20 @@ targets:
 - [Web Interface](docs/user-guide/web-interface.md) - Use the web dashboard
 
 **For Operators**:
+
 - [Deployment Guide](docs/operations/deployment.md) - Deploy in production
 - [Docker Deployment](docs/operations/docker.md) - Docker and Docker Compose
 - [Systemd Service](docs/operations/systemd.md) - Run as a system service
 - [Troubleshooting](docs/operations/troubleshooting.md) - Fix common issues
 
 **For Developers**:
+
 - [Development Setup](docs/development/setup.md) - Set up dev environment
 - [Contributing Guide](CONTRIBUTING.md) - How to contribute
 - [System Architecture](docs/development/architecture.md) - How BareD works
 
 **For Integrators**:
+
 - [REST API](docs/api/endpoints.md) - HTTP API reference
 - [WebSocket API](docs/api/websocket.md) - Real-time log streaming
 
@@ -176,7 +180,7 @@ targets:
 **Backup:**
 
 ```
-[Database Dump] → [Compress] → [Storage Upload] → [Cleanup]
+[Database Dump] -> [Compress] -> [Storage Upload] -> [Cleanup]
          ↓              ↓              ↓
     (streaming via io.Pipe - no temp files)
 ```
@@ -184,7 +188,7 @@ targets:
 **Restore:**
 
 ```
-[Storage Retrieve] → [Decompress] → [Database Restore] → [Cleanup]
+[Storage Retrieve] -> [Decompress] -> [Database Restore] -> [Cleanup]
          ↓                ↓                ↓
     (streaming via io.Pipe)
 ```

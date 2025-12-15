@@ -396,7 +396,7 @@ All notifications (Slack, Email, Webhook) include:
 
 #### Database Details
 - Database name
-- Database type (mysql, postgres, redis, mongodb)
+- Database type (mysql, postgres, redis)
 
 #### Operation Context
 - Manual vs Scheduled
@@ -422,7 +422,7 @@ Each operation stage with:
 
 ```bash
 # Trigger a manual backup (will send notifications)
-curl -X POST http://localhost:8080/api/backups \
+curl -X POST http://localhost:8080/api/jobs/backup \
   -H "Content-Type: application/json" \
   -d '{"target": "your-target-name"}'
 ```
