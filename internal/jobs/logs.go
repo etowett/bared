@@ -10,6 +10,7 @@ type LogEntry struct {
 	Timestamp time.Time `json:"timestamp"`
 	Level     string    `json:"level"`
 	Message   string    `json:"message"`
+	Stage     string    `json:"stage,omitempty"` // Current operation stage
 }
 
 // LogBuffer is a thread-safe circular log buffer with subscriber support
@@ -36,10 +37,16 @@ func NewLogBuffer(maxSize int) *LogBuffer {
 
 // Write adds a log entry to the buffer
 func (lb *LogBuffer) Write(level, message string) {
+	lb.WriteWithStage(level, message, "")
+}
+
+// WriteWithStage adds a log entry with a stage to the buffer
+func (lb *LogBuffer) WriteWithStage(level, message, stage string) {
 	entry := LogEntry{
 		Timestamp: time.Now(),
 		Level:     level,
 		Message:   message,
+		Stage:     stage,
 	}
 
 	// Add to circular buffer

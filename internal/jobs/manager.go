@@ -82,6 +82,59 @@ func (m *Manager) executeJob(job *Job) {
 		m.mu.Unlock()
 	}()
 
+	// Setup log persistence batch flusher if store is available
+	var logFlushDone chan struct{}
+	var logBuffer []LogEntry
+	var logBufferMu sync.Mutex
+
+	if m.store != nil {
+		logFlushDone = make(chan struct{})
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		// Start periodic log flusher
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					// Periodic flush (every 5 seconds)
+					logBufferMu.Lock()
+					if len(logBuffer) > 0 {
+						entries := make([]LogEntry, len(logBuffer))
+						copy(entries, logBuffer)
+						logBuffer = logBuffer[:0]
+						logBufferMu.Unlock()
+
+						if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, entries); err != nil {
+							util.Error("Failed to persist %d log entries for job %s: %v", len(entries), job.ID, err)
+						}
+					} else {
+						logBufferMu.Unlock()
+					}
+
+				case <-logFlushDone:
+					// Final flush on job completion
+					logBufferMu.Lock()
+					if len(logBuffer) > 0 {
+						if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, logBuffer); err != nil {
+							util.Error("Failed to persist final %d log entries for job %s: %v", len(logBuffer), job.ID, err)
+						}
+					}
+					logBufferMu.Unlock()
+					return
+				}
+			}
+		}()
+	}
+
+	// Defer final log flush
+	defer func() {
+		if logFlushDone != nil {
+			close(logFlushDone)
+			time.Sleep(100 * time.Millisecond) // Give flush goroutine time to complete
+		}
+	}()
+
 	// Setup log hook to capture logs for this job
 	oldHook := util.GetLogHook()
 	util.SetLogHook(func(level util.LogLevel, message string) {
@@ -95,6 +148,31 @@ func (m *Manager) executeJob(job *Job) {
 			levelStr = "error"
 		}
 		job.Logs.Write(levelStr, message)
+
+		// Add to batch buffer for persistence
+		if m.store != nil {
+			logBufferMu.Lock()
+			logBuffer = append(logBuffer, LogEntry{
+				Timestamp: time.Now(),
+				Level:     levelStr,
+				Message:   message,
+			})
+			// Immediate flush if buffer reaches 100 entries
+			if len(logBuffer) >= 100 {
+				entries := make([]LogEntry, len(logBuffer))
+				copy(entries, logBuffer)
+				logBuffer = logBuffer[:0]
+				logBufferMu.Unlock()
+
+				go func() {
+					if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, entries); err != nil {
+						util.Error("Failed to persist batch of %d log entries for job %s: %v", len(entries), job.ID, err)
+					}
+				}()
+			} else {
+				logBufferMu.Unlock()
+			}
+		}
 	})
 	defer util.SetLogHook(oldHook)
 
@@ -178,6 +256,8 @@ func (m *Manager) executeJob(job *Job) {
 
 // SubmitBackup submits a backup job
 func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manual bool) (JobID, error) {
+	log.Printf("Submitting backup job for target: %s", target.Name)
+
 	// Check if target is already running
 	if m.IsTargetRunning(target.Name) {
 		return "", fmt.Errorf("target '%s' backup already in progress", target.Name)
@@ -185,6 +265,8 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 
 	// Create job
 	job := NewJob(JobTypeBackup, target.Name, manual)
+
+	log.Printf("Created job: %+v", job)
 
 	// Store job
 	m.mu.Lock()
@@ -257,14 +339,29 @@ func (m *Manager) SubmitRestoreWithOptions(ctx context.Context, target *config.T
 // GetJob returns a job by ID
 func (m *Manager) GetJob(jobID JobID) (*Job, error) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
 	job, exists := m.jobs[jobID]
+	m.mu.RUnlock()
+
 	if !exists {
-		// Fallback to store if not in memory (e.g. restart)
-		// NOTE: This would require loading result/logs/etc from DB which might be partial
-		// For now, we only support in-memory + write-behind persistence.
-		// Reading from DB for historical jobs is future work or API driven.
+		// Fallback to store if not in memory (e.g. after restart)
+		if m.store != nil {
+			storedJob, err := m.store.GetJob(context.Background(), jobID)
+			if err != nil {
+				return nil, fmt.Errorf("job not found: %s", jobID)
+			}
+
+			// Load historical logs from database
+			logs, err := m.store.GetJobLogs(context.Background(), jobID, 1000)
+			if err == nil && len(logs) > 0 {
+				// Populate log buffer with historical logs
+				storedJob.Logs = NewLogBuffer(1000)
+				for _, entry := range logs {
+					storedJob.Logs.WriteWithStage(entry.Level, entry.Message, entry.Stage)
+				}
+			}
+
+			return storedJob, nil
+		}
 		return nil, fmt.Errorf("job not found: %s", jobID)
 	}
 

@@ -37,30 +37,133 @@ func (s *Slack) NotifySuccess(ctx context.Context, msg *Message) error {
 		return nil // Success notifications disabled
 	}
 
-	text := fmt.Sprintf("✓ *Backup Successful*\n"+
-		"Target: `%s`\n"+
-		"Duration: %v\n"+
-		"Path: `%s`\n"+
-		"Time: %s",
-		msg.Target,
-		msg.Duration,
-		msg.Path,
-		msg.Timestamp.Format("2006-01-02 15:04:05"),
-	)
+	// Build operation title
+	opTitle := "Backup"
+	if msg.Operation == "restore" {
+		opTitle = "Restore"
+	}
+	if msg.DryRun {
+		opTitle += " (DRY-RUN)"
+	}
+
+	// Build message text
+	text := fmt.Sprintf("✓ *%s Successful*\n", opTitle)
+	text += fmt.Sprintf("Target: `%s`\n", msg.Target)
+	text += fmt.Sprintf("Duration: %v\n", msg.Duration)
+
+	// Add trigger information
+	if msg.Manual {
+		text += "Trigger: Manual\n"
+	} else if msg.ScheduledBy != "" {
+		text += fmt.Sprintf("Trigger: Scheduled (%s)\n", msg.ScheduledBy)
+	}
+
+	// Add size metrics for backups
+	if msg.Operation == "backup" && msg.Size > 0 {
+		text += "\n"
+		if msg.UncompressedSize > 0 {
+			text += fmt.Sprintf("Size: %s (uncompressed) → %s (compressed)\n",
+				formatBytes(msg.UncompressedSize),
+				formatBytes(msg.Size))
+			if msg.CompressionRatio > 0 {
+				text += fmt.Sprintf("Compression: %.1f%% reduction\n", msg.CompressionRatio)
+			}
+		} else {
+			text += fmt.Sprintf("Size: %s\n", formatBytes(msg.Size))
+		}
+	} else if msg.Operation == "restore" && msg.Size > 0 {
+		text += fmt.Sprintf("\nBackup Size: %s\n", formatBytes(msg.Size))
+	}
+
+	// Add storage details
+	if msg.StorageName != "" {
+		text += "\n"
+		text += fmt.Sprintf("Storage: %s (%s)\n", msg.StorageName, msg.StorageType)
+		if msg.Path != "" {
+			text += fmt.Sprintf("Path: `%s`\n", msg.Path)
+		}
+	}
+
+	// Add database details
+	if msg.DatabaseName != "" {
+		text += "\n"
+		text += fmt.Sprintf("Database: %s (%s)\n", msg.DatabaseName, msg.DatabaseType)
+	}
+
+	// Add restore-specific validations
+	if msg.Operation == "restore" && len(msg.Validations) > 0 {
+		text += fmt.Sprintf("\nValidations Passed: %d\n", msg.ValidationsPassed)
+	}
+
+	// Add timestamp
+	text += fmt.Sprintf("\nTime: %s\n", msg.Timestamp.Format("2006-01-02 15:04:05"))
+
+	// Add stage summary
+	if len(msg.Stages) > 0 {
+		text += "\n*Stages:*\n"
+		for _, stage := range msg.Stages {
+			icon := "•"
+			if stage.Status == "failed" {
+				icon = "✗"
+			}
+			text += fmt.Sprintf("  %s %s: %v\n", icon, stage.Name, stage.Duration)
+		}
+	}
 
 	return s.send(ctx, text, "good")
 }
 
 // NotifyFailure sends a failure notification to Slack
 func (s *Slack) NotifyFailure(ctx context.Context, msg *Message) error {
-	text := fmt.Sprintf("✗ *Backup Failed*\n"+
-		"Target: `%s`\n"+
-		"Error: %v\n"+
-		"Time: %s",
-		msg.Target,
-		msg.Error,
-		msg.Timestamp.Format("2006-01-02 15:04:05"),
-	)
+	// Build operation title
+	opTitle := "Backup"
+	if msg.Operation == "restore" {
+		opTitle = "Restore"
+	}
+
+	// Build error message
+	text := fmt.Sprintf("✗ *%s Failed*\n", opTitle)
+	text += fmt.Sprintf("Target: `%s`\n", msg.Target)
+	text += fmt.Sprintf("Error: %v\n", msg.Error)
+
+	// Add trigger information
+	if msg.Manual {
+		text += "Trigger: Manual\n"
+	} else if msg.ScheduledBy != "" {
+		text += fmt.Sprintf("Trigger: Scheduled (%s)\n", msg.ScheduledBy)
+	}
+
+	// Add database details
+	if msg.DatabaseName != "" {
+		text += fmt.Sprintf("\nDatabase: %s (%s)\n", msg.DatabaseName, msg.DatabaseType)
+	}
+
+	// Add storage details
+	if msg.StorageName != "" {
+		text += fmt.Sprintf("Storage: %s (%s)\n", msg.StorageName, msg.StorageType)
+	}
+
+	// Add duration if available
+	if msg.Duration > 0 {
+		text += fmt.Sprintf("\nDuration: %v\n", msg.Duration)
+	}
+
+	// Add timestamp
+	text += fmt.Sprintf("Time: %s\n", msg.Timestamp.Format("2006-01-02 15:04:05"))
+
+	// Add stage summary if available
+	if len(msg.Stages) > 0 {
+		text += "\n*Stages:*\n"
+		for _, stage := range msg.Stages {
+			icon := "✓"
+			if stage.Status == "failed" {
+				icon = "✗"
+			} else if stage.Status == "running" {
+				icon = "⋯"
+			}
+			text += fmt.Sprintf("  %s %s: %v\n", icon, stage.Name, stage.Duration)
+		}
+	}
 
 	return s.send(ctx, text, "danger")
 }
@@ -103,4 +206,18 @@ func (s *Slack) send(ctx context.Context, text, color string) error {
 	}
 
 	return nil
+}
+
+// formatBytes formats bytes as human-readable string
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

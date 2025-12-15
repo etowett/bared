@@ -24,8 +24,27 @@ type BackupResult struct {
 	Error       error
 	Duration    time.Duration
 	BackupPath  string
-	Size        int64
+
+	// Size metrics
+	Size             int64   // Compressed size (or uncompressed if no compression)
+	UncompressedSize int64   // Size before compression (0 if no compression)
+	CompressionRatio float64 // Percentage reduction (0 if no compression)
+
+	// Storage details
 	StorageName string
+	StorageType string
+	StoragePath string
+
+	// Database details
+	DatabaseType string
+	DatabaseName string
+
+	// Operation context
+	Manual      bool
+	ScheduledBy string
+
+	// Stage information
+	Stages []*util.Stage
 }
 
 // countingWriter wraps an io.Writer and tracks the number of bytes written
@@ -44,6 +63,13 @@ func (cw *countingWriter) Size() int64 {
 	return cw.count
 }
 
+// compressionMetrics holds compression-related metrics
+type compressionMetrics struct {
+	uncompressedSize int64
+	compressedSize   int64
+	compressionRatio float64
+}
+
 // Progress is an interface for progress tracking
 type Progress interface {
 	SetStage(stage string, estimatedBytes int64)
@@ -57,6 +83,10 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	result := &BackupResult{
 		Target: target.Name,
 	}
+
+	// Create stage tracker
+	stageTracker := util.NewStageTracker(target.Name)
+	stageTracker.StartStage("VALIDATING")
 
 	if progress != nil {
 		progress.SetStage("validating", 0)
@@ -104,8 +134,13 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		return result, result.Error
 	}
 
-	// Set storage name early from config
+	// Set storage details early from config
 	result.StorageName = storageCfg.Name
+	result.StorageType = storageCfg.Type
+
+	// Set database details
+	result.DatabaseType = target.Conn.Type
+	result.DatabaseName = target.Conn.Database
 
 	stor, err := storage.New(storageCfg)
 	if err != nil {
@@ -138,22 +173,52 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		target.Conn.User)
 	log.Printf("[%s] Backup file: %s", target.Name, backupPath)
 
+	// End validation stage
+	stageTracker.EndStage(map[string]interface{}{
+		"dumper_type":  target.Conn.Type,
+		"storage_type": storageCfg.Type,
+	})
+
 	// Execute backup pipeline
 	var dumpMetadata *database.DumpMetadata
+	var compressionMetrics *compressionMetrics
 	if target.Compress != nil && target.Compress.Enabled {
-		dumpMetadata, err = backupWithCompression(ctx, target, dumper, stor, backupPath)
+		dumpMetadata, compressionMetrics, err = backupWithCompression(ctx, target, dumper, stor, backupPath, stageTracker, progress)
 	} else {
-		dumpMetadata, err = backupWithoutCompression(ctx, target, dumper, stor, backupPath)
+		dumpMetadata, err = backupWithoutCompression(ctx, target, dumper, stor, backupPath, stageTracker, progress)
 	}
 
 	if err != nil {
+		stageTracker.FailStage(err)
 		result.Error = fmt.Errorf("backup failed: %w", err)
+		result.Stages = stageTracker.GetAllStages()
 		return result, result.Error
 	}
 
 	// Populate result with metadata
 	if dumpMetadata != nil {
 		result.Size = dumpMetadata.Size
+	}
+
+	// Populate compression metrics if available
+	if compressionMetrics != nil {
+		result.UncompressedSize = compressionMetrics.uncompressedSize
+		result.CompressionRatio = compressionMetrics.compressionRatio
+	}
+
+	// Store stage information
+	result.Stages = stageTracker.GetAllStages()
+
+	// Set storage path
+	if storageCfg.Path != "" {
+		result.StoragePath = fmt.Sprintf("%s/%s", storageCfg.Path, backupPath)
+	} else if storageCfg.Bucket != "" {
+		result.StoragePath = fmt.Sprintf("s3://%s/%s", storageCfg.Bucket, backupPath)
+	} else if storageCfg.Host != "" {
+		result.StoragePath = fmt.Sprintf("sftp://%s@%s:%d%s/%s",
+			storageCfg.Username, storageCfg.Host, storageCfg.Port, storageCfg.Path, backupPath)
+	} else {
+		result.StoragePath = backupPath
 	}
 
 	result.Success = true
@@ -192,13 +257,45 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 		return
 	}
 
+	// Build notification message with all available metrics
 	msg := &notify.Message{
+		// Basic information
 		Target:    target.Name,
 		Operation: "backup",
 		Duration:  result.Duration,
-		Path:      result.BackupPath,
 		Error:     err,
 		Timestamp: time.Now(),
+
+		// File path and size metrics
+		Path:             result.BackupPath,
+		Size:             result.Size,
+		UncompressedSize: result.UncompressedSize,
+		CompressionRatio: result.CompressionRatio,
+
+		// Storage details
+		StorageName: result.StorageName,
+		StorageType: result.StorageType,
+		StoragePath: result.StoragePath,
+
+		// Database details
+		DatabaseType: result.DatabaseType,
+		DatabaseName: result.DatabaseName,
+
+		// Operation context
+		Manual:      result.Manual,
+		ScheduledBy: result.ScheduledBy,
+	}
+
+	// Convert stages to StageInfo for notifications
+	if len(result.Stages) > 0 {
+		msg.Stages = make([]notify.StageInfo, len(result.Stages))
+		for i, stage := range result.Stages {
+			msg.Stages[i] = notify.StageInfo{
+				Name:     stage.Name,
+				Duration: stage.Duration(),
+				Status:   string(stage.Status),
+			}
+		}
 	}
 
 	for _, notifierCfg := range notifiers {
@@ -222,11 +319,18 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 }
 
 // backupWithCompression performs backup with compression
-func backupWithCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
+func backupWithCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) (*database.DumpMetadata, *compressionMetrics, error) {
+	// Start DUMPING stage
+	stageTracker.StartStage("DUMPING")
+	if progress != nil {
+		progress.SetStage("dumping", 0)
+	}
+
 	// Create temp file for compressed backup
 	tmpFile, cleanup, err := util.CreateBackupTempFile(target.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %w", err)
+		stageTracker.FailStage(err)
+		return nil, nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer cleanup()
 
@@ -262,28 +366,36 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 		}
 	}()
 
-	// Compress to temp file (blocking operation)
+	// Start COMPRESSING stage
+	stageTracker.StartStage("COMPRESSING")
+	if progress != nil {
+		progress.SetStage("compressing", 0)
+	}
+
 	util.Debug("[%s] Starting compression (type: %s)", target.Name, target.Compress.Type)
 	compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create compressor: %w", err)
+		return nil, nil, fmt.Errorf("failed to create compressor: %w", err)
 	}
 
 	compressErr = compressor.Compress(ctx, dumpReader, tmpFile)
 	if compressErr != nil {
 		util.Error("[%s] Compress error: %v", target.Name, compressErr)
-		return nil, fmt.Errorf("compress failed: %w", compressErr)
+		stageTracker.FailStage(compressErr)
+		return nil, nil, fmt.Errorf("compress failed: %w", compressErr)
 	}
 
 	// Check for dump errors
 	if dumpErr != nil {
-		return nil, fmt.Errorf("dump failed: %w", dumpErr)
+		stageTracker.FailStage(dumpErr)
+		return nil, nil, fmt.Errorf("dump failed: %w", dumpErr)
 	}
 
 	// Get compressed file size
 	compressedSize, err := util.GetFileSize(tmpFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get compressed file size: %w", err)
+		stageTracker.FailStage(err)
+		return nil, nil, fmt.Errorf("failed to get compressed file size: %w", err)
 	}
 
 	compressionRatio := 0.0
@@ -293,9 +405,23 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	util.Info("[%s] Compression completed: %s -> %s (%.1f%% reduction)",
 		target.Name, util.FormatBytes(uncompressedSize), util.FormatBytes(compressedSize), compressionRatio)
 
+	// End COMPRESSING stage
+	stageTracker.EndStage(map[string]interface{}{
+		"uncompressed_size": uncompressedSize,
+		"compressed_size":   compressedSize,
+		"compression_ratio": compressionRatio,
+	})
+
+	// Start UPLOADING stage
+	stageTracker.StartStage("UPLOADING")
+	if progress != nil {
+		progress.SetStage("uploading", compressedSize)
+	}
+
 	// Seek to beginning of temp file for upload
 	if _, err := tmpFile.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("failed to seek temp file: %w", err)
+		stageTracker.FailStage(err)
+		return nil, nil, fmt.Errorf("failed to seek temp file: %w", err)
 	}
 
 	util.Debug("[%s] Uploading compressed backup to storage", target.Name)
@@ -303,10 +429,16 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	// Store compressed data from temp file (seekable, known size)
 	storeErr := stor.Store(ctx, backupPath, tmpFile, compressedSize)
 	if storeErr != nil {
-		return nil, fmt.Errorf("store failed: %w", storeErr)
+		stageTracker.FailStage(storeErr)
+		return nil, nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
 	util.Info("[%s] Upload completed successfully", target.Name)
+
+	// End UPLOADING stage
+	stageTracker.EndStage(map[string]interface{}{
+		"uploaded_size": compressedSize,
+	})
 
 	// Populate metadata with file information
 	if dumpMetadata == nil {
@@ -315,14 +447,28 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	dumpMetadata.Size = compressedSize
 	dumpMetadata.StoragePath = backupPath
 
-	return dumpMetadata, nil
+	// Create compression metrics
+	metrics := &compressionMetrics{
+		uncompressedSize: uncompressedSize,
+		compressedSize:   compressedSize,
+		compressionRatio: compressionRatio,
+	}
+
+	return dumpMetadata, metrics, nil
 }
 
 // backupWithoutCompression performs backup without compression
-func backupWithoutCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string) (*database.DumpMetadata, error) {
+func backupWithoutCompression(ctx context.Context, target *config.Target, dumper database.Dumper, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) (*database.DumpMetadata, error) {
+	// Start DUMPING stage
+	stageTracker.StartStage("DUMPING")
+	if progress != nil {
+		progress.SetStage("dumping", 0)
+	}
+
 	// Create temp file for backup
 	tmpFile, cleanup, err := util.CreateBackupTempFile(target.Name)
 	if err != nil {
+		stageTracker.FailStage(err)
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	defer cleanup()
@@ -334,19 +480,33 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 	dumpMetadata, err := dumper.Dump(ctx, tmpFile)
 	if err != nil {
 		util.Error("[%s] Dump error: %v", target.Name, err)
+		stageTracker.FailStage(err)
 		return nil, fmt.Errorf("dump failed: %w", err)
 	}
 
 	// Get file size
 	backupSize, err := util.GetFileSize(tmpFile)
 	if err != nil {
+		stageTracker.FailStage(err)
 		return nil, fmt.Errorf("failed to get backup file size: %w", err)
 	}
 
 	util.Info("[%s] Database dump completed: %s", target.Name, util.FormatBytes(backupSize))
 
+	// End DUMPING stage
+	stageTracker.EndStage(map[string]interface{}{
+		"dump_size": backupSize,
+	})
+
+	// Start UPLOADING stage
+	stageTracker.StartStage("UPLOADING")
+	if progress != nil {
+		progress.SetStage("uploading", backupSize)
+	}
+
 	// Seek to beginning of temp file for upload
 	if _, err := tmpFile.Seek(0, 0); err != nil {
+		stageTracker.FailStage(err)
 		return nil, fmt.Errorf("failed to seek temp file: %w", err)
 	}
 
@@ -355,10 +515,16 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 	// Store data from temp file (seekable, known size)
 	storeErr := stor.Store(ctx, backupPath, tmpFile, backupSize)
 	if storeErr != nil {
+		stageTracker.FailStage(storeErr)
 		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
 	util.Info("[%s] Upload completed successfully", target.Name)
+
+	// End UPLOADING stage
+	stageTracker.EndStage(map[string]interface{}{
+		"uploaded_size": backupSize,
+	})
 
 	// Populate metadata with file information
 	if dumpMetadata == nil {

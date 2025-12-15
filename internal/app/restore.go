@@ -11,7 +11,9 @@ import (
 	"bared/internal/compress"
 	"bared/internal/config"
 	"bared/internal/database"
+	"bared/internal/notify"
 	"bared/internal/storage"
+	"bared/internal/util"
 )
 
 // RestoreOptions contains options for restore operations
@@ -28,9 +30,28 @@ type RestoreResult struct {
 	Error       error
 	Duration    time.Duration
 	BackupPath  string
+
+	// Storage details
 	StorageName string
-	DryRun      bool     // Whether this was a dry-run
-	Validations []string // List of validations performed
+	StorageType string
+	BackupSize  int64
+
+	// Validation details
+	DryRun            bool
+	Validations       []string
+	ValidationsPassed int
+
+	// Database details
+	DatabaseType string
+	DatabaseName string
+	RestoredBytes int64
+
+	// Operation context
+	Manual      bool
+	ScheduledBy string
+
+	// Stage information
+	Stages []*util.Stage
 }
 
 // RestoreTargetWithOptions performs a restore with specified options
@@ -48,6 +69,10 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		DryRun:      options.DryRun,
 		Validations: []string{},
 	}
+
+	// Create stage tracker
+	stageTracker := util.NewStageTracker(target.Name)
+	stageTracker.StartStage("VALIDATING")
 
 	if progress != nil {
 		progress.SetStage("validating", 0)
@@ -90,8 +115,15 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		result.Error = fmt.Errorf("failed to create storage: %w", err)
 		return result, result.Error
 	}
+
+	// Set storage details
 	result.StorageName = stor.Name()
+	result.StorageType = storageCfg.Type
 	result.Validations = append(result.Validations, fmt.Sprintf("Storage backend connected: %s", stor.Name()))
+
+	// Set database details
+	result.DatabaseType = target.Conn.Type
+	result.DatabaseName = target.Conn.Database
 
 	// Step 4: Validate storage
 	if err := stor.Validate(ctx); err != nil {
@@ -120,6 +152,9 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 			return result, result.Error
 		}
 
+		// Store backup size
+		result.BackupSize = backupInfo.Size
+
 		result.Validations = append(result.Validations,
 			fmt.Sprintf("Backup file verified: %s (size: %d bytes, modified: %s)",
 				backupPath, backupInfo.Size, backupInfo.LastModified.Format(time.RFC3339)))
@@ -133,10 +168,20 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		log.Printf("[%s] Backup requires decompression", target.Name)
 	}
 
+	// End validation stage
+	stageTracker.EndStage(map[string]interface{}{
+		"validations_passed": len(result.Validations),
+		"needs_decompression": needsDecompression,
+	})
+
+	// Store validations count
+	result.ValidationsPassed = len(result.Validations)
+
 	// If dry-run, stop here
 	if result.DryRun {
 		result.Success = true
 		result.Duration = time.Since(startTime)
+		result.Stages = stageTracker.GetAllStages()
 		log.Printf("[%s] DRY-RUN completed successfully. All validations passed.", target.Name)
 		log.Printf("[%s] Validations performed:", target.Name)
 		for _, v := range result.Validations {
@@ -152,21 +197,32 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	var restoreErr error
 	if needsDecompression {
-		restoreErr = restoreWithDecompression(ctx, target, restorer, stor, backupPath)
+		restoreErr = restoreWithDecompression(ctx, target, restorer, stor, backupPath, stageTracker, progress)
 	} else {
-		restoreErr = restoreWithoutDecompression(ctx, target, restorer, stor, backupPath)
+		restoreErr = restoreWithoutDecompression(ctx, target, restorer, stor, backupPath, stageTracker, progress)
 	}
 
 	if restoreErr != nil {
 		result.Error = fmt.Errorf("restore failed: %w", restoreErr)
+		result.Stages = stageTracker.GetAllStages()
 		log.Printf("[%s] Restore failed: %v", target.Name, restoreErr)
+
+		// Send failure notifications
+		sendRestoreNotifications(ctx, cfg, target, result, restoreErr)
+
 		return result, result.Error
 	}
 
 	result.Success = true
 	result.Duration = time.Since(startTime)
 
+	// Store stage information
+	result.Stages = stageTracker.GetAllStages()
+
 	log.Printf("[%s] Restore completed successfully in %v", target.Name, result.Duration)
+
+	// Send success notifications
+	sendRestoreNotifications(ctx, cfg, target, result, nil)
 
 	return result, nil
 }
@@ -177,7 +233,13 @@ func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Targe
 }
 
 // restoreWithDecompression performs restore with decompression
-func restoreWithDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string) error {
+func restoreWithDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) error {
+	// Start RETRIEVING stage
+	stageTracker.StartStage("RETRIEVING")
+	if progress != nil {
+		progress.SetStage("retrieving", 0)
+	}
+
 	// Create pipes for streaming
 	retrieveReader, retrieveWriter := io.Pipe()
 	decompressReader, decompressWriter := io.Pipe()
@@ -202,6 +264,12 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 		}
 	}()
 
+	// Start DECOMPRESSING stage
+	stageTracker.StartStage("DECOMPRESSING")
+	if progress != nil {
+		progress.SetStage("decompressing", 0)
+	}
+
 	// Start decompression in goroutine
 	go func() {
 		defer func() {
@@ -223,27 +291,45 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 		}
 	}()
 
+	// Start RESTORING stage
+	stageTracker.StartStage("RESTORING")
+	if progress != nil {
+		progress.SetStage("restoring", 0)
+	}
+
 	// Restore from decompressed data (this blocks until all data is read)
 	log.Printf("[%s] Starting database restore", target.Name)
 	restoreErr = restorer.Restore(ctx, decompressReader)
 	if restoreErr != nil {
+		stageTracker.FailStage(restoreErr)
 		return fmt.Errorf("restore failed: %w", restoreErr)
 	}
 	log.Printf("[%s] Database restore completed", target.Name)
 
 	// Check for errors in pipeline
 	if retrieveErr != nil {
+		stageTracker.FailStage(retrieveErr)
 		return fmt.Errorf("retrieve failed: %w", retrieveErr)
 	}
 	if decompressErr != nil {
+		stageTracker.FailStage(decompressErr)
 		return fmt.Errorf("decompress failed: %w", decompressErr)
 	}
+
+	// End RESTORING stage
+	stageTracker.EndStage(nil)
 
 	return nil
 }
 
 // restoreWithoutDecompression performs restore without decompression
-func restoreWithoutDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string) error {
+func restoreWithoutDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) error {
+	// Start RETRIEVING stage
+	stageTracker.StartStage("RETRIEVING")
+	if progress != nil {
+		progress.SetStage("retrieving", 0)
+	}
+
 	// Create pipe for streaming
 	reader, writer := io.Pipe()
 
@@ -265,6 +351,12 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 		}
 	}()
 
+	// Start RESTORING stage
+	stageTracker.StartStage("RESTORING")
+	if progress != nil {
+		progress.SetStage("restoring", 0)
+	}
+
 	// Restore data (this blocks until all data is read)
 	log.Printf("[%s] Starting database restore", target.Name)
 	restoreErr = restorer.Restore(ctx, reader)
@@ -274,11 +366,86 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 	// Check for errors
 	if retrieveErr != nil {
+		stageTracker.FailStage(retrieveErr)
 		return fmt.Errorf("retrieve failed: %w", retrieveErr)
 	}
 	if restoreErr != nil {
+		stageTracker.FailStage(restoreErr)
 		return fmt.Errorf("restore failed: %w", restoreErr)
 	}
 
+	// End RESTORING stage
+	stageTracker.EndStage(nil)
+
 	return nil
+}
+
+// sendRestoreNotifications sends notifications to all configured notifiers for restore operations
+func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *config.Target, result *RestoreResult, err error) {
+	notifiers := cfg.GetAllNotifiers()
+	if len(notifiers) == 0 {
+		return
+	}
+
+	// Build notification message with all available metrics
+	msg := &notify.Message{
+		// Basic information
+		Target:    target.Name,
+		Operation: "restore",
+		Duration:  result.Duration,
+		Error:     err,
+		Timestamp: time.Now(),
+
+		// File path and size metrics
+		Path: result.BackupPath,
+		Size: result.BackupSize,
+
+		// Storage details
+		StorageName: result.StorageName,
+		StorageType: result.StorageType,
+
+		// Database details
+		DatabaseType: result.DatabaseType,
+		DatabaseName: result.DatabaseName,
+
+		// Operation context
+		Manual:      result.Manual,
+		ScheduledBy: result.ScheduledBy,
+		DryRun:      result.DryRun,
+
+		// Restore-specific
+		Validations:       result.Validations,
+		ValidationsPassed: result.ValidationsPassed,
+	}
+
+	// Convert stages to StageInfo for notifications
+	if len(result.Stages) > 0 {
+		msg.Stages = make([]notify.StageInfo, len(result.Stages))
+		for i, stage := range result.Stages {
+			msg.Stages[i] = notify.StageInfo{
+				Name:     stage.Name,
+				Duration: stage.Duration(),
+				Status:   string(stage.Status),
+			}
+		}
+	}
+
+	for _, notifierCfg := range notifiers {
+		notifier, notifyErr := notify.New(notifierCfg)
+		if notifyErr != nil {
+			log.Printf("Warning: failed to create notifier: %v", notifyErr)
+			continue
+		}
+
+		// Send success or failure notification
+		if err != nil {
+			if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
+				log.Printf("Warning: failed to send restore failure notification: %v", sendErr)
+			}
+		} else if notifier.ShouldNotifySuccess() {
+			if sendErr := notifier.NotifySuccess(ctx, msg); sendErr != nil {
+				log.Printf("Warning: failed to send restore success notification: %v", sendErr)
+			}
+		}
+	}
 }

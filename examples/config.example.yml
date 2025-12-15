@@ -1,7 +1,19 @@
 # BareD Configuration Example
+# Complete configuration with all features demonstrated
 
 # Default storage backend for all targets
 default_storage: s3
+
+# Persistence configuration (optional)
+# Store job history and logs in database
+persistence:
+  enabled: true
+  type: sqlite3              # Currently only sqlite3 is supported
+  dsn: bared.db              # Database file path (or connection string for other DBs)
+  # Features:
+  # - Job history survives daemon restart
+  # - Historical log retrieval via API
+  # - Distributed locking for multi-instance deployments
 
 # Storage backend definitions
 storages:

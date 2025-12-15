@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 
@@ -140,6 +141,8 @@ func (s *Server) handleTriggerBackup(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+
+	log.Printf("Triggering backup for target: %+v", req)
 
 	if req.Target == "" {
 		respondError(w, http.StatusBadRequest, "Target name is required")

@@ -41,6 +41,30 @@ type Notifier struct {
 	Type      string `yaml:"type"`
 	URL       string `yaml:"url"`
 	OnSuccess bool   `yaml:"on_success"`
+
+	// Email-specific configuration
+	SMTPHost     string   `yaml:"smtp_host,omitempty"`
+	SMTPPort     int      `yaml:"smtp_port,omitempty"`
+	SMTPUsername string   `yaml:"smtp_username,omitempty"`
+	SMTPPassword string   `yaml:"smtp_password,omitempty"`
+	SMTPFrom     string   `yaml:"smtp_from,omitempty"`
+	SMTPTo       []string `yaml:"smtp_to,omitempty"`
+	SMTPUseTLS   bool     `yaml:"smtp_use_tls,omitempty"`
+
+	// Webhook-specific configuration
+	WebhookMethod  string            `yaml:"webhook_method,omitempty"`
+	WebhookHeaders map[string]string `yaml:"webhook_headers,omitempty"`
+	WebhookAuth    *WebhookAuth      `yaml:"webhook_auth,omitempty"`
+}
+
+// WebhookAuth defines webhook authentication configuration
+type WebhookAuth struct {
+	Type        string `yaml:"type"`         // "basic", "bearer", "header"
+	Username    string `yaml:"username,omitempty"`
+	Password    string `yaml:"password,omitempty"`
+	Token       string `yaml:"token,omitempty"`
+	HeaderName  string `yaml:"header_name,omitempty"`
+	HeaderValue string `yaml:"header_value,omitempty"`
 }
 
 // Target represents a backup target (database)

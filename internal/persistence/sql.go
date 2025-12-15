@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"bared/internal/jobs"
@@ -21,6 +22,8 @@ type SQLStore struct {
 
 // NewSQLStore creates a new SQL store
 func NewSQLStore(driver, dsn string) (*SQLStore, error) {
+	log.Printf("Opening database: %s", dsn)
+
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, err
@@ -64,6 +67,21 @@ func (s *SQLStore) initSchema() error {
 		expires_at DATETIME NOT NULL
 	);`
 
+	createJobLogsTable := `
+	CREATE TABLE IF NOT EXISTS job_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		job_id TEXT NOT NULL,
+		timestamp DATETIME NOT NULL,
+		level TEXT NOT NULL,
+		message TEXT NOT NULL,
+		stage TEXT,
+		FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+	);`
+
+	createJobLogsIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
+	CREATE INDEX IF NOT EXISTS idx_job_logs_timestamp ON job_logs(timestamp);`
+
 	// DB specific syntax adjustments could be handled here
 
 	if _, err := s.db.Exec(createJobsTable); err != nil {
@@ -71,6 +89,12 @@ func (s *SQLStore) initSchema() error {
 	}
 	if _, err := s.db.Exec(createLocksTable); err != nil {
 		return fmt.Errorf("failed to create locks table: %w", err)
+	}
+	if _, err := s.db.Exec(createJobLogsTable); err != nil {
+		return fmt.Errorf("failed to create job_logs table: %w", err)
+	}
+	if _, err := s.db.Exec(createJobLogsIndexes); err != nil {
+		return fmt.Errorf("failed to create job_logs indexes: %w", err)
 	}
 
 	return nil
@@ -224,4 +248,84 @@ func (s *SQLStore) ReleaseLock(ctx context.Context, lockName string) error {
 
 func (s *SQLStore) Close() error {
 	return s.db.Close()
+}
+
+// SaveJobLogsBatch saves a batch of log entries for a job
+func (s *SQLStore) SaveJobLogsBatch(ctx context.Context, jobID jobs.JobID, entries []jobs.LogEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// Start a transaction for batch insert
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			_ = err
+		}
+	}()
+
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO job_logs (job_id, timestamp, level, message, stage) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer func() {
+		if err := stmt.Close(); err != nil {
+			_ = err
+		}
+	}()
+
+	for _, entry := range entries {
+		if _, err := stmt.ExecContext(ctx, jobID, entry.Timestamp, entry.Level, entry.Message, entry.Stage); err != nil {
+			return fmt.Errorf("failed to insert log entry: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// GetJobLogs retrieves log entries for a specific job
+func (s *SQLStore) GetJobLogs(ctx context.Context, jobID jobs.JobID, limit int) ([]jobs.LogEntry, error) {
+	if limit <= 0 {
+		limit = 1000 // Default limit
+	}
+
+	query := `SELECT timestamp, level, message, stage FROM job_logs WHERE job_id = ? ORDER BY timestamp ASC LIMIT ?`
+	rows, err := s.db.QueryContext(ctx, query, jobID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query job logs: %w", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			_ = err
+		}
+	}()
+
+	var entries []jobs.LogEntry
+	for rows.Next() {
+		var entry jobs.LogEntry
+		var stage sql.NullString
+
+		if err := rows.Scan(&entry.Timestamp, &entry.Level, &entry.Message, &stage); err != nil {
+			return nil, fmt.Errorf("failed to scan log entry: %w", err)
+		}
+
+		if stage.Valid {
+			entry.Stage = stage.String
+		}
+
+		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return entries, nil
 }

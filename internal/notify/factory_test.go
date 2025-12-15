@@ -71,19 +71,9 @@ func TestNew_UnsupportedType(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "unsupported email type",
-			notifierType:  "email",
-			expectedError: "unsupported notifier type: email",
-		},
-		{
 			name:          "unsupported discord type",
 			notifierType:  "discord",
 			expectedError: "unsupported notifier type: discord",
-		},
-		{
-			name:          "unsupported webhook type",
-			notifierType:  "webhook",
-			expectedError: "unsupported notifier type: webhook",
 		},
 		{
 			name:          "empty type",
@@ -111,6 +101,50 @@ func TestNew_UnsupportedType(t *testing.T) {
 			assert.Equal(t, tt.expectedError, err.Error())
 		})
 	}
+}
+
+func TestNew_EmailNotifier(t *testing.T) {
+	cfg := &config.Notifier{
+		Type:         "email",
+		OnSuccess:    true,
+		SMTPHost:     "smtp.gmail.com",
+		SMTPPort:     587,
+		SMTPUsername: "user@example.com",
+		SMTPPassword: "password",
+		SMTPFrom:     "backups@example.com",
+		SMTPTo:       []string{"admin@example.com"},
+		SMTPUseTLS:   true,
+	}
+
+	notifier, err := New(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, notifier)
+
+	email, ok := notifier.(*Email)
+	require.True(t, ok, "Expected notifier to be *Email type")
+	assert.Equal(t, "email", email.Name())
+	assert.True(t, email.ShouldNotifySuccess())
+}
+
+func TestNew_WebhookNotifier(t *testing.T) {
+	cfg := &config.Notifier{
+		Type:           "webhook",
+		URL:            "https://api.example.com/webhooks/backups",
+		OnSuccess:      true,
+		WebhookMethod:  "POST",
+		WebhookHeaders: map[string]string{"Content-Type": "application/json"},
+	}
+
+	notifier, err := New(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, notifier)
+
+	webhook, ok := notifier.(*Webhook)
+	require.True(t, ok, "Expected notifier to be *Webhook type")
+	assert.Equal(t, "webhook", webhook.Name())
+	assert.True(t, webhook.ShouldNotifySuccess())
 }
 
 func TestNew_MultipleDifferentNotifiers(t *testing.T) {

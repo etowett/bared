@@ -22,6 +22,10 @@ type JobStore interface {
 	GetJob(ctx context.Context, id JobID) (*Job, error)
 	ListJobs(ctx context.Context, filter JobFilter) ([]*Job, error)
 
+	// Log Management
+	SaveJobLogsBatch(ctx context.Context, jobID JobID, entries []LogEntry) error
+	GetJobLogs(ctx context.Context, jobID JobID, limit int) ([]LogEntry, error)
+
 	// Locking for Cron
 	AcquireLock(ctx context.Context, lockName string, ttl time.Duration) (bool, error)
 	ReleaseLock(ctx context.Context, lockName string) error

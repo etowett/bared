@@ -23,7 +23,6 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true)
 
     try {
-      // Set auth credentials
       setAuth(username, password)
 
       // Test authentication by calling health endpoint
