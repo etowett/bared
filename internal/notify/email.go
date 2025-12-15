@@ -37,7 +37,7 @@ func (e *Email) NotifySuccess(ctx context.Context, msg *Message) error {
 		return nil
 	}
 
-	subject := fmt.Sprintf("✓ %s Successful: %s", strings.Title(msg.Operation), msg.Target)
+	subject := fmt.Sprintf("✓ %s Successful: %s", operationTitle(msg.Operation), msg.Target)
 	body := e.buildSuccessHTML(msg)
 
 	return e.sendWithRetry(ctx, subject, body, 3)
@@ -45,10 +45,24 @@ func (e *Email) NotifySuccess(ctx context.Context, msg *Message) error {
 
 // NotifyFailure sends a failure notification via email
 func (e *Email) NotifyFailure(ctx context.Context, msg *Message) error {
-	subject := fmt.Sprintf("✗ %s Failed: %s", strings.Title(msg.Operation), msg.Target)
+	subject := fmt.Sprintf("✗ %s Failed: %s", operationTitle(msg.Operation), msg.Target)
 	body := e.buildFailureHTML(msg)
 
 	return e.sendWithRetry(ctx, subject, body, 3)
+}
+
+func operationTitle(op string) string {
+	switch strings.ToLower(strings.TrimSpace(op)) {
+	case "backup":
+		return "Backup"
+	case "restore":
+		return "Restore"
+	default:
+		if op == "" {
+			return "Operation"
+		}
+		return strings.ToUpper(op[:1]) + strings.ToLower(op[1:])
+	}
 }
 
 // buildSuccessHTML builds HTML email for success notification
@@ -163,7 +177,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 <ul class="stages">`
 		for _, stage := range msg.Stages {
 			icon := "•"
-			if stage.Status == "failed" {
+			switch stage.Status {
+			case "failed":
 				icon = "✗"
 			}
 			html += `<li><span class="stage-name">` + icon + ` ` + stage.Name + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
@@ -268,9 +283,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helv
 <ul class="stages">`
 		for _, stage := range msg.Stages {
 			icon := "✓"
-			if stage.Status == "failed" {
+			switch stage.Status {
+			case "failed":
 				icon = "✗"
-			} else if stage.Status == "running" {
+			case "running":
 				icon = "⋯"
 			}
 			html += `<li><span class="stage-name">` + icon + ` ` + stage.Name + `</span><span class="stage-duration">` + stage.Duration.String() + `</span></li>`
@@ -317,6 +333,10 @@ func (e *Email) sendWithRetry(ctx context.Context, subject, body string, maxRetr
 
 // send sends the email via SMTP
 func (e *Email) send(ctx context.Context, subject, body string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	// Build email message
 	from := e.cfg.SMTPFrom
 	to := e.cfg.SMTPTo
@@ -346,20 +366,36 @@ func (e *Email) send(ctx context.Context, subject, body string) error {
 	if e.cfg.SMTPUseTLS {
 		tlsConfig := &tls.Config{
 			ServerName: e.cfg.SMTPHost,
+			MinVersion: tls.VersionTLS12,
 		}
 
 		conn, err := tls.Dial("tcp", addr, tlsConfig)
 		if err != nil {
 			return fmt.Errorf("failed to connect with TLS: %w", err)
 		}
-		defer conn.Close()
+		defer func() {
+			// Error closing conn during cleanup is not critical.
+			if err := conn.Close(); err != nil {
+				// Best-effort cleanup; ignore close errors.
+				_ = err
+			}
+		}()
 
 		client, err := smtp.NewClient(conn, e.cfg.SMTPHost)
 		if err != nil {
 			return fmt.Errorf("failed to create SMTP client: %w", err)
 		}
-		defer client.Close()
+		defer func() {
+			// Error closing client during cleanup is not critical.
+			if err := client.Close(); err != nil {
+				// Best-effort cleanup; ignore close errors.
+				_ = err
+			}
+		}()
 
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if auth != nil {
 			if err := client.Auth(auth); err != nil {
 				return fmt.Errorf("authentication failed: %w", err)

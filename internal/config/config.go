@@ -42,6 +42,10 @@ type Notifier struct {
 	URL       string `yaml:"url"`
 	OnSuccess bool   `yaml:"on_success"`
 
+	// Slack-specific configuration
+	// Note: Incoming webhooks may or may not honor channel overrides depending on Slack settings.
+	Channel string `yaml:"channel,omitempty"`
+
 	// Email-specific configuration
 	SMTPHost     string   `yaml:"smtp_host,omitempty"`
 	SMTPPort     int      `yaml:"smtp_port,omitempty"`
@@ -59,7 +63,7 @@ type Notifier struct {
 
 // WebhookAuth defines webhook authentication configuration
 type WebhookAuth struct {
-	Type        string `yaml:"type"`         // "basic", "bearer", "header"
+	Type        string `yaml:"type"` // "basic", "bearer", "header"
 	Username    string `yaml:"username,omitempty"`
 	Password    string `yaml:"password,omitempty"`
 	Token       string `yaml:"token,omitempty"`

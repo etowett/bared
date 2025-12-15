@@ -156,9 +156,10 @@ func (s *Slack) NotifyFailure(ctx context.Context, msg *Message) error {
 		text += "\n*Stages:*\n"
 		for _, stage := range msg.Stages {
 			icon := "✓"
-			if stage.Status == "failed" {
+			switch stage.Status {
+			case "failed":
 				icon = "✗"
-			} else if stage.Status == "running" {
+			case "running":
 				icon = "⋯"
 			}
 			text += fmt.Sprintf("  %s %s: %v\n", icon, stage.Name, stage.Duration)
@@ -177,6 +178,12 @@ func (s *Slack) send(ctx context.Context, text, color string) error {
 				"color": color,
 			},
 		},
+	}
+
+	// Slack incoming webhooks can optionally accept a channel override.
+	// Whether this is honored depends on Slack workspace / app settings.
+	if ch := s.cfg.Channel; ch != "" {
+		payload["channel"] = ch
 	}
 
 	data, err := json.Marshal(payload)

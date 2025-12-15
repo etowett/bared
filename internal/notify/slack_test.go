@@ -540,6 +540,36 @@ func TestSlack_PayloadStructure(t *testing.T) {
 	assert.NotEmpty(t, color)
 }
 
+func TestSlack_ChannelOverride_InPayloadWhenConfigured(t *testing.T) {
+	var receivedPayload map[string]interface{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &receivedPayload)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	slack := NewSlack(&config.Notifier{
+		Type:      "slack",
+		URL:       server.URL,
+		OnSuccess: true,
+		Channel:   "#alerts",
+	})
+
+	msg := &Message{
+		Target:    "test",
+		Timestamp: time.Now(),
+	}
+
+	ctx := context.Background()
+	err := slack.NotifySuccess(ctx, msg)
+	require.NoError(t, err)
+
+	// If configured, we include it in the webhook payload.
+	require.Contains(t, receivedPayload, "channel")
+	assert.Equal(t, "#alerts", receivedPayload["channel"])
+}
+
 func TestSlack_ConcurrentNotifications(t *testing.T) {
 	var requestCount int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

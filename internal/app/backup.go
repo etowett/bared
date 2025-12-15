@@ -19,11 +19,11 @@ import (
 
 // BackupResult contains information about a backup operation
 type BackupResult struct {
-	Target      string
-	Success     bool
-	Error       error
-	Duration    time.Duration
-	BackupPath  string
+	Target     string
+	Success    bool
+	Error      error
+	Duration   time.Duration
+	BackupPath string
 
 	// Size metrics
 	Size             int64   // Compressed size (or uncompressed if no compression)
@@ -329,6 +329,10 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 				log.Printf("[notify] sent op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
 					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
 			}
+		} else {
+			// Avoid silent "success but no notification" confusion when on_success is disabled.
+			util.Debug("[notify] skipping op=%s status=success target=%s notifier=%s type=%s dest=%s reason=on_success_disabled",
+				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest)
 		}
 	}
 }

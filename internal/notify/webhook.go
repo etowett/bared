@@ -153,14 +153,15 @@ func (w *Webhook) buildPayload(event string, msg *Message) *WebhookPayload {
 	}
 
 	// Operation-specific details
-	if msg.Operation == "backup" {
+	switch msg.Operation {
+	case "backup":
 		payload.Backup = &BackupDetails{
 			Path:             msg.Path,
 			Size:             msg.Size,
 			UncompressedSize: msg.UncompressedSize,
 			CompressionRatio: msg.CompressionRatio,
 		}
-	} else if msg.Operation == "restore" {
+	case "restore":
 		payload.Restore = &RestoreDetails{
 			BackupPath:        msg.Path,
 			BackupSize:        msg.Size,
@@ -249,7 +250,13 @@ func (w *Webhook) send(ctx context.Context, event string, msg *Message) error {
 	if err != nil {
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Error closing response body during cleanup is not critical.
+		if err := resp.Body.Close(); err != nil {
+			// Best-effort cleanup; ignore close errors.
+			_ = err
+		}
+	}()
 
 	// Consider 2xx status codes as success
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

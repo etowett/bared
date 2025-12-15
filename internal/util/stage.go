@@ -96,10 +96,8 @@ func (st *StageTracker) EndStage(metrics map[string]interface{}) {
 	st.currentStage.Status = StageStatusCompleted
 
 	// Merge metrics
-	if metrics != nil {
-		for k, v := range metrics {
-			st.currentStage.Metrics[k] = v
-		}
+	for k, v := range metrics {
+		st.currentStage.Metrics[k] = v
 	}
 
 	// Log completion summary

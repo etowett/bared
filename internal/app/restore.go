@@ -25,11 +25,11 @@ type RestoreOptions struct {
 
 // RestoreResult contains information about a restore operation
 type RestoreResult struct {
-	Target      string
-	Success     bool
-	Error       error
-	Duration    time.Duration
-	BackupPath  string
+	Target     string
+	Success    bool
+	Error      error
+	Duration   time.Duration
+	BackupPath string
 
 	// Storage details
 	StorageName string
@@ -42,8 +42,8 @@ type RestoreResult struct {
 	ValidationsPassed int
 
 	// Database details
-	DatabaseType string
-	DatabaseName string
+	DatabaseType  string
+	DatabaseName  string
 	RestoredBytes int64
 
 	// Operation context
@@ -170,7 +170,7 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	// End validation stage
 	stageTracker.EndStage(map[string]interface{}{
-		"validations_passed": len(result.Validations),
+		"validations_passed":  len(result.Validations),
 		"needs_decompression": needsDecompression,
 	})
 
@@ -461,6 +461,10 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 				log.Printf("[notify] sent op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
 					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
 			}
+		} else {
+			// Avoid silent "success but no notification" confusion when on_success is disabled.
+			util.Debug("[notify] skipping op=%s status=success target=%s notifier=%s type=%s dest=%s reason=on_success_disabled",
+				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest)
 		}
 	}
 }
