@@ -160,7 +160,7 @@ func TestManager_ListJobs(t *testing.T) {
 	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Initially empty
-	jobs := mgr.ListJobs()
+	jobs := mgr.ListJobs(context.Background())
 	assert.Len(t, jobs, 0)
 
 	// Add some jobs
@@ -175,7 +175,7 @@ func TestManager_ListJobs(t *testing.T) {
 	mgr.mu.Unlock()
 
 	// List all
-	jobs = mgr.ListJobs()
+	jobs = mgr.ListJobs(context.Background())
 	assert.Len(t, jobs, 3)
 }
 
@@ -221,7 +221,7 @@ func TestManager_ListJobsForTarget(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jobs := mgr.ListJobsForTarget(tt.targetName)
+			jobs := mgr.ListJobsForTarget(context.Background(), tt.targetName)
 			assert.Len(t, jobs, tt.expectedCount)
 
 			// Verify all jobs are for the correct target
@@ -458,7 +458,7 @@ func TestManager_ConcurrentJobOperations(t *testing.T) {
 		// List jobs
 		go func() {
 			defer wg.Done()
-			_ = mgr.ListJobs()
+			_ = mgr.ListJobs(context.Background())
 		}()
 	}
 
@@ -467,7 +467,7 @@ func TestManager_ConcurrentJobOperations(t *testing.T) {
 	// Should have created many jobs without panicking
 	// Due to weak random ID generation, some jobs might have duplicate IDs
 	// and overwrite each other, so we just check that we got a reasonable number
-	jobs := mgr.ListJobs()
+	jobs := mgr.ListJobs(context.Background())
 	assert.GreaterOrEqual(t, len(jobs), operations-10, "should create most jobs even with potential ID collisions")
 	assert.LessOrEqual(t, len(jobs), operations, "should not exceed expected job count")
 }
@@ -532,14 +532,14 @@ func TestManager_MultipleTargetsAndJobTypes(t *testing.T) {
 	mgr.mu.Unlock()
 
 	// List all jobs
-	allJobs := mgr.ListJobs()
+	allJobs := mgr.ListJobs(context.Background())
 	assert.Len(t, allJobs, 4)
 
 	// List by target
-	mysqlJobs := mgr.ListJobsForTarget("mysql-prod")
+	mysqlJobs := mgr.ListJobsForTarget(context.Background(), "mysql-prod")
 	assert.Len(t, mysqlJobs, 2)
 
-	postgresJobs := mgr.ListJobsForTarget("postgres-dev")
+	postgresJobs := mgr.ListJobsForTarget(context.Background(), "postgres-dev")
 	assert.Len(t, postgresJobs, 2)
 }
 
@@ -580,8 +580,8 @@ func TestManager_EmptyManagerOperations(t *testing.T) {
 	mgr := NewManager(cfg, nil, 2, 100)
 
 	// Operations on empty manager should not panic
-	assert.Len(t, mgr.ListJobs(), 0)
-	assert.Len(t, mgr.ListJobsForTarget("any-target"), 0)
+	assert.Len(t, mgr.ListJobs(context.Background()), 0)
+	assert.Len(t, mgr.ListJobsForTarget(context.Background(), "any-target"), 0)
 	assert.False(t, mgr.IsTargetRunning("any-target"))
 
 	_, err := mgr.GetJob(JobID("non-existent"))

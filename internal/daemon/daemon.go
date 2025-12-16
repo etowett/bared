@@ -14,6 +14,7 @@ import (
 	"bared/internal/api"
 	"bared/internal/config"
 	"bared/internal/jobs"
+	"bared/internal/notify"
 	"bared/internal/persistence"
 	"bared/internal/util"
 )
@@ -332,6 +333,9 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 				"component", "daemon",
 				"target", targetCopy.Name,
 				"error", err)
+
+			// Send failure notification
+			d.sendScheduleFailureNotification(d.ctx, targetCopy.Name, err)
 			return
 		}
 
@@ -353,4 +357,65 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 // GetJobManager returns the job manager (useful for API access)
 func (d *Daemon) GetJobManager() *jobs.Manager {
 	return d.jobManager
+}
+
+// sendScheduleFailureNotification sends failure notifications for scheduled backup errors
+func (d *Daemon) sendScheduleFailureNotification(ctx context.Context, targetName string, err error) {
+	if d.cfg == nil || len(d.cfg.Notifiers) == 0 {
+		return
+	}
+
+	// Build notification message
+	msg := &notify.Message{
+		Target:      targetName,
+		Operation:   "backup",
+		Duration:    0,
+		Error:       fmt.Errorf("failed to schedule backup: %w", err),
+		Timestamp:   time.Now(),
+		Manual:      false,
+		ScheduledBy: "cron",
+	}
+
+	logger := util.GetLogger()
+	for notifierName, notifierCfg := range d.cfg.Notifiers {
+		notifier, notifyErr := notify.New(notifierCfg)
+		if notifyErr != nil {
+			logger.WarnS("Failed to create notifier",
+				"component", "daemon",
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"error", notifyErr)
+			continue
+		}
+
+		start := time.Now()
+		logger.InfoS("Sending scheduled backup failure notification",
+			"component", "daemon",
+			"operation", "backup",
+			"status", "failure",
+			"target", targetName,
+			"notifier", notifierName,
+			"type", notifierCfg.Type)
+
+		if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
+			logger.ErrorS("Failed to send failure notification",
+				"component", "daemon",
+				"operation", "backup",
+				"status", "failure",
+				"target", targetName,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"duration", time.Since(start),
+				"error", sendErr)
+		} else {
+			logger.InfoS("Failure notification sent",
+				"component", "daemon",
+				"operation", "backup",
+				"status", "failure",
+				"target", targetName,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"duration", time.Since(start))
+		}
+	}
 }

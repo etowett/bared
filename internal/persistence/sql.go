@@ -214,9 +214,43 @@ func (s *SQLStore) GetJob(ctx context.Context, id jobs.JobID) (*jobs.Job, error)
 }
 
 func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs.Job, error) {
-	// Basic implementation
-	query := `SELECT id, type, target_name, status, created_at, started_at, completed_at, result_json, error, manual FROM jobs ORDER BY created_at DESC LIMIT ?`
-	rows, err := s.db.QueryContext(ctx, query, filter.Limit)
+	// Filtered + ordered listing (newest first).
+	// Note: We intentionally keep this "basic" (no joins, minimal columns) for performance.
+	conditions := make([]string, 0, 3)
+	args := make([]interface{}, 0, 6)
+
+	if filter.TargetName != "" {
+		conditions = append(conditions, "target_name = ?")
+		args = append(args, filter.TargetName)
+	}
+	if filter.Status != "" {
+		conditions = append(conditions, "status = ?")
+		args = append(args, filter.Status)
+	}
+	if filter.Type != "" {
+		conditions = append(conditions, "type = ?")
+		args = append(args, filter.Type)
+	}
+
+	query := `SELECT id, type, target_name, status, created_at, started_at, completed_at, result_json, error, manual FROM jobs`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY created_at DESC"
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 1000
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	query += " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

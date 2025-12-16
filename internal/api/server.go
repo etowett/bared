@@ -73,14 +73,14 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Health check (no auth required)
-	mux.HandleFunc("/api/health", corsMiddleware(loggingMiddleware(s.handleHealth)))
+	mux.HandleFunc("/api/health", corsMiddleware(s.handleHealth))
 
 	// API routes (require authentication)
-	mux.HandleFunc("/api/dashboard", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleDashboard))))
-	mux.HandleFunc("/api/targets", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleListTargets))))
-	mux.HandleFunc("/api/restore-targets", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleListRestoreTargets))))
-	mux.HandleFunc("/api/jobs", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleJobsRouter))))
-	mux.HandleFunc("/api/jobs/", corsMiddleware(loggingMiddleware(s.basicAuthMiddleware(s.handleJobsDetailRouter))))
+	mux.HandleFunc("/api/dashboard", corsMiddleware(s.basicAuthMiddleware(s.handleDashboard)))
+	mux.HandleFunc("/api/targets", corsMiddleware(s.basicAuthMiddleware(s.handleListTargets)))
+	mux.HandleFunc("/api/restore-targets", corsMiddleware(s.basicAuthMiddleware(s.handleListRestoreTargets)))
+	mux.HandleFunc("/api/jobs", corsMiddleware(s.basicAuthMiddleware(s.handleJobsRouter)))
+	mux.HandleFunc("/api/jobs/", corsMiddleware(s.basicAuthMiddleware(s.handleJobsDetailRouter)))
 
 	// Serve React SPA for all non-API routes
 	mux.Handle("/", web.GetHandler())

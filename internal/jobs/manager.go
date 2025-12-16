@@ -3,11 +3,13 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"bared/internal/app"
 	"bared/internal/config"
+	"bared/internal/notify"
 	"bared/internal/util"
 )
 
@@ -204,12 +206,20 @@ func (m *Manager) executeJob(job *Job) {
 	// Find target config (try restore target first, fall back to regular target)
 	target, _, _, err := m.cfg.ResolveRestoreTarget(job.TargetName)
 	if err != nil {
-		job.MarkFailed(fmt.Errorf("target not found: %w", err))
+		targetErr := fmt.Errorf("target not found: %w", err)
+		job.MarkFailed(targetErr)
 		util.GetLogger().ErrorS("Job failed - target not found",
 			"component", "job_manager",
 			"job_id", job.ID,
 			"target", job.TargetName,
 			"error", err)
+
+		// Send failure notification
+		operation := "backup"
+		if job.Type == JobTypeRestore {
+			operation = "restore"
+		}
+		m.sendFailureNotification(job.Context(), job, targetErr, operation)
 		return
 	}
 
@@ -228,13 +238,17 @@ func (m *Manager) executeJob(job *Job) {
 					"job_type", "backup",
 					"target", job.TargetName)
 			} else {
-				job.MarkFailed(err)
+				wrappedErr := fmt.Errorf("backup failed: %w", err)
+				job.MarkFailed(wrappedErr)
 				logger.ErrorS("Job failed",
 					"component", "job_manager",
 					"job_id", job.ID,
 					"job_type", "backup",
 					"target", job.TargetName,
-					"error", err)
+					"error", wrappedErr)
+
+				// Send failure notification
+				m.sendFailureNotification(job.Context(), job, wrappedErr, "backup")
 			}
 
 			// Update job in store on failure/cancel
@@ -282,13 +296,17 @@ func (m *Manager) executeJob(job *Job) {
 					"job_type", "restore",
 					"target", job.TargetName)
 			} else {
-				job.MarkFailed(err)
+				wrappedErr := fmt.Errorf("restore failed: %w", err)
+				job.MarkFailed(wrappedErr)
 				logger.ErrorS("Job failed",
 					"component", "job_manager",
 					"job_id", job.ID,
 					"job_type", "restore",
 					"target", job.TargetName,
-					"error", err)
+					"error", wrappedErr)
+
+				// Send failure notification
+				m.sendFailureNotification(job.Context(), job, wrappedErr, "restore")
 			}
 
 			// Update job in store on failure/cancel
@@ -321,7 +339,17 @@ func (m *Manager) executeJob(job *Job) {
 			"target", job.TargetName)
 
 	default:
-		job.MarkFailed(fmt.Errorf("unknown job type: %s", job.Type))
+		unknownErr := fmt.Errorf("unknown job type: %s", job.Type)
+		job.MarkFailed(unknownErr)
+		util.GetLogger().ErrorS("Job failed - unknown job type",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"job_type", job.Type,
+			"target", job.TargetName,
+			"error", unknownErr)
+
+		// Send failure notification
+		m.sendFailureNotification(job.Context(), job, unknownErr, string(job.Type))
 	}
 }
 
@@ -458,32 +486,114 @@ func (m *Manager) GetJob(jobID JobID) (*Job, error) {
 	return job, nil
 }
 
-// ListJobs returns all jobs
-func (m *Manager) ListJobs() []*Job {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	jobs := make([]*Job, 0, len(m.jobs))
-	for _, job := range m.jobs {
-		jobs = append(jobs, job)
+func jobMatchesFilter(job *Job, filter JobFilter) bool {
+	if filter.TargetName != "" && job.TargetName != filter.TargetName {
+		return false
 	}
-
-	return jobs
+	if filter.Status != "" && job.GetStatus() != filter.Status {
+		return false
+	}
+	if filter.Type != "" && job.Type != filter.Type {
+		return false
+	}
+	return true
 }
 
-// ListJobsForTarget returns jobs for a specific target
-func (m *Manager) ListJobsForTarget(targetName string) []*Job {
+// ListJobsFiltered returns jobs from both memory and database, filtered and sorted by creation time (newest first).
+//
+// Semantics:
+//   - Memory is the primary source of truth; DB is merged in as a fallback/history source.
+//   - Memory jobs take precedence over DB jobs with the same JobID.
+//   - If filter.Limit is 0, no global limit is applied (legacy behavior), but DB fetch is capped (default 1000).
+//   - If filter.Limit > 0, limit/offset are applied AFTER merging+sorting (global pagination),
+//     and the DB fetch limit is increased to reduce the chance of under-filling due to de-duplication.
+func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job {
+	// Snapshot in-memory jobs matching filter
 	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var jobs []*Job
+	memJobs := make([]*Job, 0, len(m.jobs))
 	for _, job := range m.jobs {
-		if job.TargetName == targetName {
-			jobs = append(jobs, job)
+		if jobMatchesFilter(job, filter) {
+			memJobs = append(memJobs, job)
+		}
+	}
+	m.mu.RUnlock()
+
+	jobMap := make(map[JobID]*Job, len(memJobs))
+	for _, job := range memJobs {
+		jobMap[job.ID] = job
+	}
+
+	// Fetch + merge DB jobs (filtered + ordered by DB)
+	if m.store != nil {
+
+		dbFilter := filter
+		// We apply global offset/limit after merge+sort; fetch from the start and increase limit to compensate.
+		dbFilter.Offset = 0
+		if dbFilter.Limit <= 0 {
+			dbFilter.Limit = 1000
+		} else {
+			// Try to fetch enough rows to satisfy global pagination even after de-dupe + overlay.
+			dbFilter.Limit = dbFilter.Limit + maxInt(0, filter.Offset) + len(memJobs)
+		}
+
+		dbJobs, err := m.store.ListJobs(ctx, dbFilter)
+		if err != nil {
+			// Log error but continue with in-memory jobs
+			util.GetLogger().ErrorS("Failed to fetch jobs from database",
+				"component", "job_manager",
+				"error", err)
+		} else {
+			for _, dbJob := range dbJobs {
+				if _, exists := jobMap[dbJob.ID]; !exists {
+					jobMap[dbJob.ID] = dbJob
+				}
+			}
 		}
 	}
 
+	// Convert map to slice
+	jobs := make([]*Job, 0, len(jobMap))
+	for _, job := range jobMap {
+		jobs = append(jobs, job)
+	}
+
+	// Sort by creation time, newest first
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].CreatedAt.After(jobs[j].CreatedAt)
+	})
+
+	// Apply global pagination (after merge+sort)
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(jobs) {
+		return []*Job{}
+	}
+	if offset > 0 {
+		jobs = jobs[offset:]
+	}
+	if filter.Limit > 0 && filter.Limit < len(jobs) {
+		jobs = jobs[:filter.Limit]
+	}
 	return jobs
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// ListJobs returns all jobs from both memory and database (sorted newest first).
+func (m *Manager) ListJobs(ctx context.Context) []*Job {
+	return m.ListJobsFiltered(ctx, JobFilter{})
+}
+
+// ListJobsForTarget returns jobs for a specific target from both memory and database
+func (m *Manager) ListJobsForTarget(ctx context.Context, targetName string) []*Job {
+	return m.ListJobsFiltered(ctx, JobFilter{TargetName: targetName})
 }
 
 // CancelJob requests cancellation of a job
@@ -574,4 +684,69 @@ func (m *Manager) StartCleanupRoutine(interval, maxAge time.Duration) {
 			}
 		}
 	}()
+}
+
+// sendFailureNotification sends failure notifications for job manager errors
+func (m *Manager) sendFailureNotification(ctx context.Context, job *Job, err error, operation string) {
+	if m.cfg == nil || len(m.cfg.Notifiers) == 0 {
+		return
+	}
+
+	// Build notification message
+	msg := &notify.Message{
+		Target:    job.TargetName,
+		Operation: operation,
+		Duration:  0, // No duration for early failures
+		Error:     err,
+		Timestamp: time.Now(),
+		Manual:    job.Manual,
+	}
+
+	// Add schedule info if not manual
+	if !job.Manual && job.ScheduledBy != "" {
+		msg.ScheduledBy = job.ScheduledBy
+	}
+
+	logger := util.GetLogger()
+	for notifierName, notifierCfg := range m.cfg.Notifiers {
+		notifier, notifyErr := notify.New(notifierCfg)
+		if notifyErr != nil {
+			logger.WarnS("Failed to create notifier",
+				"component", "job_manager",
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"error", notifyErr)
+			continue
+		}
+
+		start := time.Now()
+		logger.InfoS("Sending failure notification",
+			"component", "job_manager",
+			"operation", operation,
+			"status", "failure",
+			"target", job.TargetName,
+			"notifier", notifierName,
+			"type", notifierCfg.Type)
+
+		if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
+			logger.ErrorS("Failed to send failure notification",
+				"component", "job_manager",
+				"operation", operation,
+				"status", "failure",
+				"target", job.TargetName,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"duration", time.Since(start),
+				"error", sendErr)
+		} else {
+			logger.InfoS("Failure notification sent",
+				"component", "job_manager",
+				"operation", operation,
+				"status", "failure",
+				"target", job.TargetName,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"duration", time.Since(start))
+		}
+	}
 }
