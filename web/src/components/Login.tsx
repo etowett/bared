@@ -1,11 +1,11 @@
-import { FormEvent, useState } from 'react'
-import { setAuth } from '../api/client'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle, HardDrive } from 'lucide-react'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { FormEvent, useState } from 'react'
+import { setAuth } from '../api/client'
 
 interface LoginProps {
   onLogin: () => void
@@ -47,13 +47,13 @@ export function Login({ onLogin }: LoginProps) {
   }
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-background">
+    <div className="relative flex w-full items-center justify-center min-h-screen bg-background px-4">
       {/* Theme Toggle in top-right corner */}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
 
-      <div className="bg-card border p-8 rounded-lg shadow-lg w-full max-w-md">
+      <div className="bg-card border p-8 rounded-lg shadow-lg w-full max-w-xl">
         <div className="flex items-center gap-3 mb-2">
           <HardDrive className="h-8 w-8 text-primary" />
           <h1 className="text-4xl font-bold text-primary">BareD</h1>

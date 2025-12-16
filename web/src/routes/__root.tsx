@@ -1,7 +1,7 @@
+import { isAuthenticated, logout } from '@/api/client'
+import { AppLayout } from '@/components/layout/AppLayout'
 import { createRootRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/router-devtools'
-import { AppLayout } from '@/components/layout/AppLayout'
-import { isAuthenticated, logout } from '@/api/client'
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {

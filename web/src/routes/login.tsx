@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Login } from '@/components/Login'
 import { isAuthenticated } from '@/api/client'
+import { Login } from '@/components/Login'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
 
 export const Route = createFileRoute('/login')({
@@ -21,9 +21,5 @@ function LoginPage() {
     navigate({ to: '/' })
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Login onLogin={handleLogin} />
-    </div>
-  )
+  return <Login onLogin={handleLogin} />
 }

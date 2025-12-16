@@ -4,6 +4,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 
 	"bared/internal/app"
@@ -99,6 +100,11 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 
 		filteredJobs = append(filteredJobs, job)
 	}
+
+	// Sort by created_at in descending order (most recent first)
+	sort.Slice(filteredJobs, func(i, j int) bool {
+		return filteredJobs[i].CreatedAt.After(filteredJobs[j].CreatedAt)
+	})
 
 	// Convert to response format
 	responses := make([]JobResponse, 0, len(filteredJobs))
