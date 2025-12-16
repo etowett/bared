@@ -12,7 +12,7 @@ permissions:
 jobs:
   release:
     name: Build and Release
-    runs-on: [self-hosted, robot-runner, bared]
+    runs-on: [self-hosted, bared]
 
     steps:
       - name: Checkout code

@@ -16,7 +16,7 @@ permissions:
 jobs:
   sync:
     name: Sync Release Labels
-    runs-on: [self-hosted, robot-runner, bared]
+    runs-on: [self-hosted, bared]
 
     steps:
       - name: Checkout code

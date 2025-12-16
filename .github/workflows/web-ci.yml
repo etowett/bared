@@ -19,7 +19,7 @@ permissions:
 jobs:
   validate:
     name: Validate Frontend
-    runs-on: [self-hosted, robot-runner, bared]
+    runs-on: [self-hosted, bared]
 
     steps:
       - name: Checkout code
