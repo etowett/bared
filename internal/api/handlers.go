@@ -4,7 +4,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"sort"
 	"strings"
 
 	"bared/internal/app"
@@ -73,37 +72,42 @@ func (s *Server) handleListRestoreTargets(w http.ResponseWriter, _ *http.Request
 // handleListJobs returns all jobs or filtered jobs
 func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	// Get query parameters
-	status := r.URL.Query().Get("status")
+	statusStr := r.URL.Query().Get("status")
 	target := r.URL.Query().Get("target")
-	jobType := r.URL.Query().Get("type")
+	typeStr := r.URL.Query().Get("type")
 
-	// Get all jobs
-	allJobs := s.jobManager.ListJobs()
-
-	// Filter jobs
-	var filteredJobs []*jobs.Job
-	for _, job := range allJobs {
-		// Filter by status if specified
-		if status != "" && string(job.GetStatus()) != status {
-			continue
+	// Parse filters (keep backward-compatible semantics: invalid filter => empty result)
+	var status jobs.JobStatus
+	if statusStr != "" {
+		switch statusStr {
+		case string(jobs.JobStatusQueued),
+			string(jobs.JobStatusRunning),
+			string(jobs.JobStatusCompleted),
+			string(jobs.JobStatusFailed),
+			string(jobs.JobStatusCancelling),
+			string(jobs.JobStatusCancelled):
+			status = jobs.JobStatus(statusStr)
+		default:
+			respondJSON(w, http.StatusOK, ListJobsResponse{Jobs: []JobResponse{}, Total: 0})
+			return
 		}
-
-		// Filter by target if specified
-		if target != "" && job.TargetName != target {
-			continue
-		}
-
-		// Filter by type if specified
-		if jobType != "" && string(job.Type) != jobType {
-			continue
-		}
-
-		filteredJobs = append(filteredJobs, job)
 	}
 
-	// Sort by created_at in descending order (most recent first)
-	sort.Slice(filteredJobs, func(i, j int) bool {
-		return filteredJobs[i].CreatedAt.After(filteredJobs[j].CreatedAt)
+	var jobType jobs.JobType
+	if typeStr != "" {
+		switch typeStr {
+		case string(jobs.JobTypeBackup), string(jobs.JobTypeRestore):
+			jobType = jobs.JobType(typeStr)
+		default:
+			respondJSON(w, http.StatusOK, ListJobsResponse{Jobs: []JobResponse{}, Total: 0})
+			return
+		}
+	}
+
+	filteredJobs := s.jobManager.ListJobsFiltered(r.Context(), jobs.JobFilter{
+		TargetName: target,
+		Status:     status,
+		Type:       jobType,
 	})
 
 	// Convert to response format
@@ -311,7 +315,7 @@ func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDashboard returns dashboard summary
-func (s *Server) handleDashboard(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Get all targets
 	targets := s.cfg.Targets
 	summaries := make([]TargetSummary, 0, len(targets))
@@ -328,7 +332,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	// Get job counts
-	allJobs := s.jobManager.ListJobs()
+	allJobs := s.jobManager.ListJobs(r.Context())
 	activeJobs := 0
 	for _, job := range allJobs {
 		status := job.GetStatus()

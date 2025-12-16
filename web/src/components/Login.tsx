@@ -23,8 +23,6 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true)
 
     try {
-      setAuth(username, password)
-
       // Test authentication by calling health endpoint
       const response = await fetch('/api/dashboard', {
         headers: {
@@ -33,6 +31,7 @@ export function Login({ onLogin }: LoginProps) {
       })
 
       if (response.ok) {
+        setAuth(username, password)
         onLogin()
       } else {
         setError('Invalid username or password')
