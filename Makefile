@@ -226,16 +226,36 @@ docker-build-version:
 	@echo "Docker image built: bared:${VERSION}, bared:latest"
 
 # Docker build multi-platform (requires buildx)
+DOCKER_IMAGE ?= bared
+DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/arm64 || echo linux/amd64)
+DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+
+# Local dev: single-platform build that can be loaded into the local Docker engine.
+# Note: some Docker backends (e.g. OrbStack) cannot `--load` multi-arch manifest lists.
 docker-buildx:
-	@echo "Building multi-platform Docker image..."
-	docker buildx build --platform linux/amd64,linux/arm64 \
-		-t bared:latest \
+	@echo "Building single-platform Docker image (load into local engine)..."
+	docker buildx build --platform $(DOCKER_PLATFORM) \
+		-t $(DOCKER_IMAGE):latest \
 		--build-arg VERSION=${VERSION} \
 		--build-arg COMMIT=${COMMIT} \
 		--build-arg BUILD_DATE=${BUILD_TIME} \
 		--load \
 		.
-	@echo "Multi-platform Docker image built: bared:latest"
+	@echo "Docker image built and loaded: $(DOCKER_IMAGE):latest (platform: $(DOCKER_PLATFORM))"
+
+# Publishing: multi-platform build that pushes a manifest list to a registry.
+# Usage:
+#   make docker-buildx-push DOCKER_IMAGE=ektowett/bared
+docker-buildx-push:
+	@echo "Building multi-platform Docker image (push to registry)..."
+	docker buildx build --platform $(DOCKER_PLATFORMS) \
+		-t $(DOCKER_IMAGE):latest \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		--push \
+		.
+	@echo "Multi-platform Docker image built and pushed: $(DOCKER_IMAGE):latest (platforms: $(DOCKER_PLATFORMS))"
 
 # Docker push to registry (ektowett/bared)
 docker-push:
