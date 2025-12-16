@@ -16,7 +16,7 @@ permissions:
 jobs:
   sync:
     name: Sync Release Labels
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, robot-runner, bared]
 
     steps:
       - name: Checkout code
