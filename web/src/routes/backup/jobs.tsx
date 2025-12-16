@@ -22,10 +22,10 @@ export const Route = createFileRoute('/backup/jobs')({
 
 function BackupJobsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
 
-  const { data: jobsData, isLoading } = useJobs(statusFilter ? { status: statusFilter } : undefined)
+  const { data: jobsData, isLoading } = useJobs(statusFilter !== 'all' ? { status: statusFilter } : undefined)
 
   // Filter for backup jobs only and by target name
   const backupJobs = useMemo(() => {
@@ -42,12 +42,12 @@ function BackupJobsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Backup Job History</h2>
-        <Link to="/backup">
-          <Button variant="outline">
+        <Button asChild variant="outline">
+          <Link to="/backup">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Targets
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       <Card>
@@ -67,7 +67,7 @@ function BackupJobsPage() {
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="queued">Queued</SelectItem>
                 <SelectItem value="running">Running</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>

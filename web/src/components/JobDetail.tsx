@@ -18,12 +18,12 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
           <div className="flex items-center justify-between gap-2">
             <DialogTitle>Job Details</DialogTitle>
             <div className="flex items-center gap-2">
-              <Link to="/jobs/$id" params={{ id: job.id }}>
-                <Button variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/jobs/$id" params={{ id: job.id }}>
                   <ExternalLink className="h-4 w-4 mr-1" />
                   Full Page
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="h-4 w-4" />
               </Button>
