@@ -19,7 +19,7 @@ permissions:
 jobs:
   validate:
     name: Validate Frontend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, bared]
 
     steps:
       - name: Checkout code
