@@ -44,7 +44,6 @@ archives:
         format: zip
     files:
       - README.md
-      - LICENSE
       - examples/**/*
       - docs/**/*
 
