@@ -5,11 +5,19 @@ package config
 type Config struct {
 	DefaultStorage string               `yaml:"default_storage"`
 	LogLevel       string               `yaml:"log_level,omitempty"`
+	LogFormat      string               `yaml:"log_format,omitempty"`  // "json", "text", or "auto" (default)
+	LogOptions     *LogOptions          `yaml:"log_options,omitempty"` // Optional logging configuration
 	Storages       map[string]*Storage  `yaml:"storages"`
 	Notifiers      map[string]*Notifier `yaml:"notifiers"`
 	Targets        []*Target            `yaml:"targets"`
 	RestoreTargets []*RestoreTarget     `yaml:"restore_targets,omitempty"`
 	Persistence    *Persistence         `yaml:"persistence,omitempty"`
+}
+
+// LogOptions represents optional logging configuration
+type LogOptions struct {
+	AddSource  bool   `yaml:"add_source,omitempty"`  // Add file:line to logs
+	TimeFormat string `yaml:"time_format,omitempty"` // Custom time format
 }
 
 // Persistence configuration

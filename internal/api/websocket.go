@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"bared/internal/jobs"
+	"bared/internal/util"
 )
 
 var upgrader = websocket.Upgrader{
@@ -22,6 +22,8 @@ var upgrader = websocket.Upgrader{
 
 // handleStreamJobLogs handles WebSocket connections for log streaming
 func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
+	logger := util.GetLogger()
+
 	// Extract job ID from URL path
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
@@ -43,16 +45,24 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 	// Upgrade connection to WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade WebSocket connection: %v", err)
+		logger.ErrorS("Failed to upgrade WebSocket connection",
+			"component", "api",
+			"job_id", jobID,
+			"error", err)
 		return
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			log.Printf("Failed to close WebSocket connection: %v", err)
+			logger.WarnS("Failed to close WebSocket connection",
+				"component", "api",
+				"job_id", jobID,
+				"error", err)
 		}
 	}()
 
-	log.Printf("WebSocket client connected for job %s", jobID)
+	logger.InfoS("WebSocket client connected",
+		"component", "api",
+		"job_id", jobID)
 
 	// Subscribe to log buffer
 	logCh := job.Logs.Subscribe()
@@ -63,7 +73,10 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 	for _, entry := range existingLogs {
 		apiEntry := LogEntryToResponse(entry)
 		if err := conn.WriteJSON(apiEntry); err != nil {
-			log.Printf("Failed to send existing log entry: %v", err)
+			logger.ErrorS("Failed to send existing log entry",
+				"component", "api",
+				"job_id", jobID,
+				"error", err)
 			return
 		}
 	}
@@ -92,20 +105,28 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 			// Send new log entry
 			apiEntry := LogEntryToResponse(entry)
 			if err := conn.WriteJSON(apiEntry); err != nil {
-				log.Printf("Failed to send log entry: %v", err)
+				logger.ErrorS("Failed to send log entry",
+					"component", "api",
+					"job_id", jobID,
+					"error", err)
 				return
 			}
 
 		case <-ticker.C:
 			// Send ping to keep connection alive
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("Failed to send ping: %v", err)
+				logger.WarnS("Failed to send ping",
+					"component", "api",
+					"job_id", jobID,
+					"error", err)
 				return
 			}
 
 		case <-done:
 			// Client disconnected
-			log.Printf("WebSocket client disconnected for job %s", jobID)
+			logger.InfoS("WebSocket client disconnected",
+				"component", "api",
+				"job_id", jobID)
 			return
 
 		case <-r.Context().Done():

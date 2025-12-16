@@ -11,6 +11,11 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
+# CGO handling:
+# - Default builds are CGO disabled for portability (static-ish binaries).
+# - Local dev `run-daemon` enables CGO so sqlite persistence works with github.com/mattn/go-sqlite3.
+CGO ?= 0
+
 # On recent macOS versions, `go test -race` can emit noisy (but harmless) ld warnings like:
 #   "malformed LC_DYSYMTAB ..."
 # This is an Apple ld/toolchain issue; suppress warnings for test binaries on Darwin.
@@ -24,7 +29,7 @@ endif
 build:
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BIN_DIR}
-	CGO_ENABLED=0 go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	CGO_ENABLED=$(CGO) go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
 	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
 # Build for multiple platforms
@@ -155,10 +160,11 @@ check: fmt vet lint
 	@echo "All checks passed!"
 
 # Run the daemon in development mode
-run-daemon: build
+run-daemon:
 	@echo "Starting daemon in development mode..."
+	@$(MAKE) build CGO=1
 	./${BIN_DIR}/${BINARY_NAME} daemon \
-		--config examples/config.example.yml \
+		--config config.yml \
 		--http :8080 \
 		--http-user admin \
 		--http-pass changeme

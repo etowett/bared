@@ -3,6 +3,10 @@
 
 default_storage: s3
 
+# Logging configuration (optional)
+log_level: info              # debug, info, warn, error
+log_format: text             # text for human-readable restore logs
+
 storages:
   # S3 storage for production backups
   s3:

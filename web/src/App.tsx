@@ -1,10 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { isAuthenticated } from './api/client'
-import { Dashboard } from './components/Dashboard'
-import { AppLayout } from './components/layout/AppLayout'
-import { Login } from './components/Login'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { ThemeProvider } from './contexts/ThemeContext'
+
+// Import the generated route tree
+import { routeTree } from './routeTree.gen'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,38 +14,21 @@ const queryClient = new QueryClient({
   },
 })
 
+// Create a new router instance
+const router = createRouter({ routeTree })
+
+// Register the router instance for type safety
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}
+
 export function App() {
-  const [authenticated, setAuthenticated] = useState(isAuthenticated())
-
-  useEffect(() => {
-    // Check authentication status
-    const checkAuth = () => {
-      setAuthenticated(isAuthenticated())
-    }
-
-    // Recheck when window gains focus
-    window.addEventListener('focus', checkAuth)
-    return () => window.removeEventListener('focus', checkAuth)
-  }, [])
-
-  const handleLogin = () => {
-    setAuthenticated(true)
-  }
-
-  const handleLogout = () => {
-    setAuthenticated(false)
-  }
-
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        {authenticated ? (
-          <AppLayout onLogout={handleLogout}>
-            <Dashboard />
-          </AppLayout>
-        ) : (
-          <Login onLogin={handleLogin} />
-        )}
+        <RouterProvider router={router} />
       </QueryClientProvider>
     </ThemeProvider>
   )

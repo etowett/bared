@@ -3,16 +3,18 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
 	"bared/internal/config"
 	"bared/internal/storage"
+	"bared/internal/util"
 )
 
 // ListBackups lists all backups for a target
 func ListBackups(ctx context.Context, cfg *config.Config, target *config.Target) ([]*storage.BackupInfo, error) {
+	logger := util.GetLogger()
+
 	// Get storage backend
 	storageCfg, err := cfg.GetStorageForTarget(target)
 	if err != nil {
@@ -24,7 +26,9 @@ func ListBackups(ctx context.Context, cfg *config.Config, target *config.Target)
 		return nil, fmt.Errorf("failed to create storage: %w", err)
 	}
 
-	log.Printf("Listing backups for target: %s", target.Name)
+	logger.InfoS("Listing backups",
+		"component", "app",
+		"target", target.Name)
 
 	// List all backups
 	allBackups, err := stor.List(ctx)

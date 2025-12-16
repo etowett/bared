@@ -1,6 +1,10 @@
 # BareD Configuration Example - Persistence Enabled
 # This example demonstrates job history and log persistence
 
+# Logging configuration (optional)
+log_level: info              # debug, info, warn, error
+log_format: json             # json for production, text for development, auto to detect
+
 # Persistence Configuration
 # Store job history and logs in a database for:
 # - Surviving daemon restarts

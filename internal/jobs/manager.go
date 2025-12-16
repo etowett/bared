@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -47,24 +46,35 @@ func (m *Manager) Start() {
 		m.wg.Add(1)
 		go m.worker(i)
 	}
-	log.Printf("Job manager started with %d workers", m.maxConcurrent)
+	util.GetLogger().InfoS("Job manager started",
+		"component", "job_manager",
+		"workers", m.maxConcurrent)
 }
 
 // worker is a worker goroutine that processes jobs from the queue
 func (m *Manager) worker(id int) {
 	defer m.wg.Done()
 
-	util.Debug("Worker %d started", id)
+	logger := util.GetLogger()
+	logger.DebugS("Worker started",
+		"component", "job_manager",
+		"worker_id", id)
 
 	for {
 		select {
 		case job := <-m.jobQueue:
-			util.Info("Worker %d picked up job %s (%s for target %s)",
-				id, job.ID, job.Type, job.TargetName)
+			logger.InfoS("Worker picked up job",
+				"component", "job_manager",
+				"worker_id", id,
+				"job_id", job.ID,
+				"job_type", job.Type,
+				"target", job.TargetName)
 			m.executeJob(job)
 
 		case <-m.shutdown:
-			util.Debug("Worker %d shutting down", id)
+			logger.DebugS("Worker shutting down",
+				"component", "job_manager",
+				"worker_id", id)
 			return
 		}
 	}
@@ -109,7 +119,11 @@ func (m *Manager) executeJob(job *Job) {
 						logBufferMu.Unlock()
 
 						if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, entries); err != nil {
-							util.Error("Failed to persist %d log entries for job %s: %v", len(entries), job.ID, err)
+							util.GetLogger().ErrorS("Failed to persist log entries",
+								"component", "job_manager",
+								"job_id", job.ID,
+								"entry_count", len(entries),
+								"error", err)
 						}
 					} else {
 						logBufferMu.Unlock()
@@ -120,7 +134,11 @@ func (m *Manager) executeJob(job *Job) {
 					logBufferMu.Lock()
 					if len(logBuffer) > 0 {
 						if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, logBuffer); err != nil {
-							util.Error("Failed to persist final %d log entries for job %s: %v", len(logBuffer), job.ID, err)
+							util.GetLogger().ErrorS("Failed to persist final log entries",
+								"component", "job_manager",
+								"job_id", job.ID,
+								"entry_count", len(logBuffer),
+								"error", err)
 						}
 					}
 					logBufferMu.Unlock()
@@ -169,7 +187,11 @@ func (m *Manager) executeJob(job *Job) {
 
 				go func() {
 					if err := m.store.SaveJobLogsBatch(context.Background(), job.ID, entries); err != nil {
-						util.Error("Failed to persist batch of %d log entries for job %s: %v", len(entries), job.ID, err)
+						util.GetLogger().ErrorS("Failed to persist batch of log entries",
+							"component", "job_manager",
+							"job_id", job.ID,
+							"entry_count", len(entries),
+							"error", err)
 					}
 				}()
 			} else {
@@ -183,7 +205,11 @@ func (m *Manager) executeJob(job *Job) {
 	target, _, _, err := m.cfg.ResolveRestoreTarget(job.TargetName)
 	if err != nil {
 		job.MarkFailed(fmt.Errorf("target not found: %w", err))
-		util.Error("Job %s failed: %v", job.ID, err)
+		util.GetLogger().ErrorS("Job failed - target not found",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"target", job.TargetName,
+			"error", err)
 		return
 	}
 
@@ -192,19 +218,32 @@ func (m *Manager) executeJob(job *Job) {
 	case JobTypeBackup:
 		result, err := app.BackupTarget(job.Context(), m.cfg, target, job.Progress)
 		if err != nil {
+			logger := util.GetLogger()
 			// Check if cancelled
 			if job.GetStatus() == JobStatusCancelling {
 				job.MarkCancelled()
-				util.Info("Job %s cancelled", job.ID)
+				logger.InfoS("Job cancelled",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"job_type", "backup",
+					"target", job.TargetName)
 			} else {
 				job.MarkFailed(err)
-				util.Error("Job %s failed: %v", job.ID, err)
+				logger.ErrorS("Job failed",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"job_type", "backup",
+					"target", job.TargetName,
+					"error", err)
 			}
 
 			// Update job in store on failure/cancel
 			if m.store != nil {
 				if err := m.store.UpdateJob(job.Context(), job); err != nil {
-					util.Error("Failed to update job %s status: %v", job.ID, err)
+					logger.ErrorS("Failed to update job status",
+						"component", "job_manager",
+						"job_id", job.ID,
+						"error", err)
 				}
 			}
 			return
@@ -212,12 +251,20 @@ func (m *Manager) executeJob(job *Job) {
 		job.MarkCompleted(result)
 
 		// Update job in store on success
+		logger := util.GetLogger()
 		if m.store != nil {
 			if err := m.store.UpdateJob(job.Context(), job); err != nil {
-				util.Error("Failed to update job %s status: %v", job.ID, err)
+				logger.ErrorS("Failed to update job status",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"error", err)
 			}
 		}
-		util.Info("Job %s completed successfully", job.ID)
+		logger.InfoS("Job completed successfully",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"job_type", "backup",
+			"target", job.TargetName)
 
 	case JobTypeRestore:
 		options := job.RestoreOptions
@@ -226,18 +273,31 @@ func (m *Manager) executeJob(job *Job) {
 		}
 		result, err := app.RestoreTargetWithOptions(job.Context(), m.cfg, target, job.BackupPath, options, job.Progress)
 		if err != nil {
+			logger := util.GetLogger()
 			if job.GetStatus() == JobStatusCancelling {
 				job.MarkCancelled()
-				util.Info("Job %s cancelled", job.ID)
+				logger.InfoS("Job cancelled",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"job_type", "restore",
+					"target", job.TargetName)
 			} else {
 				job.MarkFailed(err)
-				util.Error("Job %s failed: %v", job.ID, err)
+				logger.ErrorS("Job failed",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"job_type", "restore",
+					"target", job.TargetName,
+					"error", err)
 			}
 
 			// Update job in store on failure/cancel
 			if m.store != nil {
 				if err := m.store.UpdateJob(job.Context(), job); err != nil {
-					util.Error("Failed to update job %s status: %v", job.ID, err)
+					logger.ErrorS("Failed to update job status",
+						"component", "job_manager",
+						"job_id", job.ID,
+						"error", err)
 				}
 			}
 			return
@@ -245,12 +305,20 @@ func (m *Manager) executeJob(job *Job) {
 		job.MarkCompleted(result)
 
 		// Update job in store on success
+		logger := util.GetLogger()
 		if m.store != nil {
 			if err := m.store.UpdateJob(job.Context(), job); err != nil {
-				util.Error("Failed to update job %s status: %v", job.ID, err)
+				logger.ErrorS("Failed to update job status",
+					"component", "job_manager",
+					"job_id", job.ID,
+					"error", err)
 			}
 		}
-		util.Info("Job %s completed successfully", job.ID)
+		logger.InfoS("Job completed successfully",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"job_type", "restore",
+			"target", job.TargetName)
 
 	default:
 		job.MarkFailed(fmt.Errorf("unknown job type: %s", job.Type))
@@ -259,7 +327,10 @@ func (m *Manager) executeJob(job *Job) {
 
 // SubmitBackup submits a backup job
 func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manual bool) (JobID, error) {
-	log.Printf("Submitting backup job for target: %s", target.Name)
+	logger := util.GetLogger()
+	logger.InfoS("Submitting backup job",
+		"component", "job_manager",
+		"target", target.Name)
 
 	// Check if target is already running
 	if m.IsTargetRunning(target.Name) {
@@ -269,7 +340,12 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	// Create job
 	job := NewJob(JobTypeBackup, target.Name, manual)
 
-	log.Printf("Created job: %+v", job)
+	logger.DebugS("Created job",
+		"component", "job_manager",
+		"job_id", job.ID,
+		"job_type", job.Type,
+		"target", target.Name,
+		"manual", manual)
 
 	// Store job
 	m.mu.Lock()
@@ -280,7 +356,10 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	// Persist job
 	if m.store != nil {
 		if err := m.store.CreateJob(ctx, job); err != nil {
-			util.Error("Failed to persist job %s: %v", job.ID, err)
+			logger.ErrorS("Failed to persist job",
+				"component", "job_manager",
+				"job_id", job.ID,
+				"error", err)
 			// We log but continue, as in-memory tracking is primary fallback
 		}
 	}
@@ -288,7 +367,10 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	// Queue job
 	select {
 	case m.jobQueue <- job:
-		util.Info("Backup job %s queued for target %s", job.ID, target.Name)
+		logger.InfoS("Backup job queued",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"target", target.Name)
 		return job.ID, nil
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -319,20 +401,25 @@ func (m *Manager) SubmitRestoreWithOptions(ctx context.Context, target *config.T
 	m.mu.Unlock()
 
 	// Persist job
+	logger := util.GetLogger()
 	if m.store != nil {
 		if err := m.store.CreateJob(ctx, job); err != nil {
-			util.Error("Failed to persist job %s: %v", job.ID, err)
+			logger.ErrorS("Failed to persist job",
+				"component", "job_manager",
+				"job_id", job.ID,
+				"error", err)
 		}
 	}
 
 	// Queue job
 	select {
 	case m.jobQueue <- job:
-		dryRunSuffix := ""
-		if options != nil && options.DryRun {
-			dryRunSuffix = " (dry-run)"
-		}
-		util.Info("Restore job %s queued for target %s%s", job.ID, target.Name, dryRunSuffix)
+		dryRun := options != nil && options.DryRun
+		logger.InfoS("Restore job queued",
+			"component", "job_manager",
+			"job_id", job.ID,
+			"target", target.Name,
+			"dry_run", dryRun)
 		return job.ID, nil
 	case <-ctx.Done():
 		return "", ctx.Err()
@@ -412,7 +499,9 @@ func (m *Manager) CancelJob(jobID JobID) error {
 	}
 
 	job.Cancel()
-	util.Info("Cancellation requested for job %s", jobID)
+	util.GetLogger().InfoS("Cancellation requested for job",
+		"component", "job_manager",
+		"job_id", jobID)
 	return nil
 }
 
@@ -427,7 +516,9 @@ func (m *Manager) IsTargetRunning(targetName string) bool {
 
 // Shutdown gracefully shuts down the job manager
 func (m *Manager) Shutdown(ctx context.Context) error {
-	log.Println("Shutting down job manager...")
+	logger := util.GetLogger()
+	logger.InfoS("Shutting down job manager",
+		"component", "job_manager")
 
 	// Stop accepting new jobs
 	close(m.shutdown)
@@ -441,10 +532,12 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 	select {
 	case <-done:
-		log.Println("All workers finished gracefully")
+		logger.InfoS("All workers finished gracefully",
+			"component", "job_manager")
 		return nil
 	case <-ctx.Done():
-		log.Println("Job manager shutdown timed out, some jobs may have been terminated")
+		logger.WarnS("Job manager shutdown timed out",
+			"component", "job_manager")
 		return ctx.Err()
 	}
 }
@@ -455,10 +548,13 @@ func (m *Manager) CleanupOldJobs(maxAge time.Duration) {
 	defer m.mu.Unlock()
 
 	now := time.Now()
+	logger := util.GetLogger()
 	for id, job := range m.jobs {
 		if job.CompletedAt != nil && now.Sub(*job.CompletedAt) > maxAge {
 			delete(m.jobs, id)
-			util.Debug("Cleaned up old job %s", id)
+			logger.DebugS("Cleaned up old job",
+				"component", "job_manager",
+				"job_id", id)
 		}
 	}
 }

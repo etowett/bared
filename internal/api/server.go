@@ -3,13 +3,13 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"bared/internal/config"
 	"bared/internal/jobs"
+	"bared/internal/util"
 	"bared/internal/web"
 )
 
@@ -36,6 +36,7 @@ func NewServer(addr, authUser, authPass string, jobManager *jobs.Manager, cfg *c
 
 // Start starts the HTTP server
 func (s *Server) Start() error {
+	logger := util.GetLogger()
 	mux := s.setupRoutes()
 
 	s.httpServer = &http.Server{
@@ -46,7 +47,9 @@ func (s *Server) Start() error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("Starting HTTP server on %s", s.addr)
+	logger.InfoS("Starting HTTP server",
+		"component", "api",
+		"address", s.addr)
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server error: %w", err)
 	}
@@ -57,7 +60,9 @@ func (s *Server) Start() error {
 // Shutdown gracefully shuts down the HTTP server
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.httpServer != nil {
-		log.Println("Shutting down HTTP server...")
+		logger := util.GetLogger()
+		logger.InfoS("Shutting down HTTP server",
+			"component", "api")
 		return s.httpServer.Shutdown(ctx)
 	}
 	return nil

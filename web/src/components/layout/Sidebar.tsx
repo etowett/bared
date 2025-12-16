@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { LayoutDashboard, RotateCcw, Database, Activity, ChevronLeft } from 'lucide-react'
+import { Link, useLocation } from '@tanstack/react-router'
+import { LayoutDashboard, RotateCcw, Database, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -7,13 +7,31 @@ interface NavItem {
   id: string
   label: string
   icon: React.ComponentType<{ className?: string }>
+  to: string
+  matchPaths?: string[]
 }
 
 const navItems: NavItem[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'restore', label: 'Restore', icon: RotateCcw },
-  { id: 'targets', label: 'Targets', icon: Database },
-  { id: 'jobs', label: 'Jobs', icon: Activity },
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutDashboard,
+    to: '/',
+  },
+  {
+    id: 'backup',
+    label: 'Backup',
+    icon: Database,
+    to: '/backup',
+    matchPaths: ['/backup', '/backup/jobs'],
+  },
+  {
+    id: 'restore',
+    label: 'Restore',
+    icon: RotateCcw,
+    to: '/restore',
+    matchPaths: ['/restore', '/restore/jobs'],
+  },
 ]
 
 interface SidebarProps {
@@ -22,40 +40,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
-  const [activeSection, setActiveSection] = useState('overview')
+  const location = useLocation()
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const sections = navItems.map((item) => ({
-        id: item.id,
-        element: document.getElementById(item.id),
-      }))
-
-      // Find the section that's currently in view
-      const currentSection = sections.find((section) => {
-        if (!section.element) return false
-        const rect = section.element.getBoundingClientRect()
-        return rect.top <= 150 && rect.bottom >= 150
-      })
-
-      if (currentSection) {
-        setActiveSection(currentSection.id)
-      }
+  const isActive = (item: NavItem) => {
+    if (item.to === '/') {
+      return location.pathname === '/'
     }
-
-    window.addEventListener('scroll', handleScroll)
-    handleScroll() // Check initial position
-
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId)
-    if (element) {
-      const yOffset = -80 // Offset for fixed header
-      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
-      window.scrollTo({ top: y, behavior: 'smooth' })
+    if (item.matchPaths) {
+      return item.matchPaths.some(
+        (path) => location.pathname === path || location.pathname.startsWith(path + '/')
+      )
     }
+    return location.pathname === item.to || location.pathname.startsWith(item.to + '/')
   }
 
   return (
@@ -70,24 +66,24 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         <div className="flex-1 space-y-1 p-3">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive = activeSection === item.id
+            const active = isActive(item)
 
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => scrollToSection(item.id)}
+                to={item.to}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
                   'hover:bg-accent hover:text-accent-foreground',
-                  isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+                  active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
                 <Icon
-                  className={cn('h-5 w-5 flex-shrink-0', isActive && 'text-primary-foreground')}
+                  className={cn('h-5 w-5 flex-shrink-0', active && 'text-primary-foreground')}
                 />
                 {!isCollapsed && <span>{item.label}</span>}
-              </button>
+              </Link>
             )
           })}
         </div>
