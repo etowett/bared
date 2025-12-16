@@ -4,7 +4,6 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -75,6 +74,7 @@ func WithShutdownTimeout(timeout time.Duration) Option {
 
 // New creates a new daemon instance
 func New(cfg *config.Config, opts ...Option) *Daemon {
+	logger := util.GetLogger()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Initialize persistence
@@ -93,10 +93,14 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 
 		sqlStore, err := persistence.NewSQLStore(driver, dsn)
 		if err != nil {
-			log.Printf("Failed to initialize persistence: %v. Running in-memory only.", err)
+			logger.WarnS("Failed to initialize persistence. Running in-memory only.",
+				"component", "daemon",
+				"error", err)
 			store = nil // Explicitly set to nil to avoid nil pointer in interface
 		} else {
-			log.Printf("Persistence enabled: %s", driver)
+			logger.InfoS("Persistence enabled",
+				"component", "daemon",
+				"driver", driver)
 			store = sqlStore // Only assign if successful
 		}
 	}
@@ -123,7 +127,9 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 
 	// Initialize HTTP server if configured
 	if d.httpAddr != "" {
-		log.Printf("Creating HTTP server: %s", d.httpAddr)
+		logger.InfoS("Creating HTTP server",
+			"component", "daemon",
+			"address", d.httpAddr)
 		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg)
 	}
 
@@ -132,7 +138,8 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 
 // Start starts the daemon and scheduler
 func (d *Daemon) Start() error {
-	log.Println("Starting BareD daemon...")
+	logger := util.GetLogger()
+	logger.InfoS("Starting BareD daemon", "component", "daemon")
 
 	// Start job manager worker pool
 	d.jobManager.Start()
@@ -144,10 +151,14 @@ func (d *Daemon) Start() error {
 	if d.apiServer != nil {
 		go func() {
 			if err := d.apiServer.Start(); err != nil {
-				log.Printf("HTTP server error: %v", err)
+				logger.ErrorS("HTTP server error",
+					"component", "daemon",
+					"error", err)
 			}
 		}()
-		log.Printf("HTTP server started on %s", d.httpAddr)
+		logger.InfoS("HTTP server started",
+			"component", "daemon",
+			"address", d.httpAddr)
 	}
 
 	// Schedule all targets that have a schedule configured
@@ -158,7 +169,10 @@ func (d *Daemon) Start() error {
 				return fmt.Errorf("failed to schedule target '%s': %w", target.Name, err)
 			}
 			scheduledCount++
-			log.Printf("Scheduled target '%s' with cron: %s", target.Name, target.Schedule)
+			logger.InfoS("Scheduled target",
+				"component", "daemon",
+				"target", target.Name,
+				"cron", target.Schedule)
 		}
 	}
 
@@ -168,7 +182,9 @@ func (d *Daemon) Start() error {
 
 	// Start the scheduler
 	d.scheduler.Start()
-	log.Printf("Scheduler started with %d scheduled targets", scheduledCount)
+	logger.InfoS("Scheduler started",
+		"component", "daemon",
+		"scheduled_targets", scheduledCount)
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)
@@ -180,13 +196,18 @@ func (d *Daemon) Start() error {
 
 		switch sig {
 		case syscall.SIGINT, syscall.SIGTERM:
-			log.Printf("Received %v signal, shutting down gracefully...", sig)
+			logger.InfoS("Received shutdown signal",
+				"component", "daemon",
+				"signal", sig.String())
 			return d.Stop()
 
 		case syscall.SIGHUP:
-			log.Println("Received SIGHUP signal, reloading configuration...")
+			logger.InfoS("Received SIGHUP signal, reloading configuration",
+				"component", "daemon")
 			if err := d.Reload(); err != nil {
-				log.Printf("Failed to reload configuration: %v", err)
+				logger.ErrorS("Failed to reload configuration",
+					"component", "daemon",
+					"error", err)
 			}
 		}
 	}
@@ -194,60 +215,73 @@ func (d *Daemon) Start() error {
 
 // Stop stops the daemon gracefully
 func (d *Daemon) Stop() error {
-	log.Println("Stopping daemon gracefully...")
+	logger := util.GetLogger()
+	logger.InfoS("Stopping daemon gracefully", "component", "daemon")
 
 	// 1. Stop scheduler (wait for running cron jobs to complete)
-	log.Println("Stopping scheduler...")
+	logger.InfoS("Stopping scheduler", "component", "daemon")
 	ctx := d.scheduler.Stop()
 	<-ctx.Done()
-	log.Println("Scheduler stopped")
+	logger.InfoS("Scheduler stopped", "component", "daemon")
 
 	// 2. Shutdown HTTP server
 	if d.apiServer != nil {
-		log.Println("Stopping HTTP server...")
+		logger.InfoS("Stopping HTTP server", "component", "daemon")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := d.apiServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("HTTP server shutdown error: %v", err)
+			logger.ErrorS("HTTP server shutdown error",
+				"component", "daemon",
+				"error", err)
 		}
-		log.Println("HTTP server stopped")
+		logger.InfoS("HTTP server stopped", "component", "daemon")
 	}
 
 	// 3. Shutdown job manager (wait for running jobs with timeout)
-	log.Printf("Waiting for running jobs to complete (timeout: %v)...", d.shutdownTimeout)
+	logger.InfoS("Waiting for running jobs to complete",
+		"component", "daemon",
+		"timeout", d.shutdownTimeout)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), d.shutdownTimeout)
 	defer cancel()
 
 	if err := d.jobManager.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Warning: Job manager shutdown timed out: %v", err)
-		log.Println("Some jobs may have been terminated")
+		logger.WarnS("Job manager shutdown timed out",
+			"component", "daemon",
+			"error", err)
+		logger.WarnS("Some jobs may have been terminated",
+			"component", "daemon")
 	} else {
-		log.Println("All jobs completed successfully")
+		logger.InfoS("All jobs completed successfully",
+			"component", "daemon")
 	}
 
 	// 4. Close persistence if active
 	if d.store != nil {
 		if err := d.store.Close(); err != nil {
-			log.Printf("Error closing persistence layer: %v", err)
+			logger.ErrorS("Error closing persistence layer",
+				"component", "daemon",
+				"error", err)
 		}
 	}
 
 	// 5. Cancel daemon context
 	d.cancel()
 
-	log.Println("Daemon stopped")
+	logger.InfoS("Daemon stopped", "component", "daemon")
 	return nil
 }
 
 // Reload reloads the configuration and reschedules targets
 func (d *Daemon) Reload() error {
+	logger := util.GetLogger()
 	// TODO: Implement configuration reload
 	// This would involve:
 	// 1. Loading new configuration
 	// 2. Stopping scheduler
 	// 3. Rescheduling targets with new config
 	// 4. Starting scheduler
-	log.Println("Configuration reload not yet fully implemented")
+	logger.InfoS("Configuration reload not yet fully implemented",
+		"component", "daemon")
 	return nil
 }
 
@@ -264,13 +298,19 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 			lockKey := fmt.Sprintf("cron:%s:%s", targetCopy.Name, now.Format("200601021504"))
 			ttl := 1 * time.Hour // Hold lock for an hour (simulates "job ran")
 
+			logger := util.GetLogger()
 			acquired, err := d.store.AcquireLock(d.ctx, lockKey, ttl)
 			if err != nil {
-				util.Error("Failed to acquire lock for %s: %v", targetCopy.Name, err)
+				logger.ErrorS("Failed to acquire lock",
+					"component", "daemon",
+					"target", targetCopy.Name,
+					"error", err)
 				return // Fail safe
 			}
 			if !acquired {
-				util.Info("Skipping scheduled run for %s (lock held by another instance)", targetCopy.Name)
+				logger.InfoS("Skipping scheduled run (lock held by another instance)",
+					"component", "daemon",
+					"target", targetCopy.Name)
 				return
 			}
 
@@ -280,16 +320,25 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 			// The TTL handles the eventual cleanup.
 		}
 
-		log.Printf("[%s] Starting scheduled backup", targetCopy.Name)
+		logger := util.GetLogger()
+		logger.InfoS("Starting scheduled backup",
+			"component", "daemon",
+			"target", targetCopy.Name)
 
 		// Submit job to job manager
 		jobID, err := d.jobManager.SubmitBackup(d.ctx, targetCopy, false)
 		if err != nil {
-			log.Printf("[%s] Failed to submit scheduled backup: %v", targetCopy.Name, err)
+			logger.ErrorS("Failed to submit scheduled backup",
+				"component", "daemon",
+				"target", targetCopy.Name,
+				"error", err)
 			return
 		}
 
-		log.Printf("[%s] Scheduled backup submitted as job %s", targetCopy.Name, jobID)
+		logger.InfoS("Scheduled backup submitted",
+			"component", "daemon",
+			"target", targetCopy.Name,
+			"job_id", jobID)
 	}
 
 	// Add job to scheduler

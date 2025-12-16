@@ -4,6 +4,17 @@
 # Default storage backend for all targets
 default_storage: s3
 
+# Logging configuration (optional)
+# Configure structured logging with slog
+log_level: info              # Levels: debug, info, warn, error (default: info)
+log_format: auto             # Formats: json, text, auto (default: auto)
+                             # - json: Structured JSON logs (best for production, log aggregators)
+                             # - text: Human-readable text logs (best for development)
+                             # - auto: JSON in production, text in development (based on BARED_ENV)
+log_options:
+  add_source: false          # Add file:line to log entries (useful for debugging)
+  # time_format: RFC3339     # Custom time format (optional, defaults to RFC3339)
+
 # Persistence configuration (optional)
 # Store job history and logs in database
 persistence:

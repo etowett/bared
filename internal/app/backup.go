@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"bared/internal/compress"
@@ -92,7 +91,10 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		progress.SetStage("validating", 0)
 	}
 
-	log.Printf("[%s] Starting backup", target.Name)
+	logger := util.GetLogger()
+	logger.InfoS("Starting backup",
+		"component", "backup",
+		"target", target.Name)
 
 	// Generate backup path early (before any validation) so it's always set in result
 	extension := ""
@@ -154,24 +156,41 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 		return result, fmt.Errorf("storage validation failed: %w", storageErr)
 	}
 
-	log.Printf("[%s] Backup details:", target.Name)
-	log.Printf("\tStorage: %s", stor.Name())
+	logger.InfoS("Backup details",
+		"component", "backup",
+		"target", target.Name,
+		"storage", stor.Name())
+
+	var storagePath string
 	if storageCfg.Path != "" {
-		log.Printf("\t\tStorage path: %s/%s", storageCfg.Path, backupPath)
+		storagePath = storageCfg.Path + "/" + backupPath
 	} else if storageCfg.Bucket != "" {
-		log.Printf("\t\tStorage path: s3://%s/%s", storageCfg.Bucket, backupPath)
+		storagePath = "s3://" + storageCfg.Bucket + "/" + backupPath
 	} else if storageCfg.Host != "" {
-		log.Printf("\t\tStorage path: sftp://%s@%s:%d%s/%s",
+		storagePath = fmt.Sprintf("sftp://%s@%s:%d%s/%s",
 			storageCfg.Username, storageCfg.Host, storageCfg.Port, storageCfg.Path, backupPath)
 	}
-	log.Printf("[%s] Database: %s (type: %s, host: %s:%d, user: %s)",
-		target.Name,
-		target.Conn.Database,
-		target.Conn.Type,
-		target.Conn.Host,
-		target.Conn.Port,
-		target.Conn.User)
-	log.Printf("[%s] Backup file: %s", target.Name, backupPath)
+
+	if storagePath != "" {
+		logger.InfoS("Storage path",
+			"component", "backup",
+			"target", target.Name,
+			"path", storagePath)
+	}
+
+	logger.InfoS("Database details",
+		"component", "backup",
+		"target", target.Name,
+		"database", target.Conn.Database,
+		"type", target.Conn.Type,
+		"host", target.Conn.Host,
+		"port", target.Conn.Port,
+		"user", target.Conn.User)
+
+	logger.InfoS("Backup file",
+		"component", "backup",
+		"target", target.Name,
+		"file", backupPath)
 
 	// End validation stage
 	stageTracker.EndStage(map[string]interface{}{
@@ -232,17 +251,26 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	// Update retention tracker
 	tracker, err := retention.NewTracker(stor.Name(), target.Name)
 	if err != nil {
-		log.Printf("Warning: failed to create tracker: %v", err)
+		logger.WarnS("Failed to create tracker",
+			"component", "backup",
+			"error", err)
 	} else {
 		if err := tracker.AddBackup(backupPath, result.Size); err != nil {
-			log.Printf("Warning: failed to update tracker: %v", err)
+			logger.WarnS("Failed to update tracker",
+				"component", "backup",
+				"error", err)
 		}
 
 		// Cleanup old backups if keep is configured
 		if storageCfg.Keep > 0 {
-			log.Printf("[%s] Cleaning up old backups (keeping %d)", target.Name, storageCfg.Keep)
+			logger.InfoS("Cleaning up old backups",
+				"component", "backup",
+				"target", target.Name,
+				"keep_count", storageCfg.Keep)
 			if err := tracker.CleanupOldBackups(stor, storageCfg.Keep); err != nil {
-				log.Printf("Warning: cleanup failed: %v", err)
+				logger.WarnS("Cleanup failed",
+					"component", "backup",
+					"error", err)
 			}
 		}
 	}
@@ -250,7 +278,10 @@ func BackupTarget(ctx context.Context, cfg *config.Config, target *config.Target
 	// Send notifications
 	sendNotifications(ctx, cfg, target, result, nil)
 
-	log.Printf("[%s] Backup completed successfully in %v", target.Name, result.Duration)
+	logger.InfoS("Backup completed successfully",
+		"component", "backup",
+		"target", target.Name,
+		"duration", result.Duration)
 
 	return result, nil
 }
@@ -302,11 +333,16 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 		}
 	}
 
+	logger := util.GetLogger()
 	for notifierName, notifierCfg := range cfg.Notifiers {
 		notifier, notifyErr := notify.New(notifierCfg)
 		if notifyErr != nil {
-			log.Printf("[notify] failed to create notifier name=%s type=%s dest=%s err=%v",
-				notifierName, notifierCfg.Type, notifierDestination(notifierCfg), notifyErr)
+			logger.WarnS("Failed to create notifier",
+				"component", "notifier",
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", notifierDestination(notifierCfg),
+				"error", notifyErr)
 			continue
 		}
 
@@ -315,29 +351,78 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 
 		// Send success or failure notification
 		if err != nil {
-			log.Printf("[notify] sending op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
+			logger.InfoS("Sending failure notification",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "failure",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest)
 			if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
-				log.Printf("[notify] failed op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+				logger.ErrorS("Failed to send notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "failure",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"duration", time.Since(start),
+					"error", sendErr)
 			} else {
-				log.Printf("[notify] sent op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
+				logger.InfoS("Notification sent",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "failure",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"duration", time.Since(start))
 			}
 		} else if notifier.ShouldNotifySuccess() {
-			log.Printf("[notify] sending op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
+			logger.InfoS("Sending success notification",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "success",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest)
 			if sendErr := notifier.NotifySuccess(ctx, msg); sendErr != nil {
-				log.Printf("[notify] failed op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+				logger.ErrorS("Failed to send notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "success",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"duration", time.Since(start),
+					"error", sendErr)
 			} else {
-				log.Printf("[notify] sent op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
+				logger.InfoS("Notification sent",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "success",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"duration", time.Since(start))
 			}
 		} else {
 			// Avoid silent "success but no notification" confusion when on_success is disabled.
-			util.Debug("[notify] skipping op=%s status=success target=%s notifier=%s type=%s dest=%s reason=on_success_disabled",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest)
+			logger.DebugS("Skipping success notification",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "success",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest,
+				"reason", "on_success_disabled")
 		}
 	}
 }
@@ -358,7 +443,10 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	}
 	defer cleanup()
 
-	util.Debug("[%s] Created temp file for compression", target.Name)
+	logger := util.GetLogger()
+	logger.DebugS("Created temp file for compression",
+		"component", "backup",
+		"target", target.Name)
 
 	// Create pipe for streaming from dump to compression
 	dumpReader, dumpWriter := io.Pipe()
@@ -375,18 +463,29 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 		defer func() {
 			//nolint:govet // shadow is intentional in defer function
 			if err := dumpWriter.Close(); err != nil {
-				util.Warn("[%s] Failed to close dump writer: %v", target.Name, err)
+				logger.WarnS("Failed to close dump writer",
+					"component", "backup",
+					"target", target.Name,
+					"error", err)
 			}
 		}()
-		util.Debug("[%s] Starting database dump", target.Name)
+		logger.DebugS("Starting database dump",
+			"component", "backup",
+			"target", target.Name)
 		meta, dumpResultErr := dumper.Dump(ctx, dumpCounter)
 		if dumpResultErr != nil {
 			dumpErr = dumpResultErr
-			util.Error("[%s] Dump error: %v", target.Name, dumpResultErr)
+			logger.ErrorS("Dump error",
+				"component", "backup",
+				"target", target.Name,
+				"error", dumpResultErr)
 		} else {
 			dumpMetadata = meta
 			uncompressedSize = dumpCounter.Size()
-			util.Info("[%s] Database dump completed: %s", target.Name, util.FormatBytes(uncompressedSize))
+			logger.InfoS("Database dump completed",
+				"component", "backup",
+				"target", target.Name,
+				"size", util.FormatBytes(uncompressedSize))
 		}
 	}()
 
@@ -396,7 +495,10 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 		progress.SetStage("compressing", 0)
 	}
 
-	util.Debug("[%s] Starting compression (type: %s)", target.Name, target.Compress.Type)
+	logger.DebugS("Starting compression",
+		"component", "backup",
+		"target", target.Name,
+		"compression_type", target.Compress.Type)
 	compressor, err := compress.New(target.Compress.Type, target.Conn.Database)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create compressor: %w", err)
@@ -404,7 +506,10 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 
 	compressErr = compressor.Compress(ctx, dumpReader, tmpFile)
 	if compressErr != nil {
-		util.Error("[%s] Compress error: %v", target.Name, compressErr)
+		logger.ErrorS("Compress error",
+			"component", "backup",
+			"target", target.Name,
+			"error", compressErr)
 		stageTracker.FailStage(compressErr)
 		return nil, nil, fmt.Errorf("compress failed: %w", compressErr)
 	}
@@ -426,8 +531,12 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	if uncompressedSize > 0 {
 		compressionRatio = (1.0 - float64(compressedSize)/float64(uncompressedSize)) * 100
 	}
-	util.Info("[%s] Compression completed: %s -> %s (%.1f%% reduction)",
-		target.Name, util.FormatBytes(uncompressedSize), util.FormatBytes(compressedSize), compressionRatio)
+	logger.InfoS("Compression completed",
+		"component", "backup",
+		"target", target.Name,
+		"uncompressed_size", util.FormatBytes(uncompressedSize),
+		"compressed_size", util.FormatBytes(compressedSize),
+		"compression_ratio_percent", compressionRatio)
 
 	// End COMPRESSING stage
 	stageTracker.EndStage(map[string]interface{}{
@@ -448,7 +557,9 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 		return nil, nil, fmt.Errorf("failed to seek temp file: %w", err)
 	}
 
-	util.Debug("[%s] Uploading compressed backup to storage", target.Name)
+	logger.DebugS("Uploading compressed backup to storage",
+		"component", "backup",
+		"target", target.Name)
 
 	// Store compressed data from temp file (seekable, known size)
 	storeErr := stor.Store(ctx, backupPath, tmpFile, compressedSize)
@@ -457,7 +568,9 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 		return nil, nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
-	util.Info("[%s] Upload completed successfully", target.Name)
+	logger.InfoS("Upload completed successfully",
+		"component", "backup",
+		"target", target.Name)
 
 	// End UPLOADING stage
 	stageTracker.EndStage(map[string]interface{}{
@@ -497,13 +610,21 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 	}
 	defer cleanup()
 
-	util.Debug("[%s] Created temp file for uncompressed backup", target.Name)
+	logger := util.GetLogger()
+	logger.DebugS("Created temp file for uncompressed backup",
+		"component", "backup",
+		"target", target.Name)
 
 	// Dump directly to temp file (no goroutine needed - linear flow)
-	util.Debug("[%s] Starting database dump", target.Name)
+	logger.DebugS("Starting database dump",
+		"component", "backup",
+		"target", target.Name)
 	dumpMetadata, err := dumper.Dump(ctx, tmpFile)
 	if err != nil {
-		util.Error("[%s] Dump error: %v", target.Name, err)
+		logger.ErrorS("Dump error",
+			"component", "backup",
+			"target", target.Name,
+			"error", err)
 		stageTracker.FailStage(err)
 		return nil, fmt.Errorf("dump failed: %w", err)
 	}
@@ -515,7 +636,10 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 		return nil, fmt.Errorf("failed to get backup file size: %w", err)
 	}
 
-	util.Info("[%s] Database dump completed: %s", target.Name, util.FormatBytes(backupSize))
+	logger.InfoS("Database dump completed",
+		"component", "backup",
+		"target", target.Name,
+		"size", util.FormatBytes(backupSize))
 
 	// End DUMPING stage
 	stageTracker.EndStage(map[string]interface{}{
@@ -534,7 +658,9 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 		return nil, fmt.Errorf("failed to seek temp file: %w", err)
 	}
 
-	util.Debug("[%s] Uploading uncompressed backup to storage", target.Name)
+	logger.DebugS("Uploading uncompressed backup to storage",
+		"component", "backup",
+		"target", target.Name)
 
 	// Store data from temp file (seekable, known size)
 	storeErr := stor.Store(ctx, backupPath, tmpFile, backupSize)
@@ -543,7 +669,9 @@ func backupWithoutCompression(ctx context.Context, target *config.Target, dumper
 		return nil, fmt.Errorf("store failed: %w", storeErr)
 	}
 
-	util.Info("[%s] Upload completed successfully", target.Name)
+	logger.InfoS("Upload completed successfully",
+		"component", "backup",
+		"target", target.Name)
 
 	// End UPLOADING stage
 	stageTracker.EndStage(map[string]interface{}{

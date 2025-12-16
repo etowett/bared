@@ -29,6 +29,7 @@ If no label is added, the default will be a patch release.
 -->
 
 **Required:** Add one of the following labels to this PR:
+
 - `release:major` - For breaking changes or major new features
 - `release:minor` - For new features and enhancements
 - `release:patch` - For bug fixes, documentation, and small improvements

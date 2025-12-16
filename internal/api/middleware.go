@@ -2,9 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
+
+	"bared/internal/util"
 )
 
 // basicAuthMiddleware handles HTTP Basic Authentication
@@ -23,6 +24,7 @@ func (s *Server) basicAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // loggingMiddleware logs HTTP requests
 func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger := util.GetLogger()
 		start := time.Now()
 
 		// Create a response writer wrapper to capture status code
@@ -31,7 +33,12 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		next(wrapped, r)
 
 		duration := time.Since(start)
-		log.Printf("[HTTP] %s %s - %d (%v)", r.Method, r.URL.Path, wrapped.statusCode, duration)
+		logger.InfoS("HTTP request",
+			"component", "api",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", wrapped.statusCode,
+			"duration", duration)
 	}
 }
 
@@ -65,12 +72,15 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 // respondJSON writes a JSON response
 func respondJSON(w http.ResponseWriter, code int, data interface{}) {
+	logger := util.GetLogger()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 
 	if data != nil {
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			log.Printf("Failed to encode JSON response: %v", err)
+			logger.ErrorS("Failed to encode JSON response",
+				"component", "api",
+				"error", err)
 		}
 	}
 }

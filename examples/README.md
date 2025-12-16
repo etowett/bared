@@ -254,6 +254,51 @@ Each operation stage with duration:
 
 ## 🔧 Configuration Tips
 
+### Logging Configuration
+
+Configure structured logging with slog (Go's standard library):
+
+```yaml
+# Logging configuration (optional)
+log_level: info              # debug, info, warn, error (default: info)
+log_format: auto             # json, text, auto (default: auto)
+log_options:
+  add_source: false          # Add file:line to logs for debugging
+  # time_format: RFC3339     # Custom time format (optional)
+```
+
+**Log Formats:**
+- `json` - Structured JSON logs for production, log aggregators (ELK, Splunk, CloudWatch)
+- `text` - Human-readable text logs for development and terminal output
+- `auto` - Automatically selects JSON (production) or text (development) based on `BARED_ENV`
+
+**Log Levels:**
+- `debug` - Verbose logging (database sizes, file operations, detailed progress)
+- `info` - Standard operational logs (backups started/completed, notifications sent)
+- `warn` - Warning messages (retries, non-critical issues)
+- `error` - Error messages only (failures, critical issues)
+
+**Environment Variables:**
+```bash
+export BARED_ENV=production    # Forces JSON logging
+export BARED_LOG_FORMAT=json   # Override log format
+```
+
+**Examples:**
+```yaml
+# Development: Human-readable logs
+log_level: debug
+log_format: text
+
+# Production: Structured JSON for aggregation
+log_level: info
+log_format: json
+
+# Auto-detect based on environment
+log_level: info
+log_format: auto
+```
+
 ### Environment Variables
 
 Always use environment variables for secrets:

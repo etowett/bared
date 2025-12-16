@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -48,6 +47,23 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 }
 
+// initializeLogger initializes the logger with config settings
+func initializeLogger(cfg *config.Config) {
+	logLevel := util.ParseLogLevel(cfg.LogLevel)
+
+	// Prepare logger options if configured
+	var logOpts *util.LoggerOptions
+	if cfg.LogOptions != nil {
+		logOpts = &util.LoggerOptions{
+			AddSource:  cfg.LogOptions.AddSource,
+			TimeFormat: cfg.LogOptions.TimeFormat,
+		}
+	}
+
+	// Initialize with options
+	util.InitLoggerWithOptions(logLevel, cfg.LogFormat, logOpts)
+}
+
 var validateConfigCmd = &cobra.Command{
 	Use:   "validate-config",
 	Short: "Validate configuration file",
@@ -57,9 +73,8 @@ var validateConfigCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Initialize logger with configured level
-		logLevel := util.ParseLogLevel(cfg.LogLevel)
-		util.InitLogger(logLevel)
+		// Initialize logger with config settings
+		initializeLogger(cfg)
 
 		if validateErr := cfg.Validate(); validateErr != nil {
 			return validateErr
@@ -86,15 +101,13 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("--target flag is required")
 		}
 
-		log.Printf("Working with target: %s", targetName)
-
 		cfg, err := config.Load(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		logLevel := util.ParseLogLevel(cfg.LogLevel)
-		util.InitLogger(logLevel)
+		// Initialize logger with config settings
+		initializeLogger(cfg)
 
 		if validateErr := cfg.Validate(); validateErr != nil {
 			return validateErr
@@ -105,8 +118,6 @@ var backupCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-
-		log.Printf("Target found: %s", target.Name)
 
 		// Execute backup
 		ctx := context.Background()
@@ -188,9 +199,8 @@ Examples:
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Initialize logger with configured level
-		logLevel := util.ParseLogLevel(cfg.LogLevel)
-		util.InitLogger(logLevel)
+		// Initialize logger with config settings
+		initializeLogger(cfg)
 
 		if validateErr := cfg.Validate(); validateErr != nil {
 			return validateErr
@@ -325,9 +335,8 @@ var listCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Initialize logger with configured level
-		logLevel := util.ParseLogLevel(cfg.LogLevel)
-		util.InitLogger(logLevel)
+		// Initialize logger with config settings
+		initializeLogger(cfg)
 
 		if validateErr := cfg.Validate(); validateErr != nil {
 			return validateErr
@@ -381,9 +390,8 @@ var daemonCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Initialize logger with configured level
-		logLevel := util.ParseLogLevel(cfg.LogLevel)
-		util.InitLogger(logLevel)
+		// Initialize logger with config settings
+		initializeLogger(cfg)
 
 		if validateErr := cfg.Validate(); validateErr != nil {
 			return validateErr

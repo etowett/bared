@@ -60,14 +60,22 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 
 	// Check if reader is seekable for retry support
 	seeker, isSeekable := r.(io.ReadSeeker)
+	logger := util.GetLogger()
 	if !isSeekable {
-		util.Warn("[S3:%s] Reader is not seekable - retries may fail", s.cfg.Name)
+		logger.WarnS("Reader is not seekable - retries may fail",
+			"storage", s.cfg.Name,
+			"component", "s3")
 	} else {
-		util.Debug("[S3:%s] Reader is seekable - retry support enabled", s.cfg.Name)
+		logger.DebugS("Reader is seekable - retry support enabled",
+			"storage", s.cfg.Name,
+			"component", "s3")
 	}
 
-	util.Info("[S3:%s] Uploading to bucket '%s' key '%s' (%s)",
-		s.cfg.Name, s.cfg.Bucket, key, util.FormatBytes(size))
+	logger.InfoS("Uploading to S3",
+		"storage", s.cfg.Name,
+		"bucket", s.cfg.Bucket,
+		"key", key,
+		"size", util.FormatBytes(size))
 
 	// Upload with retry
 	attempt := 0
@@ -76,7 +84,10 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 
 		// Seek to beginning for retry attempts
 		if isSeekable && attempt > 1 {
-			util.Debug("[S3:%s] Seeking to start for retry attempt %d", s.cfg.Name, attempt)
+			logger.DebugS("Seeking to start for retry",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"attempt", attempt)
 			if _, err := seeker.Seek(0, 0); err != nil {
 				return fmt.Errorf("failed to seek reader for retry: %w", err)
 			}
@@ -92,28 +103,46 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 		// Set ContentLength if size is known (CRITICAL for Hetzner and S3-compatible services)
 		if size > 0 {
 			input.ContentLength = aws.Int64(size)
-			util.Debug("[S3:%s] Setting ContentLength: %d bytes", s.cfg.Name, size)
+			logger.DebugS("Setting ContentLength",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"size_bytes", size)
 		}
 
-		util.Debug("[S3:%s] Starting upload attempt %d", s.cfg.Name, attempt)
+		logger.DebugS("Starting upload attempt",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"attempt", attempt)
 
 		// Execute upload
 		_, err := s.client.PutObject(ctx, input)
 		if err != nil {
-			util.Warn("[S3:%s] Upload attempt %d failed: %v", s.cfg.Name, attempt, err)
+			logger.WarnS("Upload attempt failed",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"attempt", attempt,
+				"error", err)
 			return fmt.Errorf("failed to upload to S3: %w", err)
 		}
 
-		util.Debug("[S3:%s] Upload attempt %d succeeded", s.cfg.Name, attempt)
+		logger.DebugS("Upload attempt succeeded",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"attempt", attempt)
 		return nil
 	})
 
 	if err != nil {
-		util.Error("[S3:%s] Upload failed after all retries: %v", s.cfg.Name, err)
+		logger.ErrorS("Upload failed after all retries",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"error", err)
 		return fmt.Errorf("failed to upload to S3 with retry: %w", err)
 	}
 
-	util.Info("[S3:%s] Upload completed successfully", s.cfg.Name)
+	logger.InfoS("Upload completed successfully",
+		"storage", s.cfg.Name,
+		"component", "s3")
 	return nil
 }
 
@@ -229,7 +258,9 @@ func (s *S3) initClient(ctx context.Context) error {
 
 	// Enable SDK debug logging if log level is DEBUG
 	if util.GetLogger().GetLevel() == util.DEBUG {
-		util.Debug("[S3:%s] Enabling AWS SDK debug logging", s.cfg.Name)
+		util.GetLogger().DebugS("Enabling AWS SDK debug logging",
+			"storage", s.cfg.Name,
+			"component", "s3")
 		configOptions = append(configOptions, config.WithClientLogMode(
 			aws.LogRequestWithBody|aws.LogResponseWithBody|aws.LogRetries,
 		))

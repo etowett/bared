@@ -6,12 +6,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
 
 	"bared/internal/jobs"
+	"bared/internal/util"
 
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
@@ -58,7 +58,10 @@ func sanitizeDSN(driver, dsn string) string {
 
 // NewSQLStore creates a new SQL store
 func NewSQLStore(driver, dsn string) (*SQLStore, error) {
-	log.Printf("Opening database connection: %s", sanitizeDSN(driver, dsn))
+	logger := util.GetLogger()
+	logger.InfoS("Opening database connection",
+		"component", "persistence",
+		"connection_info", sanitizeDSN(driver, dsn))
 
 	db, err := sql.Open(driver, dsn)
 	if err != nil {

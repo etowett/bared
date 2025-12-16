@@ -3,12 +3,12 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
 	"bared/internal/app"
 	"bared/internal/jobs"
+	"bared/internal/util"
 	"bared/internal/version"
 )
 
@@ -142,7 +142,10 @@ func (s *Server) handleTriggerBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Triggering backup for target: %+v", req)
+	logger := util.GetLogger()
+	logger.InfoS("Triggering backup",
+		"component", "api",
+		"target", req.Target)
 
 	if req.Target == "" {
 		respondError(w, http.StatusBadRequest, "Target name is required")

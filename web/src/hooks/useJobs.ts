@@ -4,6 +4,7 @@ import { apiClient } from '../api/client'
 interface UseJobsFilters {
   status?: string
   target?: string
+  type?: 'backup' | 'restore'
 }
 
 // Fetch all jobs with optional filters

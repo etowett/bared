@@ -17,6 +17,11 @@ export const clearAuth = () => {
   sessionStorage.removeItem('bared_auth')
 }
 
+// Logout
+export const logout = () => {
+  clearAuth()
+}
+
 // Check if authenticated
 export const isAuthenticated = (): boolean => {
   return !!sessionStorage.getItem('bared_auth')
@@ -75,10 +80,12 @@ export const apiClient = {
   async getJobs(filters?: {
     status?: string
     target?: string
+    type?: 'backup' | 'restore'
   }): Promise<{ jobs: Job[]; total: number }> {
     const params = new URLSearchParams()
     if (filters?.status) params.set('status', filters.status)
     if (filters?.target) params.set('target', filters.target)
+    if (filters?.type) params.set('type', filters.type)
 
     const url = `/api/jobs${params.toString() ? `?${params}` : ''}`
     return apiFetch(url)

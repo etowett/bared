@@ -1,6 +1,10 @@
 # BareD Configuration Example - All Notification Types
 # This example demonstrates all three notification types working together
 
+# Logging configuration (optional)
+log_level: info              # debug, info, warn, error
+log_format: json             # json for structured logs in production
+
 # Persistence for job history and logs
 persistence:
   enabled: true

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"strings"
 	"time"
 
@@ -56,6 +55,7 @@ type RestoreResult struct {
 
 // RestoreTargetWithOptions performs a restore with specified options
 func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *config.Target, backupPath string, options *RestoreOptions, progress Progress) (*RestoreResult, error) {
+	logger := util.GetLogger()
 	startTime := time.Now()
 
 	// Initialize options if nil
@@ -78,11 +78,15 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		progress.SetStage("validating", 0)
 	}
 
-	dryRunSuffix := ""
+	mode := "live"
 	if result.DryRun {
-		dryRunSuffix = " (DRY-RUN)"
+		mode = "dry-run"
 	}
-	log.Printf("[%s] Starting restore%s from: %s", target.Name, dryRunSuffix, backupPath)
+	logger.InfoS("Starting restore",
+		"component", "restore",
+		"target", target.Name,
+		"mode", mode,
+		"backup_path", backupPath)
 
 	// Step 1: Create database restorer
 	restorer, err := database.NewRestorer(target)
@@ -94,13 +98,17 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	// Step 2: Validate database connection (unless skipped)
 	if !options.SkipValidation {
-		log.Printf("[%s] Validating database connection...", target.Name)
+		logger.InfoS("Validating database connection",
+			"component", "restore",
+			"target", target.Name)
 		if connErr := restorer.ValidateConnection(ctx); connErr != nil {
 			result.Error = fmt.Errorf("database connection validation failed: %w", connErr).Error()
 			return result, fmt.Errorf("database connection validation failed: %w", connErr)
 		}
 		result.Validations = append(result.Validations, "Database connection validated")
-		log.Printf("[%s] Database connection validated successfully", target.Name)
+		logger.InfoS("Database connection validated successfully",
+			"component", "restore",
+			"target", target.Name)
 	}
 
 	// Step 3: Get storage backend
@@ -134,7 +142,9 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 
 	// Step 5: Verify backup file exists (unless skipped)
 	if !options.SkipBackupVerify {
-		log.Printf("[%s] Verifying backup file exists...", target.Name)
+		logger.InfoS("Verifying backup file exists",
+			"component", "restore",
+			"target", target.Name)
 		exists, err := stor.Exists(ctx, backupPath)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to verify backup existence: %w", err).Error()
@@ -158,14 +168,19 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		result.Validations = append(result.Validations,
 			fmt.Sprintf("Backup file verified: %s (size: %d bytes, modified: %s)",
 				backupPath, backupInfo.Size, backupInfo.LastModified.Format(time.RFC3339)))
-		log.Printf("[%s] Backup file verified: %d bytes", target.Name, backupInfo.Size)
+		logger.InfoS("Backup file verified",
+			"component", "restore",
+			"target", target.Name,
+			"size_bytes", backupInfo.Size)
 	}
 
 	// Step 6: Check if backup needs decompression
 	needsDecompression := strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz")
 	if needsDecompression {
 		result.Validations = append(result.Validations, "Backup requires decompression")
-		log.Printf("[%s] Backup requires decompression", target.Name)
+		logger.InfoS("Backup requires decompression",
+			"component", "restore",
+			"target", target.Name)
 	}
 
 	// End validation stage
@@ -182,10 +197,18 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		result.Success = true
 		result.Duration = time.Since(startTime)
 		result.Stages = stageTracker.GetAllStages()
-		log.Printf("[%s] DRY-RUN completed successfully. All validations passed.", target.Name)
-		log.Printf("[%s] Validations performed:", target.Name)
+		logger.InfoS("DRY-RUN completed successfully",
+			"component", "restore",
+			"target", target.Name,
+			"validations_passed", len(result.Validations))
+		logger.InfoS("Validations performed",
+			"component", "restore",
+			"target", target.Name)
 		for _, v := range result.Validations {
-			log.Printf("[%s]   - %s", target.Name, v)
+			logger.InfoS("Validation",
+				"component", "restore",
+				"target", target.Name,
+				"validation", v)
 		}
 		return result, nil
 	}
@@ -206,7 +229,10 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 		result.Error = fmt.Errorf("restore failed: %w", restoreErr).Error()
 		result.Duration = time.Since(startTime)
 		result.Stages = stageTracker.GetAllStages()
-		log.Printf("[%s] Restore failed: %v", target.Name, restoreErr)
+		logger.ErrorS("Restore failed",
+			"component", "restore",
+			"target", target.Name,
+			"error", restoreErr)
 
 		// Send failure notifications
 		sendRestoreNotifications(ctx, cfg, target, result, restoreErr)
@@ -220,7 +246,10 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	// Store stage information
 	result.Stages = stageTracker.GetAllStages()
 
-	log.Printf("[%s] Restore completed successfully in %v", target.Name, result.Duration)
+	logger.InfoS("Restore completed successfully",
+		"component", "restore",
+		"target", target.Name,
+		"duration", result.Duration)
 
 	// Send success notifications
 	sendRestoreNotifications(ctx, cfg, target, result, nil)
@@ -235,6 +264,8 @@ func RestoreTarget(ctx context.Context, cfg *config.Config, target *config.Targe
 
 // restoreWithDecompression performs restore with decompression
 func restoreWithDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) error {
+	logger := util.GetLogger()
+
 	// Start RETRIEVING stage
 	stageTracker.StartStage("RETRIEVING")
 	if progress != nil {
@@ -247,21 +278,33 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 	var retrieveErr, decompressErr, restoreErr error
 
-	log.Printf("[%s] Starting restore pipeline: retrieve -> decompress -> restore", target.Name)
+	logger.InfoS("Starting restore pipeline: retrieve -> decompress -> restore",
+		"component", "restore",
+		"target", target.Name)
 
 	// Start retrieval in goroutine
 	go func() {
 		defer func() {
 			if err := retrieveWriter.Close(); err != nil {
-				log.Printf("[%s] Failed to close retrieve writer: %v", target.Name, err)
+				logger.WarnS("Failed to close retrieve writer",
+					"component", "restore",
+					"target", target.Name,
+					"error", err)
 			}
 		}()
-		log.Printf("[%s] Retrieving backup from storage", target.Name)
+		logger.InfoS("Retrieving backup from storage",
+			"component", "restore",
+			"target", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, retrieveWriter)
 		if retrieveErr != nil {
-			log.Printf("[%s] Retrieve error: %v", target.Name, retrieveErr)
+			logger.ErrorS("Retrieve error",
+				"component", "restore",
+				"target", target.Name,
+				"error", retrieveErr)
 		} else {
-			log.Printf("[%s] Backup retrieval completed", target.Name)
+			logger.InfoS("Backup retrieval completed",
+				"component", "restore",
+				"target", target.Name)
 		}
 	}()
 
@@ -275,10 +318,15 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 	go func() {
 		defer func() {
 			if err := decompressWriter.Close(); err != nil {
-				log.Printf("[%s] Failed to close decompress writer: %v", target.Name, err)
+				logger.WarnS("Failed to close decompress writer",
+					"component", "restore",
+					"target", target.Name,
+					"error", err)
 			}
 		}()
-		log.Printf("[%s] Starting decompression", target.Name)
+		logger.InfoS("Starting decompression",
+			"component", "restore",
+			"target", target.Name)
 		decompressor, err := compress.New("tgz", target.Conn.Database)
 		if err != nil {
 			decompressErr = err
@@ -286,9 +334,14 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 		}
 		decompressErr = decompressor.Decompress(ctx, retrieveReader, decompressWriter)
 		if decompressErr != nil {
-			log.Printf("[%s] Decompress error: %v", target.Name, decompressErr)
+			logger.ErrorS("Decompress error",
+				"component", "restore",
+				"target", target.Name,
+				"error", decompressErr)
 		} else {
-			log.Printf("[%s] Decompression completed", target.Name)
+			logger.InfoS("Decompression completed",
+				"component", "restore",
+				"target", target.Name)
 		}
 	}()
 
@@ -299,13 +352,17 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 	}
 
 	// Restore from decompressed data (this blocks until all data is read)
-	log.Printf("[%s] Starting database restore", target.Name)
+	logger.InfoS("Starting database restore",
+		"component", "restore",
+		"target", target.Name)
 	restoreErr = restorer.Restore(ctx, decompressReader)
 	if restoreErr != nil {
 		stageTracker.FailStage(restoreErr)
 		return fmt.Errorf("restore failed: %w", restoreErr)
 	}
-	log.Printf("[%s] Database restore completed", target.Name)
+	logger.InfoS("Database restore completed",
+		"component", "restore",
+		"target", target.Name)
 
 	// Check for errors in pipeline
 	if retrieveErr != nil {
@@ -325,6 +382,8 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 
 // restoreWithoutDecompression performs restore without decompression
 func restoreWithoutDecompression(ctx context.Context, target *config.Target, restorer database.Restorer, stor storage.Storage, backupPath string, stageTracker *util.StageTracker, progress Progress) error {
+	logger := util.GetLogger()
+
 	// Start RETRIEVING stage
 	stageTracker.StartStage("RETRIEVING")
 	if progress != nil {
@@ -336,19 +395,28 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 	var retrieveErr, restoreErr error
 
-	log.Printf("[%s] Starting restore pipeline: retrieve -> restore", target.Name)
+	logger.InfoS("Starting restore pipeline: retrieve -> restore",
+		"component", "restore",
+		"target", target.Name)
 
 	// Start retrieval in goroutine
 	go func() {
 		defer func() {
 			if err := writer.Close(); err != nil {
-				log.Printf("[%s] Failed to close writer: %v", target.Name, err)
+				logger.WarnS("Failed to close writer",
+					"component", "restore",
+					"target", target.Name,
+					"error", err)
 			}
 		}()
-		log.Printf("[%s] Retrieving backup from storage", target.Name)
+		logger.InfoS("Retrieving backup from storage",
+			"component", "restore",
+			"target", target.Name)
 		retrieveErr = stor.Retrieve(ctx, backupPath, writer)
 		if retrieveErr == nil {
-			log.Printf("[%s] Backup retrieval completed", target.Name)
+			logger.InfoS("Backup retrieval completed",
+				"component", "restore",
+				"target", target.Name)
 		}
 	}()
 
@@ -359,10 +427,14 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 	}
 
 	// Restore data (this blocks until all data is read)
-	log.Printf("[%s] Starting database restore", target.Name)
+	logger.InfoS("Starting database restore",
+		"component", "restore",
+		"target", target.Name)
 	restoreErr = restorer.Restore(ctx, reader)
 	if restoreErr == nil {
-		log.Printf("[%s] Database restore completed", target.Name)
+		logger.InfoS("Database restore completed",
+			"component", "restore",
+			"target", target.Name)
 	}
 
 	// Check for errors
@@ -383,6 +455,8 @@ func restoreWithoutDecompression(ctx context.Context, target *config.Target, res
 
 // sendRestoreNotifications sends notifications to all configured notifiers for restore operations
 func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *config.Target, result *RestoreResult, err error) {
+	logger := util.GetLogger()
+
 	if cfg == nil || len(cfg.Notifiers) == 0 {
 		return
 	}
@@ -433,8 +507,12 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 	for notifierName, notifierCfg := range cfg.Notifiers {
 		notifier, notifyErr := notify.New(notifierCfg)
 		if notifyErr != nil {
-			log.Printf("[notify] failed to create notifier name=%s type=%s dest=%s err=%v",
-				notifierName, notifierCfg.Type, notifierDestination(notifierCfg), notifyErr)
+			logger.ErrorS("Failed to create notifier",
+				"component", "notifier",
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", notifierDestination(notifierCfg),
+				"error", notifyErr)
 			continue
 		}
 
@@ -443,29 +521,84 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 
 		// Send success or failure notification
 		if err != nil {
-			log.Printf("[notify] sending op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
+			logger.InfoS("Sending failure notification",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "failure",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest,
+				"timestamp", msg.Timestamp.Format(time.RFC3339))
 			if sendErr := notifier.NotifyFailure(ctx, msg); sendErr != nil {
-				log.Printf("[notify] failed op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+				logger.ErrorS("Failed to send failure notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "failure",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"timestamp", msg.Timestamp.Format(time.RFC3339),
+					"duration", time.Since(start),
+					"error", sendErr)
 			} else {
-				log.Printf("[notify] sent op=%s status=failure target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
+				logger.InfoS("Sent failure notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "failure",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"timestamp", msg.Timestamp.Format(time.RFC3339),
+					"duration", time.Since(start))
 			}
 		} else if notifier.ShouldNotifySuccess() {
-			log.Printf("[notify] sending op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339))
+			logger.InfoS("Sending success notification",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "success",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest,
+				"timestamp", msg.Timestamp.Format(time.RFC3339))
 			if sendErr := notifier.NotifySuccess(ctx, msg); sendErr != nil {
-				log.Printf("[notify] failed op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s err=%v",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start), sendErr)
+				logger.ErrorS("Failed to send success notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "success",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"timestamp", msg.Timestamp.Format(time.RFC3339),
+					"duration", time.Since(start),
+					"error", sendErr)
 			} else {
-				log.Printf("[notify] sent op=%s status=success target=%s notifier=%s type=%s dest=%s at=%s duration=%s",
-					msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest, msg.Timestamp.Format(time.RFC3339), time.Since(start))
+				logger.InfoS("Sent success notification",
+					"component", "notifier",
+					"operation", msg.Operation,
+					"status", "success",
+					"target", msg.Target,
+					"notifier", notifierName,
+					"type", notifierCfg.Type,
+					"destination", dest,
+					"timestamp", msg.Timestamp.Format(time.RFC3339),
+					"duration", time.Since(start))
 			}
 		} else {
 			// Avoid silent "success but no notification" confusion when on_success is disabled.
-			util.Debug("[notify] skipping op=%s status=success target=%s notifier=%s type=%s dest=%s reason=on_success_disabled",
-				msg.Operation, msg.Target, notifierName, notifierCfg.Type, dest)
+			logger.DebugS("Skipping success notification (on_success disabled)",
+				"component", "notifier",
+				"operation", msg.Operation,
+				"status", "success",
+				"target", msg.Target,
+				"notifier", notifierName,
+				"type", notifierCfg.Type,
+				"destination", dest,
+				"reason", "on_success_disabled")
 		}
 	}
 }
