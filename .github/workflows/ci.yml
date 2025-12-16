@@ -17,8 +17,6 @@ jobs:
     needs: [web]
     strategy:
       matrix:
-        os: [robot-runner]
-        # os: [self-hosted, macos-latest]
         go-version: ['1.25.5']
 
     steps:
@@ -33,11 +31,35 @@ jobs:
     - name: Install database tools (Ubuntu)
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          default-mysql-client \
-          postgresql-client \
-          redis-tools
+        set -euo pipefail
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libsqlite3-dev \
+            default-mysql-client \
+            postgresql-client \
+            redis-tools
+        elif command -v apk >/dev/null 2>&1; then
+          sudo apk add --no-cache \
+            build-base \
+            sqlite-dev \
+            mysql-client \
+            postgresql-client \
+            redis
+        elif command -v yum >/dev/null 2>&1; then
+          sudo yum install -y \
+            gcc \
+            gcc-c++ \
+            make \
+            sqlite-devel \
+            mysql \
+            postgresql \
+            redis
+        else
+          echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
+          exit 1
+        fi
 
     - name: Install database tools (macOS)
       if: runner.os == 'macOS'
@@ -82,11 +104,14 @@ jobs:
         fi
 
     - name: Run tests
+      env:
+        CGO_ENABLED: "1"
       run: go test -v -race -coverprofile=coverage.out ./...
 
     - name: Upload coverage
-      if: matrix.os == 'self-hosted' && startsWith(matrix.go-version, '1.25')
+      if: startsWith(matrix.go-version, '1.25')
       uses: codecov/codecov-action@v4
+      continue-on-error: true
       with:
         files: ./coverage.out
         flags: unittests
@@ -163,6 +188,30 @@ jobs:
       with:
         go-version: '1.25.5'
 
+    - name: Install build prerequisites (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        set -euo pipefail
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libsqlite3-dev
+        elif command -v apk >/dev/null 2>&1; then
+          sudo apk add --no-cache \
+            build-base \
+            sqlite-dev
+        elif command -v yum >/dev/null 2>&1; then
+          sudo yum install -y \
+            gcc \
+            gcc-c++ \
+            make \
+            sqlite-devel
+        else
+          echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
+          exit 1
+        fi
+
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
@@ -177,10 +226,10 @@ jobs:
         path: internal/web/dist
 
     - name: Build binary with embedded web
-      run: make build
+      run: make build CGO=1
 
     - name: Validate example config
-      run: make validate
+      run: make validate CGO=1
 
     - name: Upload binary
       uses: actions/upload-artifact@v5
