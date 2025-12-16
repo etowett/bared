@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Get merged PR number
         id: pr
@@ -34,7 +34,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Check for release:skip label
         id: check_skip
@@ -48,7 +48,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Get latest tag
         id: get_tag
@@ -78,7 +78,7 @@ jobs:
             echo "Version bump: patch (default)"
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Calculate next version
         id: next_version
@@ -130,7 +130,7 @@ jobs:
 
           echo "✅ Created and pushed tag: ${NEXT_VERSION}"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Generate summary
         if: steps.check_skip.outputs.skip == 'false'

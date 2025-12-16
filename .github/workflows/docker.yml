@@ -40,27 +40,31 @@ jobs:
 
           # Extract version from the release that triggered this workflow
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            # Get the tag that triggered the release workflow
-            VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
+            # Get the latest tag (which should be the one just created by the release workflow)
+            git fetch --tags
+            VERSION=$(git tag --sort=-creatordate | head -n 1)
             if [[ "$VERSION" == v*.*.* ]]; then
               echo "version=${VERSION}" >> $GITHUB_OUTPUT
               echo "is_tag=true" >> $GITHUB_OUTPUT
+              echo "Detected version from workflow_run: $VERSION"
             else
               echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
               echo "is_tag=false" >> $GITHUB_OUTPUT
+              echo "No valid tag found, using main-${COMMIT_SHA}"
             fi
           else
-            # Manual workflow_dispatch
+            # Manual workflow_dispatch - try to find tag at current commit
             VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
             if [[ "$VERSION" == v*.*.* ]]; then
               echo "version=${VERSION}" >> $GITHUB_OUTPUT
               echo "is_tag=true" >> $GITHUB_OUTPUT
+              echo "Detected version from manual dispatch: $VERSION"
             else
               echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
               echo "is_tag=false" >> $GITHUB_OUTPUT
+              echo "No valid tag found, using main-${COMMIT_SHA}"
             fi
           fi
-          echo "Detected version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
