@@ -25,11 +25,20 @@ function RestoreJobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
 
-  const { data: jobsData, isLoading } = useJobs(statusFilter !== 'all' ? { status: statusFilter } : undefined)
+  // Build filters object with type and optional status
+  const filters = useMemo(() => {
+    const filterObj: Record<string, string> = { type: 'restore' }
+    if (statusFilter !== 'all') {
+      filterObj.status = statusFilter
+    }
+    return filterObj
+  }, [statusFilter])
 
-  // Filter for restore jobs only and by target name
+  const { data: jobsData, isLoading } = useJobs(filters)
+
+  // Filter by target name (client-side)
   const restoreJobs = useMemo(() => {
-    let jobs = (jobsData?.jobs || []).filter((job) => job.type === 'restore')
+    let jobs = jobsData?.jobs || []
 
     if (targetFilter) {
       jobs = jobs.filter((job) => job.target.toLowerCase().includes(targetFilter.toLowerCase()))

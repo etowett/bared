@@ -74,6 +74,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	// Get query parameters
 	status := r.URL.Query().Get("status")
 	target := r.URL.Query().Get("target")
+	jobType := r.URL.Query().Get("type")
 
 	// Get all jobs
 	allJobs := s.jobManager.ListJobs()
@@ -88,6 +89,11 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 
 		// Filter by target if specified
 		if target != "" && job.TargetName != target {
+			continue
+		}
+
+		// Filter by type if specified
+		if jobType != "" && string(job.Type) != jobType {
 			continue
 		}
 

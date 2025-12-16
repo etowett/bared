@@ -157,7 +157,12 @@ func detectEnvironment() string {
 	}
 
 	// Default to development for interactive terminals
-	fileInfo, _ := os.Stdout.Stat()
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		// Cannot determine if stdout is a terminal, default to production
+		return "production"
+	}
+
 	if (fileInfo.Mode() & os.ModeCharDevice) != 0 {
 		return "development"
 	}
@@ -169,11 +174,6 @@ func detectEnvironment() string {
 type LoggerOptions struct {
 	AddSource  bool
 	TimeFormat string
-}
-
-// createHandler creates appropriate handler based on environment
-func createHandler(w io.Writer, level *slog.LevelVar, env string) slog.Handler {
-	return createHandlerWithOptions(w, level, env, nil)
 }
 
 // createHandlerWithOptions creates a handler with custom options

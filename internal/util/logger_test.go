@@ -423,19 +423,25 @@ func TestEnvironmentDetection(t *testing.T) {
 	tests := []struct {
 		name     string
 		env      string
+		envVar   string
 		format   string
 		expected string
 	}{
-		{"BARED_ENV production", "production", "", "production"},
-		{"BARED_ENV development", "development", "", "development"},
-		{"BARED_LOG_FORMAT json", "", "json", "production"},
-		{"BARED_LOG_FORMAT text", "", "text", "development"},
-		{"ENV production", "", "", "production"}, // Will be tested via ENV var
+		{"BARED_ENV production", "production", "", "", "production"},
+		{"BARED_ENV development", "development", "", "", "development"},
+		{"BARED_LOG_FORMAT json", "", "", "json", "production"},
+		{"BARED_LOG_FORMAT text", "", "", "text", "development"},
+		{"ENV production", "", "production", "", "production"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save and restore ENV
+			origEnv := os.Getenv("ENV")
+			defer os.Setenv("ENV", origEnv)
+
 			os.Setenv("BARED_ENV", tt.env)
+			os.Setenv("ENV", tt.envVar)
 			os.Setenv("BARED_LOG_FORMAT", tt.format)
 
 			result := detectEnvironment()

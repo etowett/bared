@@ -8,10 +8,27 @@ export const Route = createFileRoute('/')({
 })
 
 function OverviewPage() {
-  const { data: dashboard, isLoading } = useDashboard()
+  const { data: dashboard, isLoading, isError, error, refetch } = useDashboard()
 
   if (isLoading) {
     return <div className="text-center py-12 text-muted-foreground">Loading dashboard...</div>
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-destructive mb-4">
+          Failed to load dashboard
+          {error?.message && `: ${error.message}`}
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    )
   }
 
   return (

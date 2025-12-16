@@ -24,7 +24,9 @@ function RestorePage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
 
-  const { data: jobsData, isLoading } = useJobs(statusFilter !== 'all' ? { status: statusFilter } : undefined)
+  const { data: jobsData, isLoading } = useJobs(
+    statusFilter !== 'all' ? { status: statusFilter } : undefined
+  )
 
   // Filter for restore jobs only and by target name
   const restoreJobs = useMemo(() => {

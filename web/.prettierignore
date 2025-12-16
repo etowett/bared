@@ -3,3 +3,4 @@ dist
 build
 coverage
 *.log
+src/routeTree.gen.ts
