@@ -12,7 +12,7 @@ jobs:
   create-release:
     name: Create Release Tag
     runs-on: [self-hosted, bared]
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
 
     steps:
       - name: Checkout code
@@ -20,6 +20,45 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Ensure GitHub CLI (gh) is installed
+        run: |
+          set -euo pipefail
+
+          if command -v gh >/dev/null 2>&1; then
+            gh --version
+            exit 0
+          fi
+
+          case "${{ runner.os }}" in
+            Linux)
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y --no-install-recommends curl ca-certificates gnupg
+                sudo mkdir -p -m 755 /etc/apt/keyrings
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
+                sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+                sudo apt-get update
+                sudo apt-get install -y gh
+              elif command -v apk >/dev/null 2>&1; then
+                sudo apk add --no-cache github-cli
+              else
+                echo "No supported package manager found for gh install (apt-get/apk). Install gh on the runner."
+                exit 1
+              fi
+              ;;
+            macOS)
+              brew update
+              brew install gh
+              ;;
+            *)
+              echo "Unsupported runner OS for automatic gh install: ${{ runner.os }}"
+              exit 1
+              ;;
+          esac
+
+          gh --version
 
       - name: Get merged PR number
         id: pr
