@@ -96,12 +96,15 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		if err != nil {
 			logger.WarnS("Failed to initialize persistence. Running in-memory only.",
 				"component", "daemon",
+				"driver", driver,
+				"dsn", dsn,
 				"error", err)
 			store = nil // Explicitly set to nil to avoid nil pointer in interface
 		} else {
 			logger.InfoS("Persistence enabled",
 				"component", "daemon",
-				"driver", driver)
+				"driver", driver,
+				"dsn", dsn)
 			store = sqlStore // Only assign if successful
 		}
 	}

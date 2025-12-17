@@ -65,16 +65,16 @@ func NewSQLStore(driver, dsn string) (*SQLStore, error) {
 
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	if err := db.Ping(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	store := &SQLStore{db: db}
 	if err := store.initSchema(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
 	return store, nil

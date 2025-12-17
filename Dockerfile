@@ -1,11 +1,14 @@
+# syntax=docker/dockerfile:1.7
+#
 # Stage 1: Build frontend
-FROM node:24-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 
 WORKDIR /app/web
 
 # Copy frontend package files
 COPY web/package*.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --fund=false
 
 # Copy frontend source and build
 COPY web/ ./
@@ -15,13 +18,17 @@ RUN npm run build
 FROM golang:1.25-alpine AS backend-builder
 
 # Install build dependencies
-RUN apk add --no-cache git make gcc musl-dev
+# Note: under some buildx/QEMU setups, apk trigger scripts can fail with
+# "* execve: No such file or directory". Skipping scripts for build deps keeps
+# the builder working while still producing a correct Go binary.
+RUN apk add --no-cache --no-scripts git make gcc musl-dev
 
 WORKDIR /app
 
 # Copy go mod files
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Copy source code
 COPY . .
@@ -34,7 +41,9 @@ ARG VERSION=dev
 ARG COMMIT=none
 ARG BUILD_DATE=unknown
 
-RUN CGO_ENABLED=1 go build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=1 go build \
     -ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_DATE}" \
     -o brd ./cmd/brd
 
@@ -63,11 +72,14 @@ RUN mkdir -p /backups /etc/bared /tmp && \
 COPY --from=backend-builder /app/brd /usr/local/bin/brd
 RUN chmod +x /usr/local/bin/brd
 
+# Set working directory (before switching user)
+WORKDIR /etc/bared
+
+# Ensure working directory is writable by bared user
+RUN chown -R bared:bared /etc/bared
+
 # Switch to non-root user
 USER bared
-
-# Set working directory
-WORKDIR /etc/bared
 
 # Expose HTTP port
 EXPOSE 8080

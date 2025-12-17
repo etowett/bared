@@ -208,27 +208,28 @@ setup-test-env:
 # Docker build (local, single platform)
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t bared:latest \
+	docker build -t $(DOCKER_IMAGE):latest \
 		--build-arg VERSION=${VERSION} \
 		--build-arg COMMIT=${COMMIT} \
 		--build-arg BUILD_DATE=${BUILD_TIME} \
 		.
-	@echo "Docker image built: bared:latest"
+	@echo "Docker image built: $(DOCKER_IMAGE):latest"
 
 # Docker build with version tag
 docker-build-version:
 	@echo "Building Docker image with version ${VERSION}..."
-	docker build -t bared:${VERSION} -t bared:latest \
+	docker build -t $(DOCKER_IMAGE):${VERSION} -t $(DOCKER_IMAGE):latest \
 		--build-arg VERSION=${VERSION} \
 		--build-arg COMMIT=${COMMIT} \
 		--build-arg BUILD_DATE=${BUILD_TIME} \
 		.
-	@echo "Docker image built: bared:${VERSION}, bared:latest"
+	@echo "Docker image built: $(DOCKER_IMAGE):${VERSION}, $(DOCKER_IMAGE):latest"
 
 # Docker build multi-platform (requires buildx)
-DOCKER_IMAGE ?= bared
+DOCKER_IMAGE ?= ektowett/bared
 DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/arm64 || echo linux/amd64)
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+DOCKER_BUILDX_BUILDER ?= bared-multi
 
 # Local dev: single-platform build that can be loaded into the local Docker engine.
 # Note: some Docker backends (e.g. OrbStack) cannot `--load` multi-arch manifest lists.
@@ -243,10 +244,23 @@ docker-buildx:
 		.
 	@echo "Docker image built and loaded: $(DOCKER_IMAGE):latest (platform: $(DOCKER_PLATFORM))"
 
+# Setup a buildx builder that supports multi-arch builds and register QEMU/binfmt.
+# This is required when building linux/amd64 + linux/arm64 on a host that can't natively execute one of them.
+docker-buildx-setup:
+	@echo "Setting up buildx builder '$(DOCKER_BUILDX_BUILDER)' for multi-arch builds..."
+	@docker buildx inspect $(DOCKER_BUILDX_BUILDER) >/dev/null 2>&1 || \
+		docker buildx create --name $(DOCKER_BUILDX_BUILDER) --driver docker-container --use
+	@docker buildx use $(DOCKER_BUILDX_BUILDER)
+	@echo "Registering binfmt/QEMU (best-effort; may require privileged support)..."
+	@docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null 2>&1 || true
+	@docker buildx inspect --bootstrap >/dev/null
+	@echo "✅ buildx is ready:"
+	@docker buildx ls | sed -n '1,12p'
+
 # Publishing: multi-platform build that pushes a manifest list to a registry.
 # Usage:
 #   make docker-buildx-push DOCKER_IMAGE=ektowett/bared
-docker-buildx-push:
+docker-buildx-push: docker-buildx-setup
 	@echo "Building multi-platform Docker image (push to registry)..."
 	docker buildx build --platform $(DOCKER_PLATFORMS) \
 		-t $(DOCKER_IMAGE):latest \
@@ -257,21 +271,18 @@ docker-buildx-push:
 		.
 	@echo "Multi-platform Docker image built and pushed: $(DOCKER_IMAGE):latest (platforms: $(DOCKER_PLATFORMS))"
 
-# Docker push to registry (ektowett/bared)
+# Docker push to registry
 docker-push:
-	@echo "Tagging and pushing Docker image to ektowett/bared..."
-	docker tag bared:latest ektowett/bared:latest
-	docker tag bared:latest ektowett/bared:${VERSION}
-	docker push ektowett/bared:latest
-	docker push ektowett/bared:${VERSION}
-	@echo "Docker images pushed: ektowett/bared:latest, ektowett/bared:${VERSION}"
+	@echo "Pushing Docker image..."
+	docker push $(DOCKER_IMAGE):latest
+	docker push $(DOCKER_IMAGE):${VERSION}
+	@echo "Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION}"
 
 # Docker push latest only
 docker-push-latest:
-	@echo "Tagging and pushing Docker image to ektowett/bared:latest..."
-	docker tag bared:latest ektowett/bared:latest
-	docker push ektowett/bared:latest
-	@echo "Docker image pushed: ektowett/bared:latest"
+	@echo "Pushing Docker image (latest)..."
+	docker push $(DOCKER_IMAGE):latest
+	@echo "Docker image pushed: $(DOCKER_IMAGE):latest"
 
 # Docker build and push (complete workflow)
 docker-release: docker-build-version docker-push
@@ -281,14 +292,14 @@ docker-release: docker-build-version docker-push
 docker-release-multiplatform:
 	@echo "Building and pushing multi-platform Docker image..."
 	docker buildx build --platform linux/amd64,linux/arm64 \
-		-t ektowett/bared:latest \
-		-t ektowett/bared:${VERSION} \
+		-t $(DOCKER_IMAGE):latest \
+		-t $(DOCKER_IMAGE):${VERSION} \
 		--build-arg VERSION=${VERSION} \
 		--build-arg COMMIT=${COMMIT} \
 		--build-arg BUILD_DATE=${BUILD_TIME} \
 		--push \
 		.
-	@echo "Multi-platform Docker images pushed: ektowett/bared:latest, ektowett/bared:${VERSION}"
+	@echo "Multi-platform Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION}"
 
 # Create release archive
 release: build
