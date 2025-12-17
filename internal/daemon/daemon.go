@@ -116,7 +116,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		ctx:               ctx,
 		cancel:            cancel,
 		store:             store,
-		maxConcurrentJobs: 3,
+		maxConcurrentJobs: 5,
 		jobHistorySize:    10,
 		shutdownTimeout:   1 * time.Hour,
 	}
@@ -149,7 +149,7 @@ func (d *Daemon) Start() error {
 	d.jobManager.Start()
 
 	// Start cleanup routine for old jobs (every hour, remove jobs older than 24h)
-	d.jobManager.StartCleanupRoutine(1*time.Hour, 24*time.Hour)
+	d.jobManager.StartCleanupRoutine(1*time.Hour, 72*time.Hour)
 
 	// Start HTTP server if configured
 	if d.apiServer != nil {

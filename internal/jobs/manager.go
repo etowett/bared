@@ -58,7 +58,7 @@ func (m *Manager) worker(id int) {
 	defer m.wg.Done()
 
 	logger := util.GetLogger()
-	logger.DebugS("Worker started",
+	logger.InfoS("Worker started",
 		"component", "job_manager",
 		"worker_id", id)
 
@@ -74,7 +74,7 @@ func (m *Manager) worker(id int) {
 			m.executeJob(job)
 
 		case <-m.shutdown:
-			logger.DebugS("Worker shutting down",
+			logger.InfoS("Worker shutting down",
 				"component", "job_manager",
 				"worker_id", id)
 			return
@@ -368,7 +368,7 @@ func (m *Manager) SubmitBackup(ctx context.Context, target *config.Target, manua
 	// Create job
 	job := NewJob(JobTypeBackup, target.Name, manual)
 
-	logger.DebugS("Created job",
+	logger.InfoS("Created job",
 		"component", "job_manager",
 		"job_id", job.ID,
 		"job_type", job.Type,
@@ -674,6 +674,12 @@ func (m *Manager) StartCleanupRoutine(interval, maxAge time.Duration) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
+		logger := util.GetLogger()
+		logger.InfoS("Cleanup routine started",
+			"component", "job_manager",
+			"interval", interval,
+			"max_age", maxAge)
 
 		for {
 			select {

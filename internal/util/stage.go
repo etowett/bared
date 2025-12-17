@@ -159,29 +159,24 @@ func (st *StageTracker) GetCompletedStages() []*Stage {
 	return result
 }
 
-// LogStageMarker outputs a visual stage boundary marker
+// LogStageMarker outputs a stage start message
 func LogStageMarker(targetName, stageName string, isStart bool) {
-	marker := strings.Repeat("=", 50)
-	stageUpper := strings.ToUpper(stageName)
-
 	if isStart {
-		Info("[%s] %s", targetName, marker)
-		Info("[%s] %s", targetName, stageUpper)
-		Info("[%s] %s", targetName, marker)
-	} else {
-		Info("[%s] %s END", targetName, marker)
+		Info("[%s] Stage started: %s", targetName, stageName)
 	}
 }
 
 // LogStageSummary outputs a stage completion summary with metrics
 func LogStageSummary(targetName, stageName string, duration time.Duration, metrics map[string]interface{}) {
-	Info("[%s] Stage '%s' completed in %v", targetName, stageName, duration)
-
+	// Build a single log line with all metrics inline for cleaner output
 	if len(metrics) > 0 {
-		Info("[%s] Stage metrics:", targetName)
+		metricParts := make([]string, 0, len(metrics))
 		for key, value := range metrics {
-			Info("[%s]   - %s: %v", targetName, key, formatMetricValue(value))
+			metricParts = append(metricParts, fmt.Sprintf("%s=%s", key, formatMetricValue(value)))
 		}
+		Info("[%s] Stage completed: %s (%v) [%s]", targetName, stageName, duration, strings.Join(metricParts, ", "))
+	} else {
+		Info("[%s] Stage completed: %s (%v)", targetName, stageName, duration)
 	}
 }
 
