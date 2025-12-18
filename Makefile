@@ -160,9 +160,9 @@ check: fmt vet lint
 	@echo "All checks passed!"
 
 # Run the daemon in development mode
-run-daemon:
-	@echo "Starting daemon in development mode..."
-	@$(MAKE) build CGO=1
+run-daemon: CGO=1
+run-daemon: web-build web-sync-dist build
+	@echo "Starting daemon in development mode with fresh web UI..."
 	./${BIN_DIR}/${BINARY_NAME} daemon \
 		--config config.yml \
 		--http :8080 \
