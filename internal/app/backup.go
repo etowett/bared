@@ -453,8 +453,22 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	var dumpMetadata *database.DumpMetadata
 	var uncompressedSize int64
 
-	// Wrap dumpWriter to count uncompressed bytes
-	dumpCounter := &countingWriter{w: dumpWriter}
+	// Wrap dumpWriter with progress tracking
+	dumpProgress := util.NewProgressWriter(dumpWriter, func(bytes int64) {
+		if progress != nil {
+			progress.UpdateBytes(bytes, 0) // 0 means unknown total
+		}
+	})
+
+	// Start heartbeat logger for visibility during long-running operations
+	heartbeat := util.NewHeartbeatLogger(
+		target.Name,
+		"DUMP_AND_COMPRESS",
+		0, // Unknown total size
+		func() int64 { return dumpProgress.BytesWritten() },
+	)
+	heartbeat.Start()
+	defer heartbeat.Stop()
 
 	// Channel to signal dump completion
 	dumpDone := make(chan struct{})
@@ -476,12 +490,12 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 			"database_type", target.Conn.Type,
 			"database_name", target.Conn.Database)
 
-		meta, dumpResultErr := dumper.Dump(ctx, dumpCounter)
+		meta, dumpResultErr := dumper.Dump(ctx, dumpProgress)
 		if dumpResultErr != nil {
 			dumpErr = dumpResultErr
 		} else {
 			dumpMetadata = meta
-			uncompressedSize = dumpCounter.Size()
+			uncompressedSize = dumpProgress.BytesWritten()
 		}
 	}()
 

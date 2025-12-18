@@ -145,6 +145,24 @@ func (d *Daemon) Start() error {
 	logger := util.GetLogger()
 	logger.InfoS("Starting BareD daemon", "component", "daemon")
 
+	// Clean up orphaned temp files from previous runs
+	logger.InfoS("Cleaning up orphaned temp files", "component", "daemon")
+	if err := util.CleanupOrphanedTempFiles(); err != nil {
+		logger.WarnS("Failed to cleanup orphaned temp files",
+			"component", "daemon",
+			"error", err)
+		// Don't fail startup if cleanup fails
+	}
+
+	// Recover orphaned jobs from previous runs (e.g., after crash/OOM)
+	logger.InfoS("Recovering orphaned jobs", "component", "daemon")
+	if err := d.RecoverOrphanedJobs(); err != nil {
+		logger.WarnS("Failed to recover orphaned jobs",
+			"component", "daemon",
+			"error", err)
+		// Don't fail startup if recovery fails
+	}
+
 	// Start job manager worker pool
 	d.jobManager.Start()
 
@@ -215,6 +233,62 @@ func (d *Daemon) Start() error {
 			}
 		}
 	}
+}
+
+// RecoverOrphanedJobs finds and marks jobs left in "running" or "queued" state
+// from previous daemon runs (e.g., after crash or OOM kill) as failed
+func (d *Daemon) RecoverOrphanedJobs() error {
+	logger := util.GetLogger()
+	ctx := context.Background()
+
+	// Find jobs in "running" state from previous run
+	runningJobs, err := d.store.ListJobs(ctx, jobs.JobFilter{
+		Status: jobs.JobStatusRunning,
+		Limit:  1000, // Get up to 1000 orphaned jobs
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query running jobs: %w", err)
+	}
+
+	// Find jobs in "queued" state from previous run
+	queuedJobs, err := d.store.ListJobs(ctx, jobs.JobFilter{
+		Status: jobs.JobStatusQueued,
+		Limit:  1000,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query queued jobs: %w", err)
+	}
+
+	orphaned := append(runningJobs, queuedJobs...)
+
+	if len(orphaned) > 0 {
+		logger.InfoS("Found orphaned jobs from previous run",
+			"component", "daemon",
+			"count", len(orphaned))
+	}
+
+	// Mark each as failed with crash indicator
+	for _, job := range orphaned {
+		job.Status = jobs.JobStatusFailed
+		job.Error = "Job interrupted by daemon shutdown or crash"
+		now := time.Now()
+		job.CompletedAt = &now
+
+		if err := d.store.UpdateJob(ctx, job); err != nil {
+			logger.ErrorS("Failed to mark orphaned job as failed",
+				"component", "daemon",
+				"job_id", job.ID,
+				"error", err)
+		} else {
+			logger.InfoS("Marked orphaned job as failed",
+				"component", "daemon",
+				"job_id", job.ID,
+				"target", job.TargetName,
+				"type", job.Type)
+		}
+	}
+
+	return nil
 }
 
 // Stop stops the daemon gracefully

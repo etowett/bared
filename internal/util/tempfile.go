@@ -69,3 +69,64 @@ func FormatBytes(bytes int64) string {
 	}
 	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
+
+// CleanupOrphanedTempFiles removes old temporary files left behind by crashed processes
+// This is called on daemon startup to clean up temp files from previous runs that
+// were terminated abnormally (OOM kill, SIGKILL, power loss, etc.)
+func CleanupOrphanedTempFiles() error {
+	logger := GetLogger()
+	tmpDir := os.TempDir()
+
+	// Find all bared backup temp files
+	pattern := filepath.Join(tmpDir, "bared-backup-*.tmp")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("failed to glob temp files: %w", err)
+	}
+
+	if len(matches) == 0 {
+		return nil // No orphaned files found
+	}
+
+	// Safety cutoff: only remove files older than 1 hour
+	// This prevents removing files from concurrent daemon instances
+	cutoff := time.Now().Add(-1 * time.Hour)
+	removedCount := 0
+	var totalSize int64
+
+	for _, path := range matches {
+		info, err := os.Stat(path)
+		if err != nil {
+			// File may have been removed by another process, skip
+			continue
+		}
+
+		// Only remove old files
+		if info.ModTime().Before(cutoff) {
+			size := info.Size()
+			if err := os.Remove(path); err != nil {
+				logger.WarnS("Failed to remove orphaned temp file",
+					"component", "tempfile",
+					"path", path,
+					"error", err)
+			} else {
+				logger.InfoS("Removed orphaned temp file",
+					"component", "tempfile",
+					"path", filepath.Base(path),
+					"size", FormatBytes(size),
+					"age", time.Since(info.ModTime()).Round(time.Minute))
+				removedCount++
+				totalSize += size
+			}
+		}
+	}
+
+	if removedCount > 0 {
+		logger.InfoS("Cleaned up orphaned temp files",
+			"component", "tempfile",
+			"count", removedCount,
+			"total_size", FormatBytes(totalSize))
+	}
+
+	return nil
+}

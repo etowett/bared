@@ -7,6 +7,8 @@ import (
 // New creates a new compressor based on the type
 func New(compressType string, filename string) (Compressor, error) {
 	switch compressType {
+	case "gzip", "gz", "": // Default to gzip for streaming, constant memory usage
+		return NewGzip(filename), nil
 	case "tgz", "tar.gz":
 		return NewTarGz(filename), nil
 	default:
