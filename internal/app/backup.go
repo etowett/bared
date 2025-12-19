@@ -46,22 +46,6 @@ type BackupResult struct {
 	Stages []*util.Stage
 }
 
-// countingWriter wraps an io.Writer and tracks the number of bytes written
-type countingWriter struct {
-	w     io.Writer
-	count int64
-}
-
-func (cw *countingWriter) Write(p []byte) (int, error) {
-	n, err := cw.w.Write(p)
-	cw.count += int64(n)
-	return n, err
-}
-
-func (cw *countingWriter) Size() int64 {
-	return cw.count
-}
-
 // compressionMetrics holds compression-related metrics
 type compressionMetrics struct {
 	uncompressedSize int64

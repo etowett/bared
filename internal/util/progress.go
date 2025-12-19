@@ -13,7 +13,7 @@ type ProgressReader struct {
 	bytesRead      *atomic.Int64
 	callback       func(bytes int64)
 	lastUpdateTime atomic.Int64 // Unix nano
-	updateInterval int64         // nanoseconds
+	updateInterval int64        // nanoseconds
 }
 
 // NewProgressReader creates a new ProgressReader that tracks bytes read
@@ -64,7 +64,7 @@ type ProgressWriter struct {
 	bytesWritten   *atomic.Int64
 	callback       func(bytes int64)
 	lastUpdateTime atomic.Int64 // Unix nano
-	updateInterval int64         // nanoseconds
+	updateInterval int64        // nanoseconds
 }
 
 // NewProgressWriter creates a new ProgressWriter that tracks bytes written

@@ -11,17 +11,17 @@ import (
 // HeartbeatLogger provides periodic status logging during long-running operations
 // Reports bytes processed, speed, ETA, and memory usage at regular intervals
 type HeartbeatLogger struct {
-	target         string
-	stage          string
-	bytesTotal     int64
-	getBytesFunc   func() int64
-	interval       time.Duration
-	ctx            context.Context
-	cancel         context.CancelFunc
-	wg             sync.WaitGroup
-	startTime      time.Time
-	lastBytes      int64
-	lastLogTime    time.Time
+	target       string
+	stage        string
+	bytesTotal   int64
+	getBytesFunc func() int64
+	interval     time.Duration
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	startTime    time.Time
+	lastBytes    int64
+	lastLogTime  time.Time
 }
 
 // NewHeartbeatLogger creates a new heartbeat logger
@@ -108,7 +108,7 @@ func (h *HeartbeatLogger) logHeartbeat() {
 		"stage", h.stage,
 		"bytes_processed", formatBytes(currentBytes),
 		"elapsed", formatDuration(elapsed),
-		"memory_alloc", formatBytes(int64(m.Alloc)),
+		"memory_alloc", formatBytesUint64(m.Alloc),
 		"goroutines", runtime.NumGoroutine(),
 	}
 
@@ -144,11 +144,34 @@ func formatBytes(bytes int64) string {
 		return fmt.Sprintf("%d B", bytes)
 	}
 	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
+	units := []string{"KB", "MB", "GB", "TB", "PB"}
+	for n := bytes / unit; n >= unit && exp < len(units)-1; n /= unit {
 		div *= unit
 		exp++
 	}
-	units := []string{"KB", "MB", "GB", "TB", "PB"}
+	// Ensure exp is within bounds (for static analysis)
+	if exp >= len(units) {
+		exp = len(units) - 1
+	}
+	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
+}
+
+// formatBytesUint64 formats uint64 bytes in human-readable format
+func formatBytesUint64(bytes uint64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := uint64(unit), 0
+	units := []string{"KB", "MB", "GB", "TB", "PB", "EB"}
+	for n := bytes / unit; n >= unit && exp < len(units)-1; n /= unit {
+		div *= unit
+		exp++
+	}
+	// Ensure exp is within bounds (for static analysis)
+	if exp >= len(units) {
+		exp = len(units) - 1
+	}
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }
 

@@ -5,6 +5,8 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+
+	"bared/internal/util"
 )
 
 //go:embed all:dist
@@ -26,6 +28,8 @@ func GetHandler() http.Handler {
 	// Read index.html once at startup
 	indexHTML, err := fs.ReadFile(dist, "index.html")
 	if err != nil {
+		logger := util.GetLogger()
+		logger.ErrorS("failed to read index.html from embedded filesystem", "error", err)
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "index.html not found", http.StatusNotFound)
 		})
