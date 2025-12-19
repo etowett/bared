@@ -3,10 +3,11 @@ package web
 
 import (
 	"embed"
+	"io"
 	"io/fs"
 	"net/http"
-
-	"bared/internal/util"
+	"path/filepath"
+	"strings"
 )
 
 //go:embed all:dist
@@ -25,22 +26,11 @@ func GetHandler() http.Handler {
 		})
 	}
 
-	// Read index.html once at startup
-	indexHTML, err := fs.ReadFile(dist, "index.html")
-	if err != nil {
-		logger := util.GetLogger()
-		logger.ErrorS("failed to read index.html from embedded filesystem", "error", err)
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "index.html not found", http.StatusNotFound)
-		})
-	}
-
 	// Create file server once
 	fileServer := http.FileServer(http.FS(dist))
 
 	return &spaHandler{
 		fileServer: fileServer,
-		indexHTML:  indexHTML,
 		fileSystem: dist,
 	}
 }
@@ -48,7 +38,6 @@ func GetHandler() http.Handler {
 // spaHandler implements http.Handler to serve a SPA with fallback to index.html
 type spaHandler struct {
 	fileServer http.Handler
-	indexHTML  []byte
 	fileSystem fs.FS
 }
 
@@ -65,12 +54,33 @@ func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Try to serve the file
 	h.fileServer.ServeHTTP(rw, r)
 
-	// If file was not found, serve index.html for SPA routing
+	// If file was not found, only serve index.html for routes without file extensions
+	// (to support client-side routing). Actual file requests should return 404.
 	if rw.status == http.StatusNotFound {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		//nolint:errcheck // Error writing to response writer is not critical
-		_, _ = w.Write(h.indexHTML)
+		// Check if the request path has a file extension
+		ext := filepath.Ext(r.URL.Path)
+		hasExtension := ext != "" && strings.Contains(ext, ".")
+
+		// Only serve index.html for routes without extensions (SPA routes)
+		if !hasExtension {
+			// Open and stream index.html
+			indexFile, err := h.fileSystem.Open("index.html")
+			if err != nil {
+				http.Error(w, "Failed to open index.html", http.StatusInternalServerError)
+				return
+			}
+			defer indexFile.Close()
+
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			//nolint:errcheck // Error writing to response writer is not critical
+			_, _ = io.Copy(w, indexFile)
+		} else {
+			// For file requests (with extensions), return the 404
+			w.WriteHeader(http.StatusNotFound)
+			//nolint:errcheck // Error writing to response writer is not critical
+			_, _ = w.Write([]byte("404 page not found"))
+		}
 	}
 }
 
@@ -95,7 +105,8 @@ func (w *notFoundInterceptor) WriteHeader(status int) {
 // Write intercepts writes to prevent writing 404 content
 func (w *notFoundInterceptor) Write(b []byte) (int, error) {
 	if w.status == http.StatusNotFound {
-		// Don't write the 404 content, we'll serve index.html instead
+		// Don't write the 404 content, we'll serve index.html instead.
+		// Return len(b) to indicate "success" and prevent errors from bubbling up.
 		return len(b), nil
 	}
 	w.written = true

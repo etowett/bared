@@ -200,6 +200,7 @@ type ProgressWriter struct {
 
    ```go
    heartbeat := util.NewHeartbeatLogger(
+       ctx,
        target.Name,
        "DUMP_AND_COMPRESS",
        estimatedSize,

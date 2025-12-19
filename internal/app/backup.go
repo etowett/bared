@@ -446,6 +446,7 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 
 	// Start heartbeat logger for visibility during long-running operations
 	heartbeat := util.NewHeartbeatLogger(
+		ctx,
 		target.Name,
 		"DUMP_AND_COMPRESS",
 		0, // Unknown total size
@@ -490,6 +491,13 @@ func backupWithCompression(ctx context.Context, target *config.Target, dumper da
 	}
 
 	compressErr := compressor.Compress(ctx, dumpReader, tmpFile)
+
+	// Close reader to unblock dump goroutine if compress failed early
+	if closeErr := dumpReader.Close(); closeErr != nil {
+		logger.DebugS("Failed to close dump reader",
+			"component", "backup",
+			"error", closeErr)
+	}
 
 	// Wait for dump goroutine to complete
 	<-dumpDone

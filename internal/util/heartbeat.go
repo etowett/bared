@@ -25,12 +25,13 @@ type HeartbeatLogger struct {
 }
 
 // NewHeartbeatLogger creates a new heartbeat logger
+// ctx: parent context (logger will stop when context is cancelled)
 // target: the target name (e.g., database name)
 // stage: the current stage (e.g., "DUMP_AND_COMPRESS", "UPLOAD")
 // bytesTotal: estimated total bytes (0 if unknown)
 // getBytesFunc: function that returns current bytes processed
-func NewHeartbeatLogger(target string, stage string, bytesTotal int64, getBytesFunc func() int64) *HeartbeatLogger {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewHeartbeatLogger(ctx context.Context, target string, stage string, bytesTotal int64, getBytesFunc func() int64) *HeartbeatLogger {
+	ctx, cancel := context.WithCancel(ctx)
 	return &HeartbeatLogger{
 		target:       target,
 		stage:        stage,
@@ -145,14 +146,14 @@ func formatBytes(bytes int64) string {
 	}
 	div, exp := int64(unit), 0
 	units := []string{"KB", "MB", "GB", "TB", "PB"}
-	for n := bytes / unit; n >= unit && exp < len(units)-1; n /= unit {
+	maxExp := len(units) - 1
+
+	// Loop until we reach the appropriate unit or hit the maximum available unit
+	for n := bytes / unit; n >= unit && exp < maxExp; n /= unit {
 		div *= unit
 		exp++
 	}
-	// Ensure exp is within bounds (for static analysis)
-	if exp >= len(units) {
-		exp = len(units) - 1
-	}
+
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }
 
@@ -164,26 +165,30 @@ func formatBytesUint64(bytes uint64) string {
 	}
 	div, exp := uint64(unit), 0
 	units := []string{"KB", "MB", "GB", "TB", "PB", "EB"}
-	for n := bytes / unit; n >= unit && exp < len(units)-1; n /= unit {
+	maxExp := len(units) - 1
+
+	// Loop until we reach the appropriate unit or hit the maximum available unit
+	for n := bytes / unit; n >= unit && exp < maxExp; n /= unit {
 		div *= unit
 		exp++
 	}
-	// Ensure exp is within bounds (for static analysis)
-	if exp >= len(units) {
-		exp = len(units) - 1
-	}
+
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }
 
 // formatDuration formats duration in human-readable format
 func formatDuration(d time.Duration) string {
+	totalSeconds := int(d.Seconds())
+
 	if d < time.Minute {
-		return fmt.Sprintf("%.0fs", d.Seconds())
+		return fmt.Sprintf("%ds", totalSeconds)
 	}
 	if d < time.Hour {
-		return fmt.Sprintf("%.0fm%.0fs", d.Minutes(), d.Seconds()-d.Minutes()*60)
+		minutes := totalSeconds / 60
+		seconds := totalSeconds % 60
+		return fmt.Sprintf("%dm%ds", minutes, seconds)
 	}
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) - hours*60
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
 	return fmt.Sprintf("%dh%dm", hours, minutes)
 }

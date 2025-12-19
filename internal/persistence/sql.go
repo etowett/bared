@@ -21,8 +21,8 @@ type SQLStore struct {
 	db *sql.DB
 }
 
-// sanitizeDSN removes credentials from DSN for safe logging
-func sanitizeDSN(driver, dsn string) string {
+// SanitizeDSN removes credentials from DSN for safe logging
+func SanitizeDSN(driver, dsn string) string {
 	// For SQLite, DSN is typically just a file path
 	if driver == "sqlite3" {
 		return fmt.Sprintf("driver=%s, type=file", driver)
@@ -61,7 +61,7 @@ func NewSQLStore(driver, dsn string) (*SQLStore, error) {
 	logger := util.GetLogger()
 	logger.InfoS("Opening database connection",
 		"component", "persistence",
-		"connection_info", sanitizeDSN(driver, dsn))
+		"connection_info", SanitizeDSN(driver, dsn))
 
 	db, err := sql.Open(driver, dsn)
 	if err != nil {

@@ -11,6 +11,12 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
 
+# Docker build variables
+DOCKER_IMAGE ?= ektowett/bared
+DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/arm64 || echo linux/amd64)
+DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+DOCKER_BUILDX_BUILDER ?= bared-multi
+
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).
 # - Local dev `run-daemon` enables CGO so sqlite persistence works with github.com/mattn/go-sqlite3.
@@ -226,11 +232,6 @@ docker-build-version:
 	@echo "Docker image built: $(DOCKER_IMAGE):${VERSION}, $(DOCKER_IMAGE):latest"
 
 # Docker build multi-platform (requires buildx)
-DOCKER_IMAGE ?= ektowett/bared
-DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/arm64 || echo linux/amd64)
-DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
-DOCKER_BUILDX_BUILDER ?= bared-multi
-
 # Local dev: single-platform build that can be loaded into the local Docker engine.
 # Note: some Docker backends (e.g. OrbStack) cannot `--load` multi-arch manifest lists.
 docker-buildx:
@@ -291,7 +292,7 @@ docker-release: docker-build-version docker-push
 # Docker build multi-platform and push
 docker-release-multiplatform:
 	@echo "Building and pushing multi-platform Docker image..."
-	docker buildx build --platform linux/amd64,linux/arm64 \
+	docker buildx build --platform $(DOCKER_PLATFORMS) \
 		-t $(DOCKER_IMAGE):latest \
 		-t $(DOCKER_IMAGE):${VERSION} \
 		--build-arg VERSION=${VERSION} \
@@ -299,7 +300,7 @@ docker-release-multiplatform:
 		--build-arg BUILD_DATE=${BUILD_TIME} \
 		--push \
 		.
-	@echo "Multi-platform Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION}"
+	@echo "Multi-platform Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION} (platforms: $(DOCKER_PLATFORMS))"
 
 # Create release archive
 release: build

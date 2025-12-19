@@ -93,18 +93,19 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		}
 
 		sqlStore, err := persistence.NewSQLStore(driver, dsn)
+		sanitized := persistence.SanitizeDSN(driver, dsn)
 		if err != nil {
 			logger.WarnS("Failed to initialize persistence. Running in-memory only.",
 				"component", "daemon",
 				"driver", driver,
-				"dsn", dsn,
+				"dsn", sanitized,
 				"error", err)
 			store = nil // Explicitly set to nil to avoid nil pointer in interface
 		} else {
 			logger.InfoS("Persistence enabled",
 				"component", "daemon",
 				"driver", driver,
-				"dsn", dsn)
+				"dsn", sanitized)
 			store = sqlStore // Only assign if successful
 		}
 	}
@@ -116,7 +117,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		ctx:               ctx,
 		cancel:            cancel,
 		store:             store,
-		maxConcurrentJobs: 5,
+		maxConcurrentJobs: 3,
 		jobHistorySize:    10,
 		shutdownTimeout:   1 * time.Hour,
 	}
@@ -166,8 +167,8 @@ func (d *Daemon) Start() error {
 	// Start job manager worker pool
 	d.jobManager.Start()
 
-	// Start cleanup routine for old jobs (every hour, remove jobs older than 24h)
-	d.jobManager.StartCleanupRoutine(1*time.Hour, 72*time.Hour)
+	// Start cleanup routine for old jobs (every 3 hours, remove jobs older than 72h)
+	d.jobManager.StartCleanupRoutine(3*time.Hour, 72*time.Hour)
 
 	// Start HTTP server if configured
 	if d.apiServer != nil {
@@ -240,6 +241,13 @@ func (d *Daemon) Start() error {
 func (d *Daemon) RecoverOrphanedJobs() error {
 	logger := util.GetLogger()
 	ctx := context.Background()
+
+	// Skip recovery if persistence is disabled
+	if d.store == nil {
+		logger.DebugS("Skipping orphaned job recovery - persistence disabled",
+			"component", "daemon")
+		return nil
+	}
 
 	// Find jobs in "running" state from previous run
 	runningJobs, err := d.store.ListJobs(ctx, jobs.JobFilter{

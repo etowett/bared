@@ -219,10 +219,18 @@ func (r *slowReader) Read(p []byte) (n int, err error) {
 	time.Sleep(r.delay)
 
 	// Read small chunks to give time for cancellation
-	n = copy(p, r.data[r.pos:])
-	if n > 100 {
-		n = 100
+	// Compute the allowed read length: min(len(p), remaining data, 100)
+	remaining := len(r.data) - r.pos
+	toRead := remaining
+	if toRead > 100 {
+		toRead = 100
 	}
+	if len(p) < toRead {
+		toRead = len(p)
+	}
+
+	// Copy only the allowed amount
+	n = copy(p, r.data[r.pos:r.pos+toRead])
 	r.pos += n
 	return n, nil
 }
