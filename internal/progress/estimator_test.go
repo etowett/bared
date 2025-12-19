@@ -339,7 +339,7 @@ func TestEstimateMySQLSize_WithoutPassword(t *testing.T) {
 
 	conn := &config.Connection{
 		Type:     "mysql",
-		Host:     "localhost",
+		Host:     "nonexistent.invalid", // Use non-existent host to ensure error
 		Port:     3306,
 		User:     "root",
 		Password: "", // No password
@@ -349,7 +349,7 @@ func TestEstimateMySQLSize_WithoutPassword(t *testing.T) {
 	// Should handle missing password gracefully
 	_, err := EstimateMySQLSize(ctx, conn)
 
-	// Error expected (no MySQL server), but shouldn't panic on empty password
+	// Error expected (connection should fail), but shouldn't panic on empty password
 	assert.Error(t, err)
 }
 
@@ -358,7 +358,7 @@ func TestEstimatePostgreSQLSize_WithoutPassword(t *testing.T) {
 
 	conn := &config.Connection{
 		Type:     "postgres",
-		Host:     "localhost",
+		Host:     "nonexistent.invalid", // Use non-existent host to ensure error
 		Port:     5432,
 		User:     "postgres",
 		Password: "", // No password
@@ -368,7 +368,7 @@ func TestEstimatePostgreSQLSize_WithoutPassword(t *testing.T) {
 	// Should handle missing password gracefully
 	_, err := EstimatePostgreSQLSize(ctx, conn)
 
-	// Error expected (no PostgreSQL server), but shouldn't panic on empty password
+	// Error expected (connection should fail), but shouldn't panic on empty password
 	assert.Error(t, err)
 }
 
@@ -377,7 +377,7 @@ func TestEstimateRedisSize_WithoutPassword(t *testing.T) {
 
 	conn := &config.Connection{
 		Type:     "redis",
-		Host:     "localhost",
+		Host:     "nonexistent.invalid", // Use non-existent host to ensure error
 		Port:     6379,
 		Password: "", // No password
 	}
@@ -385,7 +385,7 @@ func TestEstimateRedisSize_WithoutPassword(t *testing.T) {
 	// Should handle missing password gracefully
 	_, err := EstimateRedisSize(ctx, conn)
 
-	// Error expected (no Redis server), but shouldn't panic on empty password
+	// Error expected (connection should fail), but shouldn't panic on empty password
 	assert.Error(t, err)
 }
 

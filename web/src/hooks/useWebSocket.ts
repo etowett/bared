@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAuthHeader } from '../api/client'
 import type { LogEntry } from '../types'
 

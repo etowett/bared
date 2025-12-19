@@ -1,14 +1,14 @@
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { cn, formatDate } from '@/lib/utils'
+import { AlertCircle } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useJob, useJobLogs } from '../hooks/useJobs'
 import { useWebSocket } from '../hooks/useWebSocket'
-import { JobProgress } from './JobProgress'
 import type { Job } from '../types'
-import { Badge } from '@/components/ui/badge'
-import { StatusBadge } from '@/components/ui/status-badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-react'
-import { formatDate, cn } from '@/lib/utils'
+import { JobProgress } from './JobProgress'
 
 interface JobDetailContentProps {
   job: Job

@@ -1,3 +1,13 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { StatCard } from '@/components/ui/stat-card'
+import { formatBytes } from '@/lib/utils'
 import { useState } from 'react'
 import { useDashboard } from '../hooks/useDashboard'
 import { useJobs } from '../hooks/useJobs'
@@ -6,16 +16,6 @@ import { JobDetail } from './JobDetail'
 import { JobList } from './JobList'
 import { RestoreForm } from './RestoreForm'
 import { TargetList } from './TargetList'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { StatCard } from '@/components/ui/stat-card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { formatBytes } from '@/lib/utils'
 
 export function Dashboard() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)

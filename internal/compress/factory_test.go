@@ -46,6 +46,50 @@ func TestNew_TarGz(t *testing.T) {
 	}
 }
 
+func TestNew_Gzip(t *testing.T) {
+	tests := []struct {
+		name         string
+		compressType string
+		filename     string
+	}{
+		{
+			name:         "type gzip",
+			compressType: "gzip",
+			filename:     "backup.sql",
+		},
+		{
+			name:         "type gz",
+			compressType: "gz",
+			filename:     "backup.sql",
+		},
+		{
+			name:         "empty type defaults to gzip",
+			compressType: "",
+			filename:     "backup.sql",
+		},
+		{
+			name:         "with path in filename",
+			compressType: "gzip",
+			filename:     "mysql/backup-2025-12-02.sql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			compressor, err := New(tt.compressType, tt.filename)
+
+			require.NoError(t, err)
+			require.NotNil(t, compressor)
+
+			// Verify it's a Gzip compressor
+			gz, ok := compressor.(*Gzip)
+			require.True(t, ok, "compressor should be *Gzip type")
+			assert.Equal(t, tt.filename, gz.filename)
+			assert.Equal(t, ".gz", compressor.Extension())
+		})
+	}
+}
+
 func TestNew_UnsupportedType(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -56,16 +100,8 @@ func TestNew_UnsupportedType(t *testing.T) {
 			compressType: "zip",
 		},
 		{
-			name:         "gzip type",
-			compressType: "gzip",
-		},
-		{
 			name:         "bzip2 type",
 			compressType: "bz2",
-		},
-		{
-			name:         "empty type",
-			compressType: "",
 		},
 		{
 			name:         "unknown type",

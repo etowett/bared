@@ -1,8 +1,8 @@
-import { Link } from '@tanstack/react-router'
-import type { Job } from '../types'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { X, ExternalLink } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ExternalLink, X } from 'lucide-react'
+import type { Job } from '../types'
 import { JobDetailContent } from './JobDetailContent'
 
 interface JobDetailProps {

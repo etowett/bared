@@ -1,8 +1,6 @@
-import { useCancelJob } from '../hooks/useJobs'
-import { JobProgress } from './JobProgress'
-import type { Job } from '../types'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/ui/status-badge'
 import {
   Table,
   TableBody,
@@ -11,8 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { StatusBadge } from '@/components/ui/status-badge'
-import { formatDate, formatDuration, cn } from '@/lib/utils'
+import { cn, formatDate, formatDuration } from '@/lib/utils'
+import { useCancelJob } from '../hooks/useJobs'
+import type { Job } from '../types'
+import { JobProgress } from './JobProgress'
 
 interface JobListProps {
   jobs: Job[]

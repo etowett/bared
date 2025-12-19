@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../test/utils'
 import userEvent from '@testing-library/user-event'
-import { Dashboard } from './Dashboard'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as useDashboardHook from '../hooks/useDashboard'
 import * as useJobsHook from '../hooks/useJobs'
+import { render, screen, waitFor } from '../test/utils'
+import { Dashboard } from './Dashboard'
 
 // Mock hooks
 vi.mock('../hooks/useDashboard', () => ({

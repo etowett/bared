@@ -58,9 +58,9 @@ func TestSanitizeDSN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sanitizeDSN(tt.driver, tt.dsn)
+			result := SanitizeDSN(tt.driver, tt.dsn)
 			if result != tt.expected {
-				t.Errorf("sanitizeDSN() = %q, expected %q", result, tt.expected)
+				t.Errorf("SanitizeDSN() = %q, expected %q", result, tt.expected)
 			}
 		})
 	}

@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../test/utils'
 import userEvent from '@testing-library/user-event'
-import { Login } from './Login'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as apiClient from '../api/client'
+import { render, screen, waitFor } from '../test/utils'
+import { Login } from './Login'
 
 // Mock the API client
 vi.mock('../api/client', () => ({
