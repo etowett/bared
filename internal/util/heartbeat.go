@@ -154,6 +154,11 @@ func formatBytes(bytes int64) string {
 		exp++
 	}
 
+	// Defensive bounds check for linter
+	if exp >= len(units) {
+		exp = len(units) - 1
+	}
+
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
 }
 
@@ -171,6 +176,11 @@ func formatBytesUint64(bytes uint64) string {
 	for n := bytes / unit; n >= unit && exp < maxExp; n /= unit {
 		div *= unit
 		exp++
+	}
+
+	// Defensive bounds check for linter
+	if exp >= len(units) {
+		exp = len(units) - 1
 	}
 
 	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])

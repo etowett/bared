@@ -69,6 +69,7 @@ func (h *spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Failed to open index.html", http.StatusInternalServerError)
 				return
 			}
+			//nolint:errcheck // Closing read-only file in defer is not critical
 			defer indexFile.Close()
 
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
