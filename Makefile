@@ -31,29 +31,15 @@ ifeq ($(UNAME_S),Darwin)
 GO_TEST_LDFLAGS := -ldflags=-extldflags=-Wl,-w
 endif
 
-# Ensure web dist directory exists (required for go:embed)
-# This creates an empty dist directory with a placeholder file so that
-# the //go:embed directive in internal/web/embed.go doesn't fail.
-# The binary will still work but will return 404 for web UI requests.
-# To build with full web UI, use: make build-with-web
-ensure-web-dist:
-	@if [ ! -d "internal/web/dist" ]; then \
-		echo "⚠️  Creating internal/web/dist directory for go:embed..."; \
-		mkdir -p internal/web/dist; \
-		echo "Web UI not built. Run 'make web-build web-sync-dist' to build it." > internal/web/dist/.placeholder; \
-		echo "Note: Binary will work but web UI won't be available."; \
-		echo "      To build with web UI, run: make build-with-web"; \
-	fi
-
-# Build the binary
-build: ensure-web-dist
+# Build the binary (with web UI by default)
+build: web-build web-sync-dist
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BIN_DIR}
 	CGO_ENABLED=$(CGO) go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
 	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
-# Build for multiple platforms
-build-all: ensure-web-dist
+# Build for multiple platforms (with web UI by default)
+build-all: web-build web-sync-dist
 	@echo "Building for multiple platforms..."
 	@mkdir -p dist
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
@@ -500,9 +486,9 @@ help:
 	@echo "BareD Makefile Commands:"
 	@echo ""
 	@echo "Build Commands:"
-	@echo "  make build       - Build the brd binary"
-	@echo "  make build-all   - Build for multiple platforms (Linux, macOS, Windows)"
-	@echo "  make build-with-web - Build with embedded web UI"
+	@echo "  make build       - Build the brd binary (with embedded web UI)"
+	@echo "  make build-all   - Build for multiple platforms (Linux, macOS, Windows) with web UI"
+	@echo "  make build-with-web - Alias for build (web UI is now included by default)"
 	@echo "  make clean       - Remove build artifacts"
 	@echo "  make release     - Create release archive (current platform)"
 	@echo "  make release-all - Create release archives for all platforms"
