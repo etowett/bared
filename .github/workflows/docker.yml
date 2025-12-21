@@ -128,10 +128,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            # For tagged releases: v1.2.3 -> 1.2.3, 1.2, 1, latest
-            type=semver,pattern={{version}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
-            type=semver,pattern={{major}},value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
+            # For tagged releases: v0.0.5 and latest
+            type=raw,value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'true' }}
             type=raw,value=latest,enable=${{ steps.meta.outputs.is_tag == 'true' }}
             # Fallback for non-release builds
             type=raw,value=${{ steps.meta.outputs.version }},enable=${{ steps.meta.outputs.is_tag == 'false' }}
