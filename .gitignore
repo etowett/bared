@@ -1,6 +1,7 @@
 # Binaries
 bin/
-bared
+./bared
+./brd
 *.exe
 *.exe~
 *.dll
