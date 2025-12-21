@@ -109,12 +109,12 @@ jobs:
           # Setup buildx builder (same as Makefile docker-buildx-setup)
           echo "Setting up buildx builder 'bared-multi' for multi-arch builds..."
 
-          # Create builder if it doesn't exist
+          # Create builder if it doesn't exist (name is positional, not a flag)
           if ! docker buildx inspect bared-multi >/dev/null 2>&1; then
-            docker buildx create --name bared-multi --driver docker-container --use
+            docker buildx create --driver docker-container --use bared-multi
+          else
+            docker buildx use bared-multi
           fi
-
-          docker buildx use bared-multi
 
           echo "Registering binfmt/QEMU (best-effort; may require privileged support)..."
           docker run --privileged --rm tonistiigi/binfmt --install all || true

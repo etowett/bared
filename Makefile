@@ -250,7 +250,7 @@ docker-buildx:
 docker-buildx-setup:
 	@echo "Setting up buildx builder '$(DOCKER_BUILDX_BUILDER)' for multi-arch builds..."
 	@docker buildx inspect $(DOCKER_BUILDX_BUILDER) >/dev/null 2>&1 || \
-		docker buildx create --name $(DOCKER_BUILDX_BUILDER) --driver docker-container --use
+		docker buildx create --driver docker-container --use $(DOCKER_BUILDX_BUILDER)
 	@docker buildx use $(DOCKER_BUILDX_BUILDER)
 	@echo "Registering binfmt/QEMU (best-effort; may require privileged support)..."
 	@docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null 2>&1 || true
