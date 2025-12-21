@@ -319,12 +319,57 @@ docker-release-multiplatform:
 		.
 	@echo "Multi-platform Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION} (platforms: $(DOCKER_PLATFORMS))"
 
-# Create release archive
+# Create release archive (current platform only)
 release: build
-	@echo "Creating release archive..."
+	@echo "Creating release archive for current platform..."
 	mkdir -p dist
-	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ plan.md
+	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ docs/
 	@echo "Release archive created: dist/${BINARY_NAME}-${VERSION}.tar.gz"
+
+# Create release archives for all platforms
+release-all: build-all
+	@echo "Creating release archives for all platforms..."
+	@mkdir -p dist
+
+	# Linux amd64
+	@echo "Packaging linux-amd64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-linux-amd64.tar.gz \
+		-C dist ${BINARY_NAME}-linux-amd64 \
+		-C .. README.md examples/ docs/
+
+	# Linux arm64
+	@echo "Packaging linux-arm64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-linux-arm64.tar.gz \
+		-C dist ${BINARY_NAME}-linux-arm64 \
+		-C .. README.md examples/ docs/
+
+	# macOS amd64 (Intel)
+	@echo "Packaging darwin-amd64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-darwin-amd64.tar.gz \
+		-C dist ${BINARY_NAME}-darwin-amd64 \
+		-C .. README.md examples/ docs/
+
+	# macOS arm64 (Apple Silicon)
+	@echo "Packaging darwin-arm64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-darwin-arm64.tar.gz \
+		-C dist ${BINARY_NAME}-darwin-arm64 \
+		-C .. README.md examples/ docs/
+
+	# Windows amd64
+	@echo "Packaging windows-amd64..."
+	@cd dist && zip -q ${BINARY_NAME}-${VERSION}-windows-amd64.zip \
+		${BINARY_NAME}-windows-amd64.exe
+	@cd . && tar -czf dist/${BINARY_NAME}-${VERSION}-windows-amd64-extras.tar.gz \
+		README.md examples/ docs/
+
+	@echo ""
+	@echo "✅ Multi-platform release archives created in ./dist/:"
+	@echo "   - ${BINARY_NAME}-${VERSION}-linux-amd64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-linux-arm64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-darwin-amd64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-darwin-arm64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-windows-amd64.zip"
+	@echo "   - ${BINARY_NAME}-${VERSION}-windows-amd64-extras.tar.gz"
 
 # Show Go environment
 env:
@@ -445,7 +490,8 @@ help:
 	@echo "  make build-all   - Build for multiple platforms (Linux, macOS, Windows)"
 	@echo "  make build-with-web - Build with embedded web UI"
 	@echo "  make clean       - Remove build artifacts"
-	@echo "  make release     - Create release archive"
+	@echo "  make release     - Create release archive (current platform)"
+	@echo "  make release-all - Create release archives for all platforms"
 	@echo ""
 	@echo "Installation Commands:"
 	@echo "  make install     - Install brd to /usr/local/bin"
