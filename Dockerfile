@@ -17,27 +17,11 @@ RUN npm run build
 # Stage 2: Build Go backend
 FROM golang:1.25-alpine AS backend-builder
 
-# Install build dependencies with retry logic for network issues
+# Install build dependencies
 # Note: under some buildx/QEMU setups, apk trigger scripts can fail with
 # "* execve: No such file or directory". Skipping scripts for build deps keeps
 # the builder working while still producing a correct Go binary.
-RUN set -e; \
-    for attempt in 1 2 3 4 5; do \
-      echo "Attempt $attempt: Installing build dependencies..."; \
-      if apk add --no-cache --no-scripts git make gcc musl-dev; then \
-        echo "Successfully installed build dependencies"; \
-        break; \
-      else \
-        echo "Failed to install dependencies (attempt $attempt/5)"; \
-        if [ $attempt -lt 5 ]; then \
-          echo "Retrying in 5 seconds..."; \
-          sleep 5; \
-        else \
-          echo "All attempts failed"; \
-          exit 1; \
-        fi; \
-      fi; \
-    done
+RUN apk add --no-cache --no-scripts git make gcc musl-dev
 
 WORKDIR /app
 
