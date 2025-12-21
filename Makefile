@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -258,6 +258,23 @@ docker-buildx-setup:
 	@echo "✅ buildx is ready:"
 	@docker buildx ls | sed -n '1,12p'
 
+# Local multi-platform build (builds locally into buildx cache, no push/load).
+# Useful for testing multi-platform builds before pushing.
+# Note: Images are stored in the buildx builder cache and can be pushed later.
+# Usage:
+#   make docker-buildx-local DOCKER_IMAGE=ektowett/bared
+docker-buildx-local: docker-buildx-setup
+	@echo "Building multi-platform Docker image locally (no push/load)..."
+	docker buildx build --platform $(DOCKER_PLATFORMS) \
+		-t $(DOCKER_IMAGE):latest \
+		-t $(DOCKER_IMAGE):${VERSION} \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		.
+	@echo "Multi-platform Docker image built locally: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION} (platforms: $(DOCKER_PLATFORMS))"
+	@echo "Images are in buildx cache. Use 'make docker-buildx-push' to push them."
+
 # Publishing: multi-platform build that pushes a manifest list to a registry.
 # Usage:
 #   make docker-buildx-push DOCKER_IMAGE=ektowett/bared
@@ -466,6 +483,7 @@ help:
 	@echo "  make docker-build-version        - Build Docker image with version tag"
 	@echo "  make docker-buildx               - Build single-platform image for local use (auto-detect or set DOCKER_PLATFORM)"
 	@echo "  make docker-buildx-setup         - Setup buildx builder for multi-arch builds"
+	@echo "  make docker-buildx-local         - Build multi-platform image locally (no push, stored in buildx cache)"
 	@echo "  make docker-buildx-push          - Build and push multi-platform image to registry"
 	@echo "  make docker-push                 - Push to ektowett/bared (latest + version)"
 	@echo "  make docker-push-latest          - Push to ektowett/bared:latest only"
