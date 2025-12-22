@@ -191,7 +191,8 @@ func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size 
 	logger.InfoS("Initiating multipart upload",
 		"storage", s.cfg.Name,
 		"component", "s3",
-		"part_size", util.FormatBytes(multipartChunkSize))
+		"part_size", util.FormatBytes(multipartChunkSize),
+		"total_size", util.FormatBytes(size))
 
 	// Create multipart upload
 	createResp, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -223,6 +224,7 @@ func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size 
 				"component", "s3",
 				"upload_id", uploadID,
 				"error", readErr)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
 			_ = s.abortMultipartUpload(ctx, key, uploadID)
 			return fmt.Errorf("failed to read data: %w", readErr)
 		}
@@ -240,6 +242,7 @@ func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size 
 				"part_number", partNumber,
 				"size", n,
 				"min_size", minMultipartSize)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
 			_ = s.abortMultipartUpload(ctx, key, uploadID)
 			return fmt.Errorf("part size %d is below minimum %d", n, minMultipartSize)
 		}
@@ -289,6 +292,7 @@ func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size 
 				"part_number", partNumber,
 				"upload_id", uploadID,
 				"error", err)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
 			_ = s.abortMultipartUpload(ctx, key, uploadID)
 			return fmt.Errorf("failed to upload part %d: %w", partNumber, err)
 		}
@@ -333,6 +337,7 @@ func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size 
 			"component", "s3",
 			"upload_id", uploadID,
 			"error", err)
+		//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
 		_ = s.abortMultipartUpload(ctx, key, uploadID)
 		return fmt.Errorf("failed to complete multipart upload: %w", err)
 	}

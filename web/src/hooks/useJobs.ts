@@ -5,6 +5,8 @@ interface UseJobsFilters {
   status?: string
   target?: string
   type?: 'backup' | 'restore'
+  page?: number
+  limit?: number
 }
 
 // Fetch all jobs with optional filters

@@ -13,15 +13,26 @@ import { cn, formatDate, formatDuration } from '@/lib/utils'
 import { useCancelJob } from '../hooks/useJobs'
 import type { Job } from '../types'
 import { JobProgress } from './JobProgress'
+import { useNavigate } from '@tanstack/react-router'
 
 interface JobListProps {
   jobs: Job[]
-  onSelectJob: (_job: Job) => void
+  onSelectJob?: (_job: Job) => void
   selectedJobId?: string
+  navigationMode?: boolean
 }
 
-export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
+export function JobList({ jobs, onSelectJob, selectedJobId, navigationMode = false }: JobListProps) {
+  const navigate = useNavigate()
   const cancelJob = useCancelJob()
+
+  const handleRowClick = (job: Job) => {
+    if (navigationMode) {
+      navigate({ to: '/jobs/$id', params: { id: job.id } })
+    } else if (onSelectJob) {
+      onSelectJob(job)
+    }
+  }
 
   const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
@@ -57,7 +68,7 @@ export function JobList({ jobs, onSelectJob, selectedJobId }: JobListProps) {
           {jobs.map((job) => (
             <TableRow
               key={job.id}
-              onClick={() => onSelectJob(job)}
+              onClick={() => handleRowClick(job)}
               className={cn(
                 'cursor-pointer transition-colors',
                 'hover:bg-accent/50',

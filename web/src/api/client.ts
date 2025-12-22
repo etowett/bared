@@ -1,4 +1,4 @@
-import type { Dashboard, Job, LogEntry, RestoreTarget, Target } from '../types'
+import type { Dashboard, Job, LogEntry, PaginationMetadata, RestoreTarget, Target } from '../types'
 
 // Get auth from sessionStorage (set on login)
 export const getAuthHeader = (): string => {
@@ -81,11 +81,15 @@ export const apiClient = {
     status?: string
     target?: string
     type?: 'backup' | 'restore'
-  }): Promise<{ jobs: Job[]; total: number }> {
+    page?: number
+    limit?: number
+  }): Promise<{ jobs: Job[]; total: number; pagination: PaginationMetadata }> {
     const params = new URLSearchParams()
     if (filters?.status) params.set('status', filters.status)
     if (filters?.target) params.set('target', filters.target)
     if (filters?.type) params.set('type', filters.type)
+    if (filters?.page !== undefined) params.set('page', filters.page.toString())
+    if (filters?.limit !== undefined) params.set('limit', filters.limit.toString())
 
     const url = `/api/jobs${params.toString() ? `?${params}` : ''}`
     return apiFetch(url)

@@ -1,7 +1,7 @@
 # Binaries
 bin/
-./bared
-./brd
+bared
+/brd
 *.exe
 *.exe~
 *.dll
