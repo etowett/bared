@@ -3,6 +3,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"sync"
 	"time"
 
@@ -284,13 +286,14 @@ func generateJobID() string {
 	return time.Now().Format("20060102-150405") + "-" + randomString(8)
 }
 
-// randomString generates a random alphanumeric string
+// randomString generates a random alphanumeric string using cryptographic randomness
 func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[time.Now().UnixNano()%int64(len(letters))]
-		time.Sleep(1 * time.Nanosecond) // Ensure uniqueness
+	// Generate n/2 random bytes (each byte becomes 2 hex characters)
+	bytes := make([]byte, (n+1)/2)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based ID if crypto/rand fails
+		return time.Now().Format("150405.000000")[:n]
 	}
-	return string(b)
+	// Convert to hex and return first n characters
+	return hex.EncodeToString(bytes)[:n]
 }

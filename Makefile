@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -31,15 +31,15 @@ ifeq ($(UNAME_S),Darwin)
 GO_TEST_LDFLAGS := -ldflags=-extldflags=-Wl,-w
 endif
 
-# Build the binary
-build:
+# Build the binary (with web UI by default)
+build: web-build web-sync-dist
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BIN_DIR}
 	CGO_ENABLED=$(CGO) go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
 	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
-# Build for multiple platforms
-build-all:
+# Build for multiple platforms (with web UI by default)
+build-all: web-build web-sync-dist
 	@echo "Building for multiple platforms..."
 	@mkdir -p dist
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
@@ -250,13 +250,30 @@ docker-buildx:
 docker-buildx-setup:
 	@echo "Setting up buildx builder '$(DOCKER_BUILDX_BUILDER)' for multi-arch builds..."
 	@docker buildx inspect $(DOCKER_BUILDX_BUILDER) >/dev/null 2>&1 || \
-		docker buildx create --name $(DOCKER_BUILDX_BUILDER) --driver docker-container --use
+		docker buildx create --driver docker-container --use $(DOCKER_BUILDX_BUILDER)
 	@docker buildx use $(DOCKER_BUILDX_BUILDER)
 	@echo "Registering binfmt/QEMU (best-effort; may require privileged support)..."
 	@docker run --privileged --rm tonistiigi/binfmt --install all >/dev/null 2>&1 || true
 	@docker buildx inspect --bootstrap >/dev/null
 	@echo "✅ buildx is ready:"
 	@docker buildx ls | sed -n '1,12p'
+
+# Local multi-platform build (builds locally into buildx cache, no push/load).
+# Useful for testing multi-platform builds before pushing.
+# Note: Images are stored in the buildx builder cache and can be pushed later.
+# Usage:
+#   make docker-buildx-local DOCKER_IMAGE=ektowett/bared
+docker-buildx-local: docker-buildx-setup
+	@echo "Building multi-platform Docker image locally (no push/load)..."
+	docker buildx build --platform $(DOCKER_PLATFORMS) \
+		-t $(DOCKER_IMAGE):latest \
+		-t $(DOCKER_IMAGE):${VERSION} \
+		--build-arg VERSION=${VERSION} \
+		--build-arg COMMIT=${COMMIT} \
+		--build-arg BUILD_DATE=${BUILD_TIME} \
+		.
+	@echo "Multi-platform Docker image built locally: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION} (platforms: $(DOCKER_PLATFORMS))"
+	@echo "Images are in buildx cache. Use 'make docker-buildx-push' to push them."
 
 # Publishing: multi-platform build that pushes a manifest list to a registry.
 # Usage:
@@ -302,12 +319,57 @@ docker-release-multiplatform:
 		.
 	@echo "Multi-platform Docker images pushed: $(DOCKER_IMAGE):latest, $(DOCKER_IMAGE):${VERSION} (platforms: $(DOCKER_PLATFORMS))"
 
-# Create release archive
+# Create release archive (current platform only)
 release: build
-	@echo "Creating release archive..."
+	@echo "Creating release archive for current platform..."
 	mkdir -p dist
-	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ plan.md
+	tar -czf dist/${BINARY_NAME}-${VERSION}.tar.gz -C ${BIN_DIR} ${BINARY_NAME} -C .. README.md examples/ docs/
 	@echo "Release archive created: dist/${BINARY_NAME}-${VERSION}.tar.gz"
+
+# Create release archives for all platforms
+release-all: build-all
+	@echo "Creating release archives for all platforms..."
+	@mkdir -p dist
+
+	# Linux amd64
+	@echo "Packaging linux-amd64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-linux-amd64.tar.gz \
+		-C dist ${BINARY_NAME}-linux-amd64 \
+		-C .. README.md examples/ docs/
+
+	# Linux arm64
+	@echo "Packaging linux-arm64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-linux-arm64.tar.gz \
+		-C dist ${BINARY_NAME}-linux-arm64 \
+		-C .. README.md examples/ docs/
+
+	# macOS amd64 (Intel)
+	@echo "Packaging darwin-amd64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-darwin-amd64.tar.gz \
+		-C dist ${BINARY_NAME}-darwin-amd64 \
+		-C .. README.md examples/ docs/
+
+	# macOS arm64 (Apple Silicon)
+	@echo "Packaging darwin-arm64..."
+	@tar -czf dist/${BINARY_NAME}-${VERSION}-darwin-arm64.tar.gz \
+		-C dist ${BINARY_NAME}-darwin-arm64 \
+		-C .. README.md examples/ docs/
+
+	# Windows amd64
+	@echo "Packaging windows-amd64..."
+	@cd dist && zip -q ${BINARY_NAME}-${VERSION}-windows-amd64.zip \
+		${BINARY_NAME}-windows-amd64.exe
+	@cd . && tar -czf dist/${BINARY_NAME}-${VERSION}-windows-amd64-extras.tar.gz \
+		README.md examples/ docs/
+
+	@echo ""
+	@echo "✅ Multi-platform release archives created in ./dist/:"
+	@echo "   - ${BINARY_NAME}-${VERSION}-linux-amd64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-linux-arm64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-darwin-amd64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-darwin-arm64.tar.gz"
+	@echo "   - ${BINARY_NAME}-${VERSION}-windows-amd64.zip"
+	@echo "   - ${BINARY_NAME}-${VERSION}-windows-amd64-extras.tar.gz"
 
 # Show Go environment
 env:
@@ -424,11 +486,12 @@ help:
 	@echo "BareD Makefile Commands:"
 	@echo ""
 	@echo "Build Commands:"
-	@echo "  make build       - Build the brd binary"
-	@echo "  make build-all   - Build for multiple platforms (Linux, macOS, Windows)"
-	@echo "  make build-with-web - Build with embedded web UI"
+	@echo "  make build       - Build the brd binary (with embedded web UI)"
+	@echo "  make build-all   - Build for multiple platforms (Linux, macOS, Windows) with web UI"
+	@echo "  make build-with-web - Alias for build (web UI is now included by default)"
 	@echo "  make clean       - Remove build artifacts"
-	@echo "  make release     - Create release archive"
+	@echo "  make release     - Create release archive (current platform)"
+	@echo "  make release-all - Create release archives for all platforms"
 	@echo ""
 	@echo "Installation Commands:"
 	@echo "  make install     - Install brd to /usr/local/bin"
@@ -466,6 +529,7 @@ help:
 	@echo "  make docker-build-version        - Build Docker image with version tag"
 	@echo "  make docker-buildx               - Build single-platform image for local use (auto-detect or set DOCKER_PLATFORM)"
 	@echo "  make docker-buildx-setup         - Setup buildx builder for multi-arch builds"
+	@echo "  make docker-buildx-local         - Build multi-platform image locally (no push, stored in buildx cache)"
 	@echo "  make docker-buildx-push          - Build and push multi-platform image to registry"
 	@echo "  make docker-push                 - Push to ektowett/bared (latest + version)"
 	@echo "  make docker-push-latest          - Push to ektowett/bared:latest only"

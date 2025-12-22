@@ -4,6 +4,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"bared/internal/app"
@@ -75,6 +76,23 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	statusStr := r.URL.Query().Get("status")
 	target := r.URL.Query().Get("target")
 	typeStr := r.URL.Query().Get("type")
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	// Parse pagination parameters with defaults
+	page := 1
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	limit := 20
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
 
 	// Parse filters (keep backward-compatible semantics: invalid filter => empty result)
 	var status jobs.JobStatus
@@ -88,7 +106,18 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 			string(jobs.JobStatusCancelled):
 			status = jobs.JobStatus(statusStr)
 		default:
-			respondJSON(w, http.StatusOK, ListJobsResponse{Jobs: []JobResponse{}, Total: 0})
+			respondJSON(w, http.StatusOK, ListJobsResponse{
+				Jobs:  []JobResponse{},
+				Total: 0,
+				Pagination: PaginationMetadata{
+					Page:       page,
+					Limit:      limit,
+					Offset:     0,
+					TotalPages: 0,
+					HasNext:    false,
+					HasPrev:    false,
+				},
+			})
 			return
 		}
 	}
@@ -99,7 +128,18 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		case string(jobs.JobTypeBackup), string(jobs.JobTypeRestore):
 			jobType = jobs.JobType(typeStr)
 		default:
-			respondJSON(w, http.StatusOK, ListJobsResponse{Jobs: []JobResponse{}, Total: 0})
+			respondJSON(w, http.StatusOK, ListJobsResponse{
+				Jobs:  []JobResponse{},
+				Total: 0,
+				Pagination: PaginationMetadata{
+					Page:       page,
+					Limit:      limit,
+					Offset:     0,
+					TotalPages: 0,
+					HasNext:    false,
+					HasPrev:    false,
+				},
+			})
 			return
 		}
 	}
@@ -110,15 +150,47 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		Type:       jobType,
 	})
 
+	total := len(filteredJobs)
+
+	// Calculate pagination
+	offset := (page - 1) * limit
+	totalPages := (total + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	// Apply pagination to filtered jobs
+	var paginatedJobs []*jobs.Job
+	if offset < total {
+		end := offset + limit
+		if end > total {
+			end = total
+		}
+		paginatedJobs = filteredJobs[offset:end]
+	} else {
+		paginatedJobs = []*jobs.Job{}
+	}
+
 	// Convert to response format
-	responses := make([]JobResponse, 0, len(filteredJobs))
-	for _, job := range filteredJobs {
+	responses := make([]JobResponse, 0, len(paginatedJobs))
+	for _, job := range paginatedJobs {
 		responses = append(responses, JobToResponse(job))
 	}
 
+	// Calculate pagination metadata
+	pagination := PaginationMetadata{
+		Page:       page,
+		Limit:      limit,
+		Offset:     offset,
+		TotalPages: totalPages,
+		HasNext:    page < totalPages,
+		HasPrev:    page > 1,
+	}
+
 	respondJSON(w, http.StatusOK, ListJobsResponse{
-		Jobs:  responses,
-		Total: len(responses),
+		Jobs:       responses,
+		Total:      total,
+		Pagination: pagination,
 	})
 }
 

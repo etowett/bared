@@ -135,8 +135,15 @@ func validateTarget(target *Target, cfg *Config) error {
 		if target.Compress.Type == "" {
 			return fmt.Errorf("target '%s': compression type is required when compression is enabled", target.Name)
 		}
-		if target.Compress.Type != "tgz" {
-			return fmt.Errorf("target '%s': unsupported compression type '%s'", target.Name, target.Compress.Type)
+		// Supported types: gzip (streaming, constant memory), tgz (buffered, tar archive)
+		validTypes := map[string]bool{
+			"gzip":   true, // Recommended for large databases (100GB+), constant memory usage
+			"gz":     true, // Alias for gzip
+			"tgz":    true, // Buffers entire database in memory, not suitable for large databases
+			"tar.gz": true, // Alias for tgz
+		}
+		if !validTypes[target.Compress.Type] {
+			return fmt.Errorf("target '%s': unsupported compression type '%s' (supported: gzip, gz, tgz, tar.gz)", target.Name, target.Compress.Type)
 		}
 	}
 

@@ -701,6 +701,86 @@ func TestValidate(t *testing.T) {
 			errContains: "storage 'nonexistent' not found",
 		},
 		{
+			name: "valid compression type - gzip",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Targets: []*Target{
+					{
+						Name: "test",
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
+						Compress: &CompressionOpts{
+							Enabled: true,
+							Type:    "gzip",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid compression type - gz",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Targets: []*Target{
+					{
+						Name: "test",
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
+						Compress: &CompressionOpts{
+							Enabled: true,
+							Type:    "gz",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid compression type - tgz",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Targets: []*Target{
+					{
+						Name: "test",
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
+						Compress: &CompressionOpts{
+							Enabled: true,
+							Type:    "tgz",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid compression type - tar.gz",
+			config: &Config{
+				DefaultStorage: "local",
+				Storages: map[string]*Storage{
+					"local": {Type: "local", Path: "/tmp"},
+				},
+				Targets: []*Target{
+					{
+						Name: "test",
+						Conn: &Connection{Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db"},
+						Compress: &CompressionOpts{
+							Enabled: true,
+							Type:    "tar.gz",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid compression type",
 			config: &Config{
 				DefaultStorage: "local",

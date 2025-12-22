@@ -53,3 +53,12 @@ export interface RestoreTarget {
   description?: string
   source_target?: string
 }
+
+export interface PaginationMetadata {
+  page: number
+  limit: number
+  offset: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
+}

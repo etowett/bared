@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { LayoutDashboard, RotateCcw, Database, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, RotateCcw, Database, ChevronLeft, ListTodo } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -17,6 +17,12 @@ const navItems: NavItem[] = [
     label: 'Overview',
     icon: LayoutDashboard,
     to: '/',
+  },
+  {
+    id: 'jobs',
+    label: 'Jobs',
+    icon: ListTodo,
+    to: '/jobs',
   },
   {
     id: 'backup',

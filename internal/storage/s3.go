@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,9 +12,23 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	bconfig "bared/internal/config"
 	"bared/internal/util"
+)
+
+const (
+	// multipartThreshold is the file size above which multipart upload is used (5GB)
+	// S3 has a 5GB limit for single PutObject operations
+	multipartThreshold = 5 * 1024 * 1024 * 1024 // 5GB
+
+	// multipartChunkSize is the size of each part in multipart uploads (100MB)
+	// Must be between 5MB and 5GB. 100MB is a good balance for performance
+	multipartChunkSize = 100 * 1024 * 1024 // 100MB
+
+	// minMultipartSize is the minimum part size (5MB) required by S3
+	minMultipartSize = 5 * 1024 * 1024 // 5MB
 )
 
 // S3 implements Storage for AWS S3 and S3-compatible services
@@ -58,9 +73,32 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 	// Combine path prefix with file path
 	key := path.Join(s.cfg.Path, filePath)
 
+	logger := util.GetLogger()
+	logger.InfoS("Uploading to S3",
+		"storage", s.cfg.Name,
+		"bucket", s.cfg.Bucket,
+		"key", key,
+		"size", util.FormatBytes(size))
+
+	// Use multipart upload for large files (>5GB) or if size is unknown
+	if size > multipartThreshold || size <= 0 {
+		logger.InfoS("Using multipart upload for large file",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"threshold", util.FormatBytes(multipartThreshold))
+		return s.multipartUpload(ctx, key, r, size)
+	}
+
+	// Use regular PutObject for smaller files
+	return s.singlePartUpload(ctx, key, r, size)
+}
+
+// singlePartUpload handles uploads <= 5GB using PutObject
+func (s *S3) singlePartUpload(ctx context.Context, key string, r io.Reader, size int64) error {
+	logger := util.GetLogger()
+
 	// Check if reader is seekable for retry support
 	seeker, isSeekable := r.(io.ReadSeeker)
-	logger := util.GetLogger()
 	if !isSeekable {
 		logger.WarnS("Reader is not seekable - retries may fail",
 			"storage", s.cfg.Name,
@@ -70,12 +108,6 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 			"storage", s.cfg.Name,
 			"component", "s3")
 	}
-
-	logger.InfoS("Uploading to S3",
-		"storage", s.cfg.Name,
-		"bucket", s.cfg.Bucket,
-		"key", key,
-		"size", util.FormatBytes(size))
 
 	// Upload with retry
 	attempt := 0
@@ -143,6 +175,202 @@ func (s *S3) Store(ctx context.Context, filePath string, r io.Reader, size int64
 	logger.InfoS("Upload completed successfully",
 		"storage", s.cfg.Name,
 		"component", "s3")
+	return nil
+}
+
+// multipartUpload handles uploads > 5GB using multipart upload
+func (s *S3) multipartUpload(ctx context.Context, key string, r io.Reader, size int64) error {
+	logger := util.GetLogger()
+
+	// Check if reader is seekable (required for multipart upload with retry)
+	seeker, isSeekable := r.(io.ReadSeeker)
+	if !isSeekable {
+		return fmt.Errorf("multipart upload requires seekable reader")
+	}
+
+	logger.InfoS("Initiating multipart upload",
+		"storage", s.cfg.Name,
+		"component", "s3",
+		"part_size", util.FormatBytes(multipartChunkSize),
+		"total_size", util.FormatBytes(size))
+
+	// Create multipart upload
+	createResp, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: aws.String(s.cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create multipart upload: %w", err)
+	}
+
+	uploadID := *createResp.UploadId
+	logger.DebugS("Multipart upload created",
+		"storage", s.cfg.Name,
+		"component", "s3",
+		"upload_id", uploadID)
+
+	// Upload parts
+	var completedParts []types.CompletedPart
+	partNumber := int32(1)
+	buf := make([]byte, multipartChunkSize)
+
+	for {
+		// Read chunk
+		n, readErr := io.ReadFull(r, buf)
+		if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+			// Abort multipart upload on error
+			logger.ErrorS("Failed to read data for multipart upload",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"upload_id", uploadID,
+				"error", readErr)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
+			_ = s.abortMultipartUpload(ctx, key, uploadID)
+			return fmt.Errorf("failed to read data: %w", readErr)
+		}
+
+		// No more data to read
+		if n == 0 {
+			break
+		}
+
+		// Validate part size (must be >= 5MB except for the last part)
+		if n < minMultipartSize && readErr == nil {
+			logger.ErrorS("Part size too small",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"part_number", partNumber,
+				"size", n,
+				"min_size", minMultipartSize)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
+			_ = s.abortMultipartUpload(ctx, key, uploadID)
+			return fmt.Errorf("part size %d is below minimum %d", n, minMultipartSize)
+		}
+
+		logger.DebugS("Uploading part",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"part_number", partNumber,
+			"size", util.FormatBytes(int64(n)))
+
+		// Upload part with retry
+		var etag string
+		err := util.Retry(ctx, util.DefaultRetryConfig(), func() error {
+			// Seek back to the start of this part for retry
+			if partNumber > 1 {
+				offset := int64(partNumber-1) * multipartChunkSize
+				if _, err := seeker.Seek(offset, 0); err != nil {
+					return fmt.Errorf("failed to seek for retry: %w", err)
+				}
+			}
+
+			uploadResp, uploadErr := s.client.UploadPart(ctx, &s3.UploadPartInput{
+				Bucket:        aws.String(s.cfg.Bucket),
+				Key:           aws.String(key),
+				UploadId:      aws.String(uploadID),
+				PartNumber:    aws.Int32(partNumber),
+				Body:          bytes.NewReader(buf[:n]),
+				ContentLength: aws.Int64(int64(n)),
+			})
+			if uploadErr != nil {
+				logger.WarnS("Part upload failed",
+					"storage", s.cfg.Name,
+					"component", "s3",
+					"part_number", partNumber,
+					"error", uploadErr)
+				return fmt.Errorf("failed to upload part: %w", uploadErr)
+			}
+
+			etag = *uploadResp.ETag
+			return nil
+		})
+
+		if err != nil {
+			logger.ErrorS("Part upload failed after retries",
+				"storage", s.cfg.Name,
+				"component", "s3",
+				"part_number", partNumber,
+				"upload_id", uploadID,
+				"error", err)
+			//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
+			_ = s.abortMultipartUpload(ctx, key, uploadID)
+			return fmt.Errorf("failed to upload part %d: %w", partNumber, err)
+		}
+
+		logger.DebugS("Part uploaded successfully",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"part_number", partNumber,
+			"etag", etag)
+
+		completedParts = append(completedParts, types.CompletedPart{
+			ETag:       aws.String(etag),
+			PartNumber: aws.Int32(partNumber),
+		})
+
+		// If we hit EOF or unexpected EOF, we're done
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			break
+		}
+
+		partNumber++
+	}
+
+	logger.InfoS("All parts uploaded, completing multipart upload",
+		"storage", s.cfg.Name,
+		"component", "s3",
+		"total_parts", len(completedParts),
+		"upload_id", uploadID)
+
+	// Complete multipart upload
+	_, err = s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String(s.cfg.Bucket),
+		Key:      aws.String(key),
+		UploadId: aws.String(uploadID),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	if err != nil {
+		logger.ErrorS("Failed to complete multipart upload",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"upload_id", uploadID,
+			"error", err)
+		//nolint:errcheck // Error aborting multipart upload during cleanup is not critical - we're already returning an error
+		_ = s.abortMultipartUpload(ctx, key, uploadID)
+		return fmt.Errorf("failed to complete multipart upload: %w", err)
+	}
+
+	logger.InfoS("Multipart upload completed successfully",
+		"storage", s.cfg.Name,
+		"component", "s3",
+		"total_parts", len(completedParts))
+	return nil
+}
+
+// abortMultipartUpload aborts a multipart upload and cleans up resources
+func (s *S3) abortMultipartUpload(ctx context.Context, key string, uploadID string) error {
+	logger := util.GetLogger()
+	logger.WarnS("Aborting multipart upload",
+		"storage", s.cfg.Name,
+		"component", "s3",
+		"upload_id", uploadID)
+
+	_, err := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		Bucket:   aws.String(s.cfg.Bucket),
+		Key:      aws.String(key),
+		UploadId: aws.String(uploadID),
+	})
+	if err != nil {
+		logger.ErrorS("Failed to abort multipart upload",
+			"storage", s.cfg.Name,
+			"component", "s3",
+			"upload_id", uploadID,
+			"error", err)
+		return fmt.Errorf("failed to abort multipart upload: %w", err)
+	}
+
 	return nil
 }
 

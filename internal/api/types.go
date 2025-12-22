@@ -44,10 +44,21 @@ type ProgressResponse struct {
 	Message        string  `json:"message"`
 }
 
+// PaginationMetadata represents pagination information
+type PaginationMetadata struct {
+	Page       int  `json:"page"`
+	Limit      int  `json:"limit"`
+	Offset     int  `json:"offset"`
+	TotalPages int  `json:"total_pages"`
+	HasNext    bool `json:"has_next"`
+	HasPrev    bool `json:"has_prev"`
+}
+
 // ListJobsResponse represents the response for listing jobs
 type ListJobsResponse struct {
-	Jobs  []JobResponse `json:"jobs"`
-	Total int           `json:"total"`
+	Jobs       []JobResponse      `json:"jobs"`
+	Total      int                `json:"total"`
+	Pagination PaginationMetadata `json:"pagination"`
 }
 
 // TriggerBackupRequest represents a backup trigger request
