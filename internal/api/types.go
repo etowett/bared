@@ -56,9 +56,9 @@ type PaginationMetadata struct {
 
 // ListJobsResponse represents the response for listing jobs
 type ListJobsResponse struct {
-	Jobs       []JobResponse       `json:"jobs"`
-	Total      int                 `json:"total"`
-	Pagination PaginationMetadata  `json:"pagination"`
+	Jobs       []JobResponse      `json:"jobs"`
+	Total      int                `json:"total"`
+	Pagination PaginationMetadata `json:"pagination"`
 }
 
 // TriggerBackupRequest represents a backup trigger request

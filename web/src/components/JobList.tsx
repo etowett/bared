@@ -22,7 +22,12 @@ interface JobListProps {
   navigationMode?: boolean
 }
 
-export function JobList({ jobs, onSelectJob, selectedJobId, navigationMode = false }: JobListProps) {
+export function JobList({
+  jobs,
+  onSelectJob,
+  selectedJobId,
+  navigationMode = false,
+}: JobListProps) {
   const navigate = useNavigate()
   const cancelJob = useCancelJob()
 

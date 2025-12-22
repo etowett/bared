@@ -160,7 +160,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply pagination to filtered jobs
-	paginatedJobs := filteredJobs
+	var paginatedJobs []*jobs.Job
 	if offset < total {
 		end := offset + limit
 		if end > total {
