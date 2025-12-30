@@ -199,15 +199,23 @@ func (d *Daemon) Start() error {
 		}
 	}
 
-	if scheduledCount == 0 {
-		return fmt.Errorf("no targets with schedules configured")
+	// Require at least one schedule OR HTTP server to be configured
+	if scheduledCount == 0 && d.httpAddr == "" {
+		return fmt.Errorf("no targets with schedules configured and no HTTP server enabled. " +
+			"Either configure schedules for cron-based backups or enable HTTP server " +
+			"(--http flag) for API/web-based operations")
 	}
 
-	// Start the scheduler
-	d.scheduler.Start()
-	logger.InfoS("Scheduler started",
-		"component", "daemon",
-		"scheduled_targets", scheduledCount)
+	// Start the scheduler only if there are scheduled targets
+	if scheduledCount > 0 {
+		d.scheduler.Start()
+		logger.InfoS("Scheduler started",
+			"component", "daemon",
+			"scheduled_targets", scheduledCount)
+	} else {
+		logger.InfoS("Scheduler disabled - no targets with schedules configured",
+			"component", "daemon")
+	}
 
 	// Setup signal handling
 	sigChan := make(chan os.Signal, 1)

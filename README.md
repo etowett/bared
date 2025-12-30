@@ -141,6 +141,51 @@ targets:
 ./bin/brd daemon --config bared.yml
 ```
 
+### Daemon Modes
+
+BareD daemon can run in three distinct modes to fit different operational needs:
+
+#### 1. Cron-only Mode (Scheduled Backups)
+Run automated backups on a schedule without HTTP API access:
+
+```bash
+./bin/brd daemon --config bared.yml
+```
+
+**Requirements:**
+- At least one target must have a `schedule` field configured in YAML
+- No HTTP server flags needed
+
+**Use case:** Traditional scheduled backups in environments where API access is not needed.
+
+#### 2. API-only Mode (Manual Backups)
+Run the HTTP server for manual backups via web UI or API without any scheduled jobs:
+
+```bash
+./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
+```
+
+**Requirements:**
+- `--http` flag must be specified
+- Targets do NOT need `schedule` fields (they can be omitted)
+
+**Use case:** On-demand backups triggered manually through the web interface or API calls, ideal for development environments or when you need full control over backup timing.
+
+#### 3. Hybrid Mode (Scheduled + Manual)
+Run both scheduled backups AND provide HTTP API access:
+
+```bash
+./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
+```
+
+**Requirements:**
+- `--http` flag specified
+- Some targets have `schedule` fields (scheduled), others may omit schedules (API-only)
+
+**Use case:** Production environments where you want automated scheduled backups plus the ability to trigger ad-hoc backups when needed.
+
+**Note:** At least one mode (cron or API) must be active. The daemon will fail with a helpful error if neither schedules nor HTTP server are configured.
+
 ## Documentation
 
 📚 **[Complete Documentation Hub](docs/README.md)** - Navigate all documentation by audience and topic

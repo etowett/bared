@@ -383,7 +383,25 @@ func init() {
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Run as daemon with scheduler",
+	Short: "Run as daemon with optional scheduler and/or HTTP API",
+	Long: `Run BareD as a daemon with scheduled backups and/or HTTP API server.
+
+The daemon can run in three modes:
+  - Cron-only: Configure schedules in targets, no --http flag (requires at least one schedule)
+  - API-only: Enable --http flag, no schedules required (enables manual backups via web/API)
+  - Hybrid: Both schedules and --http flag (scheduled + manual backups)
+
+At least one mode (cron or API) must be active for daemon to start.
+
+Examples:
+  # API-only mode (manual backups via web/API)
+  brd daemon --http :8080 --http-user admin --http-pass secret
+
+  # Cron-only mode (scheduled backups only)
+  brd daemon
+
+  # Hybrid mode (both scheduled and manual backups)
+  brd daemon --http :8080 --http-user admin --http-pass secret`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cfg, err := config.Load(cfgFile)
 		if err != nil {

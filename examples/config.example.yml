@@ -198,3 +198,23 @@ targets:
       enabled: true
       name: offsite
     schedule: "0 4 * * 0"  # Weekly on Sunday at 4 AM
+
+  # API-only target example (no automatic schedule)
+  # This target can only be backed up manually via the web UI or API
+  # Useful for on-demand backups or when you want manual control
+  - name: manual_backup_db
+    conn:
+      type: postgres
+      user: postgres
+      password: ${POSTGRES_PASSWORD}
+      database: on_demand_db
+      host: localhost
+      port: 5432
+    compress:
+      enabled: true
+      type: tgz
+    storage:
+      enabled: true
+      name: s3
+    # No schedule field - this target is API/web-only
+    # To backup: POST to /api/jobs/{id}/backup via HTTP API
