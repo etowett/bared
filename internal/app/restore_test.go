@@ -6,12 +6,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"bared/internal/compress"
 	"bared/internal/config"
 	"bared/internal/testutil/fixtures"
 )
@@ -534,6 +536,210 @@ func TestRestoreResult_WithError(t *testing.T) {
 
 	assert.False(t, result.Success)
 	assert.Equal(t, "restore failed", result.Error)
+}
+
+func TestDetectCompressionType(t *testing.T) {
+	tests := []struct {
+		name         string
+		backupPath   string
+		expectedType string
+	}{
+		{
+			name:         "tar.gz file",
+			backupPath:   "mysql-prod/backup.tar.gz",
+			expectedType: "tgz",
+		},
+		{
+			name:         "tgz file",
+			backupPath:   "mysql-prod/backup.tgz",
+			expectedType: "tgz",
+		},
+		{
+			name:         "gz file",
+			backupPath:   "mysql-prod/backup.gz",
+			expectedType: "gz",
+		},
+		{
+			name:         "sql file without compression",
+			backupPath:   "mysql-prod/backup.sql",
+			expectedType: "tgz", // Default fallback
+		},
+		{
+			name:         "complex path with tar.gz",
+			backupPath:   "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.tar.gz",
+			expectedType: "tgz",
+		},
+		{
+			name:         "complex path with gz",
+			backupPath:   "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.gz",
+			expectedType: "gz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := detectCompressionType(tt.backupPath)
+			assert.Equal(t, tt.expectedType, result)
+		})
+	}
+}
+
+func TestRestoreTargetWithOptions_GzipFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create config with local storage
+	localStorage := fixtures.LocalStorageWithCustomPath(tmpDir)
+	target := fixtures.MySQLTarget()
+	target.Name = "mysql-prod"
+
+	cfg := &config.Config{
+		DefaultStorage: localStorage.Name,
+		Storages: map[string]*config.Storage{
+			localStorage.Name: localStorage,
+		},
+		Targets: []*config.Target{target},
+	}
+
+	// Create a fake .gz backup file (plain gzip, not tar.gz)
+	targetDir := filepath.Join(tmpDir, "mysql-prod")
+	err := os.MkdirAll(targetDir, 0755)
+	require.NoError(t, err)
+
+	backupPath := "mysql-prod/backup-2025-01-08.gz"
+	fullPath := filepath.Join(tmpDir, backupPath)
+	err = os.WriteFile(fullPath, []byte("fake gzipped backup"), 0644)
+	require.NoError(t, err)
+
+	// Test dry-run to verify .gz is detected for decompression
+	options := &RestoreOptions{
+		DryRun:         true,
+		SkipValidation: true, // Skip database validation for tests
+	}
+
+	result, err := RestoreTargetWithOptions(context.Background(), cfg, target, backupPath, options, nil)
+
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Contains(t, result.Validations, "Backup requires decompression")
+	assert.Equal(t, "mysql-prod", result.Target)
+}
+
+// TestBackupRestoreCompressionConsistency verifies that files created by backup
+// can be properly restored with the same compression settings
+func TestBackupRestoreCompressionConsistency(t *testing.T) {
+	tests := []struct {
+		name                 string
+		compressionType      string
+		expectedExtension    string
+		expectedDetectedType string
+	}{
+		{
+			name:                 "gzip compression",
+			compressionType:      "gzip",
+			expectedExtension:    ".gz",
+			expectedDetectedType: "gz",
+		},
+		{
+			name:                 "gz compression (alias)",
+			compressionType:      "gz",
+			expectedExtension:    ".gz",
+			expectedDetectedType: "gz",
+		},
+		{
+			name:                 "tgz compression",
+			compressionType:      "tgz",
+			expectedExtension:    ".tar.gz",
+			expectedDetectedType: "tgz",
+		},
+		{
+			name:                 "tar.gz compression (alias)",
+			compressionType:      "tar.gz",
+			expectedExtension:    ".tar.gz",
+			expectedDetectedType: "tgz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Step 1: Verify backup creates correct extension
+			compressor, err := compress.New(tt.compressionType, "testdb")
+			require.NoError(t, err)
+			actualExtension := compressor.Extension()
+			assert.Equal(t, tt.expectedExtension, actualExtension,
+				"Backup should create files with %s extension for compression type %s",
+				tt.expectedExtension, tt.compressionType)
+
+			// Step 2: Verify restore detects correct decompression type
+			backupPath := "test/backup" + actualExtension
+			detectedType := detectCompressionType(backupPath)
+			assert.Equal(t, tt.expectedDetectedType, detectedType,
+				"Restore should detect compression type %s for file %s",
+				tt.expectedDetectedType, backupPath)
+
+			// Step 3: Verify restore can create decompressor for detected type
+			decompressor, err := compress.New(detectedType, "testdb")
+			require.NoError(t, err, "Restore should be able to create decompressor for type %s", detectedType)
+			assert.NotNil(t, decompressor)
+		})
+	}
+}
+
+// TestBackupRestoreRoundtripExtensions verifies real-world backup paths
+func TestBackupRestoreRoundtripExtensions(t *testing.T) {
+	tests := []struct {
+		name             string
+		backupPath       string
+		shouldDecompress bool
+		expectedType     string
+	}{
+		{
+			name:             "gz file from gzip backup",
+			backupPath:       "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.gz",
+			shouldDecompress: true,
+			expectedType:     "gz",
+		},
+		{
+			name:             "tar.gz file from tgz backup",
+			backupPath:       "mysql-prod/backup-2025-01-08.sql.tar.gz",
+			shouldDecompress: true,
+			expectedType:     "tgz",
+		},
+		{
+			name:             "tgz file from tgz backup",
+			backupPath:       "postgres-dev/backup.tgz",
+			shouldDecompress: true,
+			expectedType:     "tgz",
+		},
+		{
+			name:             "uncompressed sql file",
+			backupPath:       "postgres-prod/backup.sql",
+			shouldDecompress: false,
+			expectedType:     "tgz", // fallback default
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Check if decompression is needed (matches restore.go logic)
+			needsDecompression := strings.HasSuffix(tt.backupPath, ".tar.gz") ||
+				strings.HasSuffix(tt.backupPath, ".tgz") ||
+				strings.HasSuffix(tt.backupPath, ".gz")
+
+			assert.Equal(t, tt.shouldDecompress, needsDecompression,
+				"File %s decompression detection mismatch", tt.backupPath)
+
+			// Verify detected type
+			detectedType := detectCompressionType(tt.backupPath)
+			assert.Equal(t, tt.expectedType, detectedType)
+
+			// Verify can create decompressor
+			if tt.shouldDecompress {
+				decompressor, err := compress.New(detectedType, "testdb")
+				require.NoError(t, err)
+				assert.NotNil(t, decompressor)
+			}
+		})
+	}
 }
 
 // Helper function

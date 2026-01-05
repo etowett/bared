@@ -187,6 +187,7 @@ func (p *Postgres) buildRestoreArgs() []string {
 		fmt.Sprintf("--port=%d", p.conn.Port),
 		fmt.Sprintf("--username=%s", p.conn.User),
 		"--no-password", // Use PGPASSWORD env var instead
+		"--set", "ON_ERROR_STOP=on", // Stop on first error
 		p.conn.Database,
 	}
 
