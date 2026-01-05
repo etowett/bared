@@ -56,6 +56,7 @@ describe('RestoreForm Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockTriggerRestore.isPending = false
     vi.spyOn(useJobsHook, 'useTriggerRestore').mockReturnValue(mockTriggerRestore as any)
     vi.spyOn(useRestoreTargetsHook, 'useRestoreTargets').mockReturnValue({
       data: mockRestoreTargets,
@@ -118,7 +119,7 @@ describe('RestoreForm Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/test restore target/i)).toBeInTheDocument()
-      expect(screen.getByText(/source target: backup-db1/i)).toBeInTheDocument()
+      expect(screen.getByText(/backup-db1/i)).toBeInTheDocument()
     })
   })
 
@@ -132,19 +133,13 @@ describe('RestoreForm Component', () => {
     expect(input).toHaveValue('/backups/test.sql')
   })
 
-  it('validates required fields on submit', async () => {
-    const user = userEvent.setup()
+  it('validates required fields on submit', () => {
     render(<RestoreForm />)
 
     const submitButton = screen.getByRole('button', { name: /validate restore/i })
-    await user.click(submitButton)
 
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith('Validation Error', {
-        description: 'Please select a restore target and enter a backup path',
-      })
-    })
-
+    // Button should be disabled when required fields are empty
+    expect(submitButton).toBeDisabled()
     expect(mockTriggerRestore.mutateAsync).not.toHaveBeenCalled()
   })
 

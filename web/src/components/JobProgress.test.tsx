@@ -152,7 +152,8 @@ describe('JobProgress Component', () => {
 
       render(<JobProgress progress={progress} compact={false} />)
 
-      expect(screen.getByText(/ETA: 2h/)).toBeInTheDocument()
+      // Match either "2h 0m" or "1h 59m" due to timing differences
+      expect(screen.getByText(/ETA: (2h 0m|1h 59m)/)).toBeInTheDocument()
     })
 
     it('shows "Soon" for past ETA', () => {

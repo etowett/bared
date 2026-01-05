@@ -53,6 +53,7 @@ describe('TargetList Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockTriggerBackup.isPending = false
     vi.spyOn(useJobsHook, 'useTriggerBackup').mockReturnValue(mockTriggerBackup as any)
     mockConfirm.mockResolvedValue(true)
   })
