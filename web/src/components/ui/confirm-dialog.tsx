@@ -56,7 +56,10 @@ export function ConfirmDialog({
           <Button variant="secondary" onClick={handleCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={variant === 'destructive' ? 'destructive' : 'default'} onClick={handleConfirm}>
+          <Button
+            variant={variant === 'destructive' ? 'destructive' : 'default'}
+            onClick={handleConfirm}
+          >
             {confirmLabel}
           </Button>
         </DialogFooter>

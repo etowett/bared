@@ -45,56 +45,59 @@ export function TargetList({ targets }: TargetListProps) {
       {ConfirmDialog}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {targets.map((target) => (
-        <Card key={target.name} className="border-border/50 hover:border-border transition-colors">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-xl">{target.name}</CardTitle>
-              <StatusBadge status={target.is_running ? 'running' : 'idle'} />
-            </div>
-          </CardHeader>
+          <Card
+            key={target.name}
+            className="border-border/50 hover:border-border transition-colors"
+          >
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-xl">{target.name}</CardTitle>
+                <StatusBadge status={target.is_running ? 'running' : 'idle'} />
+              </div>
+            </CardHeader>
 
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Type:</span>
-                <span className="text-foreground">{target.type}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Database:</span>
-                <span className="text-foreground font-mono">{target.database}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Last Backup:</span>
-                <span className="text-foreground font-mono">
-                  {target.last_backup ? formatDate(target.last_backup) : 'Never'}
-                </span>
-              </div>
-              {target.schedule && (
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Schedule:</span>
-                  <span className="text-foreground font-mono">{target.schedule}</span>
+                  <span className="text-muted-foreground font-medium">Type:</span>
+                  <span className="text-foreground">{target.type}</span>
                 </div>
-              )}
-              {target.next_scheduled && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Next Run:</span>
+                  <span className="text-muted-foreground font-medium">Database:</span>
+                  <span className="text-foreground font-mono">{target.database}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">Last Backup:</span>
                   <span className="text-foreground font-mono">
-                    {formatDate(target.next_scheduled)}
+                    {target.last_backup ? formatDate(target.last_backup) : 'Never'}
                   </span>
                 </div>
-              )}
-            </div>
+                {target.schedule && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Schedule:</span>
+                    <span className="text-foreground font-mono">{target.schedule}</span>
+                  </div>
+                )}
+                {target.next_scheduled && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Next Run:</span>
+                    <span className="text-foreground font-mono">
+                      {formatDate(target.next_scheduled)}
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            <Button
-              onClick={() => handleBackup(target.name)}
-              disabled={target.is_running || triggerBackup.isPending}
-              className="w-full"
-            >
-              {target.is_running ? 'Backup Running...' : 'Backup Now'}
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
+              <Button
+                onClick={() => handleBackup(target.name)}
+                disabled={target.is_running || triggerBackup.isPending}
+                className="w-full"
+              >
+                {target.is_running ? 'Backup Running...' : 'Backup Now'}
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </>
   )

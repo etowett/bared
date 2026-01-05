@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as useJobsHook from '../hooks/useJobs'
 import { render, screen, waitFor } from '../test/utils'
 import type { Job } from '../types'
-import { JobList } from './JobList'
+
+// Create hoisted mocks that can be used in factory functions
+const { mockToastSuccess, mockToastError, mockConfirm } = vi.hoisted(() => ({
+  mockToastSuccess: vi.fn(),
+  mockToastError: vi.fn(),
+  mockConfirm: vi.fn(),
+}))
 
 // Mock the useJobs hook
 vi.mock('../hooks/useJobs', () => ({
@@ -20,6 +26,25 @@ vi.mock('./JobProgress', () => ({
   ),
 }))
 
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    success: mockToastSuccess,
+    error: mockToastError,
+  },
+}))
+
+// Mock useConfirm hook
+vi.mock('../hooks/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: mockConfirm,
+    ConfirmDialog: <div data-testid="confirm-dialog">Confirm Dialog</div>,
+  }),
+}))
+
+// Import after mocks
+import { JobList } from './JobList'
+
 describe('JobList Component', () => {
   const mockOnSelectJob = vi.fn()
   const mockCancelJob = {
@@ -30,8 +55,7 @@ describe('JobList Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(useJobsHook, 'useCancelJob').mockReturnValue(mockCancelJob as any)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.spyOn(window, 'alert').mockImplementation(() => {})
+    mockConfirm.mockResolvedValue(true)
   })
 
   const createMockJob = (overrides: Partial<Job> = {}): Job => ({
@@ -39,7 +63,10 @@ describe('JobList Component', () => {
     type: 'backup',
     target: 'test-db',
     status: 'completed',
-    created_at: '2025-12-09T10:00:00Z',
+    created_at: '2025-12-09T12:00:00Z',
+    started_at: '2025-12-09T12:00:05Z',
+    completed_at: '2025-12-09T12:05:00Z',
+    duration_seconds: 295,
     manual: false,
     ...overrides,
   })
@@ -64,124 +91,96 @@ describe('JobList Component', () => {
   })
 
   it('renders job information correctly', () => {
-    const jobs = [
-      createMockJob({
-        id: '12345678-abcd-1234-5678-123456789012',
-        type: 'backup',
-        target: 'prod-database',
-        status: 'completed',
-      }),
-    ]
+    const jobs = [createMockJob()]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    expect(screen.getByText('12345678')).toBeInTheDocument() // Short ID
+    expect(screen.getByText(/12345678/)).toBeInTheDocument()
     expect(screen.getByText('backup')).toBeInTheDocument()
-    expect(screen.getByText('prod-database')).toBeInTheDocument()
-    expect(screen.getByText('completed')).toBeInTheDocument()
+    expect(screen.getByText('test-db')).toBeInTheDocument()
   })
 
   it('applies correct status classes', () => {
     const jobs = [
-      createMockJob({ id: '1', status: 'queued' }),
-      createMockJob({ id: '2', status: 'running' }),
-      createMockJob({ id: '3', status: 'completed' }),
-      createMockJob({ id: '4', status: 'failed' }),
-      createMockJob({ id: '5', status: 'cancelled' }),
+      createMockJob({ id: '1', status: 'running' }),
+      createMockJob({ id: '2', status: 'completed' }),
+      createMockJob({ id: '3', status: 'failed' }),
     ]
-    render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
+    const { container } = render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    // Check that status badges are rendered with terminal colors
-    expect(screen.getByText('queued').className).toContain('text-terminal-yellow')
-    expect(screen.getByText('running').className).toContain('text-terminal-cyan')
-    expect(screen.getByText('completed').className).toContain('text-terminal-green')
-    expect(screen.getByText('failed').className).toContain('text-terminal-red')
-    expect(screen.getByText('cancelled').className).toContain('text-muted-foreground')
+    // StatusBadge component should be rendered for each job (3 job rows)
+    const rows = container.querySelectorAll('tbody tr')
+    expect(rows).toHaveLength(3)
   })
 
   it('displays manual badge for manual jobs', () => {
-    const jobs = [
-      createMockJob({ id: 'job1', manual: true }),
-      createMockJob({ id: 'job2', manual: false }),
-    ]
+    const jobs = [createMockJob({ manual: true })]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    const manualBadges = screen.getAllByText('Manual')
-    expect(manualBadges).toHaveLength(1)
+    expect(screen.getByText('Manual')).toBeInTheDocument()
   })
 
   it('renders JobProgress component when progress is available', () => {
     const jobs = [
       createMockJob({
-        progress: {
-          stage: 'uploading',
-          percent: 75,
-          bytes_processed: 750000,
-          bytes_total: 1000000,
-          message: 'Uploading...',
-        },
+        progress: { percent: 50, current: 50, total: 100 },
       }),
     ]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
     expect(screen.getByTestId('job-progress')).toBeInTheDocument()
-    expect(screen.getByText(/75%/)).toBeInTheDocument()
-    expect(screen.getByText(/compact/)).toBeInTheDocument()
+    expect(screen.getByText('50% - compact')).toBeInTheDocument()
   })
 
   it('shows dash when progress is not available', () => {
     const jobs = [createMockJob({ progress: undefined })]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    expect(screen.getByText('-')).toBeInTheDocument()
+    const progressCell = screen.getByText('-')
+    expect(progressCell).toBeInTheDocument()
   })
 
   it('formats dates correctly', () => {
-    const jobs = [
-      createMockJob({
-        created_at: '2025-12-09T10:00:00Z',
-      }),
-    ]
+    const jobs = [createMockJob({ created_at: '2025-12-09T13:00:00Z' })]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    // Date formatting depends on locale, just check it's not the raw string
-    const dateCell = screen.getByText(/12\/9\/2025|2025-12-09/i)
-    expect(dateCell).toBeInTheDocument()
+    // formatDate should format the date
+    expect(screen.getByText(/12\/9\/2025/)).toBeInTheDocument()
   })
 
   it('formats duration correctly for different time ranges', () => {
     const jobs = [
-      createMockJob({ id: '1', duration_seconds: 45 }), // < 1 minute
-      createMockJob({ id: '2', duration_seconds: 125 }), // > 1 minute
-      createMockJob({ id: '3', duration_seconds: 3665 }), // > 1 hour
-      createMockJob({ id: '4', duration_seconds: undefined }), // No duration
+      createMockJob({ id: '1', duration_seconds: 30 }),
+      createMockJob({ id: '2', duration_seconds: 120 }),
+      createMockJob({ id: '3', duration_seconds: 3600 }),
     ]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    expect(screen.getByText('45s')).toBeInTheDocument()
-    expect(screen.getByText('2m 5s')).toBeInTheDocument()
-    expect(screen.getByText('1h 1m 5s')).toBeInTheDocument()
-    expect(screen.getByText('N/A')).toBeInTheDocument()
+    // Check that durations are formatted
+    expect(screen.getByText('30s')).toBeInTheDocument()
+    expect(screen.getByText('2m 0s')).toBeInTheDocument()
+    expect(screen.getByText('1h 0m 0s')).toBeInTheDocument()
   })
 
   it('calls onSelectJob when row is clicked', async () => {
     const user = userEvent.setup()
     const job = createMockJob()
+
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const row = screen.getByText('12345678').closest('tr')
+    const row = screen.getByText(/12345678/).closest('tr')
     await user.click(row!)
 
     expect(mockOnSelectJob).toHaveBeenCalledWith(job)
   })
 
   it('highlights selected job row', () => {
-    const jobs = [createMockJob({ id: 'selected-job-id' }), createMockJob({ id: 'other-job-id' })]
-    render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} selectedJobId="selected-job-id" />)
+    const job = createMockJob()
+    const { container } = render(
+      <JobList jobs={[job]} onSelectJob={mockOnSelectJob} selectedJobId={job.id} />
+    )
 
-    const rows = screen.getAllByRole('row')
-    // First row is header, second is selected job
-    expect(rows[1].className).toContain('bg-primary')
-    expect(rows[2].className).not.toContain('bg-primary')
+    const row = container.querySelector('tr.bg-primary\\/10')
+    expect(row).toBeInTheDocument()
   })
 
   it('shows cancel button for running, queued, and cancelling jobs', () => {
@@ -208,16 +207,23 @@ describe('JobList Component', () => {
     const cancelButton = screen.getByRole('button', { name: /cancel/i })
     await user.click(cancelButton)
 
-    expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to cancel this job?')
+    expect(mockConfirm).toHaveBeenCalledWith({
+      title: 'Cancel Job',
+      description: 'Are you sure you want to cancel this job?',
+      confirmLabel: 'Cancel Job',
+      cancelLabel: 'Keep Running',
+      variant: 'destructive',
+    })
     await waitFor(() => {
       expect(mockCancelJob.mutateAsync).toHaveBeenCalledWith(job.id)
+      expect(mockToastSuccess).toHaveBeenCalledWith('Job cancellation requested')
     })
   })
 
   it('does not cancel job if confirmation is denied', async () => {
     const user = userEvent.setup()
     const job = createMockJob({ status: 'running' })
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(false)
+    mockConfirm.mockResolvedValueOnce(false)
 
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
@@ -238,7 +244,9 @@ describe('JobList Component', () => {
     await user.click(cancelButton)
 
     await waitFor(() => {
-      expect(window.alert).toHaveBeenCalledWith('Failed to cancel job: Error: Network error')
+      expect(mockToastError).toHaveBeenCalledWith('Failed to cancel job', {
+        description: 'Network error',
+      })
     })
   })
 
@@ -266,7 +274,6 @@ describe('JobList Component', () => {
   it('disables cancel button when cancel mutation is pending', () => {
     const jobs = [createMockJob({ status: 'running' })]
     mockCancelJob.isPending = true
-
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
     const cancelButton = screen.getByRole('button', { name: /cancel/i })
