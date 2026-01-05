@@ -74,82 +74,82 @@ export function JobList({
       {ConfirmDialog}
       <div className="overflow-x-auto">
         <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Target</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Progress</TableHead>
-            <TableHead>Created</TableHead>
-            <TableHead>Duration</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {jobs.map((job) => (
-            <TableRow
-              key={job.id}
-              onClick={() => handleRowClick(job)}
-              className={cn(
-                'cursor-pointer transition-colors',
-                'hover:bg-accent/50',
-                selectedJobId === job.id && 'bg-primary/10 hover:bg-primary/15'
-              )}
-            >
-              <TableCell className="font-mono text-sm">{job.id.slice(0, 8)}</TableCell>
-              <TableCell>{job.type}</TableCell>
-              <TableCell>{job.target}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <StatusBadge
-                    status={
-                      job.status as
-                        | 'running'
-                        | 'idle'
-                        | 'queued'
-                        | 'completed'
-                        | 'failed'
-                        | 'cancelled'
-                        | 'cancelling'
-                    }
-                  />
-                  {job.manual && (
-                    <Badge className="bg-terminal-warning/20 text-terminal-yellow border border-terminal-warning/30 text-xs">
-                      Manual
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                {job.progress ? (
-                  <JobProgress progress={job.progress} compact />
-                ) : (
-                  <span className="text-muted-foreground">-</span>
-                )}
-              </TableCell>
-              <TableCell className="font-mono text-sm">{formatDate(job.created_at)}</TableCell>
-              <TableCell className="font-mono text-sm">
-                {formatDuration(job.duration_seconds)}
-              </TableCell>
-              <TableCell>
-                {(job.status === 'running' ||
-                  job.status === 'queued' ||
-                  job.status === 'cancelling') && (
-                  <Button
-                    onClick={(e) => handleCancel(e, job.id)}
-                    disabled={cancelJob.isPending || job.status === 'cancelling'}
-                    variant="destructive"
-                    size="sm"
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </TableCell>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Progress</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {jobs.map((job) => (
+              <TableRow
+                key={job.id}
+                onClick={() => handleRowClick(job)}
+                className={cn(
+                  'cursor-pointer transition-colors',
+                  'hover:bg-accent/50',
+                  selectedJobId === job.id && 'bg-primary/10 hover:bg-primary/15'
+                )}
+              >
+                <TableCell className="font-mono text-sm">{job.id.slice(0, 8)}</TableCell>
+                <TableCell>{job.type}</TableCell>
+                <TableCell>{job.target}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge
+                      status={
+                        job.status as
+                          | 'running'
+                          | 'idle'
+                          | 'queued'
+                          | 'completed'
+                          | 'failed'
+                          | 'cancelled'
+                          | 'cancelling'
+                      }
+                    />
+                    {job.manual && (
+                      <Badge className="bg-terminal-warning/20 text-terminal-yellow border border-terminal-warning/30 text-xs">
+                        Manual
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {job.progress ? (
+                    <JobProgress progress={job.progress} compact />
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell className="font-mono text-sm">{formatDate(job.created_at)}</TableCell>
+                <TableCell className="font-mono text-sm">
+                  {formatDuration(job.duration_seconds)}
+                </TableCell>
+                <TableCell>
+                  {(job.status === 'running' ||
+                    job.status === 'queued' ||
+                    job.status === 'cancelling') && (
+                    <Button
+                      onClick={(e) => handleCancel(e, job.id)}
+                      disabled={cancelJob.isPending || job.status === 'cancelling'}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </>
   )

@@ -86,8 +86,10 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
     const history = loadBackupPathHistory()
     const filtered = history.filter((path) => path.toLowerCase().includes(backupPath.toLowerCase()))
+    // Don't show suggestions if the input exactly matches a suggestion (user selected it)
+    const exactMatch = filtered.some((path) => path === backupPath)
     setSuggestions(filtered)
-    setShowSuggestions(filtered.length > 0)
+    setShowSuggestions(filtered.length > 0 && !exactMatch)
     setSelectedIndex(-1)
   }, [backupPath])
 

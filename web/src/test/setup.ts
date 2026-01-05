@@ -40,3 +40,13 @@ HTMLElement.prototype.releasePointerCapture = vi.fn()
 
 // Mock scrollIntoView for Radix UI Select
 HTMLElement.prototype.scrollIntoView = vi.fn()
+
+// Mock ResizeObserver for Radix UI components
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+globalThis.ResizeObserver = ResizeObserverMock as any

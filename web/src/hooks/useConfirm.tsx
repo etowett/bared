@@ -18,25 +18,22 @@ interface ConfirmState extends ConfirmOptions {
 export function useConfirm() {
   const [state, setState] = useState<ConfirmState | null>(null)
 
-  const confirm = useCallback(
-    (options: ConfirmOptions): Promise<boolean> => {
-      return new Promise((resolve) => {
-        setState({
-          ...options,
-          open: true,
-          onConfirm: () => {
-            setState(null)
-            resolve(true)
-          },
-          onCancel: () => {
-            setState(null)
-            resolve(false)
-          },
-        })
+  const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setState({
+        ...options,
+        open: true,
+        onConfirm: () => {
+          setState(null)
+          resolve(true)
+        },
+        onCancel: () => {
+          setState(null)
+          resolve(false)
+        },
       })
-    },
-    []
-  )
+    })
+  }, [])
 
   const ConfirmDialogComponent = state ? (
     <ConfirmDialog

@@ -15,7 +15,7 @@ interface JobDetailContentProps {
   compact?: boolean
 }
 
-export function JobDetailContent({ job, compact = false }: JobDetailContentProps) {
+export function JobDetailContent({ job, compact: _compact = false }: JobDetailContentProps) {
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   const { data: updatedJob } = useJob(job.id)
