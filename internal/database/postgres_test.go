@@ -218,6 +218,8 @@ func TestPostgres_BuildRestoreArgs(t *testing.T) {
 				"--port=5432",
 				"--username=postgres",
 				"--no-password",
+				"--set",
+				"ON_ERROR_STOP=on",
 				"testdb",
 			},
 		},

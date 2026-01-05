@@ -175,7 +175,9 @@ func RestoreTargetWithOptions(ctx context.Context, cfg *config.Config, target *c
 	}
 
 	// Step 6: Check if backup needs decompression
-	needsDecompression := strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz")
+	needsDecompression := strings.HasSuffix(backupPath, ".tar.gz") ||
+		strings.HasSuffix(backupPath, ".tgz") ||
+		strings.HasSuffix(backupPath, ".gz")
 	if needsDecompression {
 		result.Validations = append(result.Validations, "Backup requires decompression")
 		logger.InfoS("Backup requires decompression",
@@ -314,6 +316,9 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 		progress.SetStage("decompressing", 0)
 	}
 
+	// Detect compression type from file extension
+	compressionType := detectCompressionType(backupPath)
+
 	// Start decompression in goroutine
 	go func() {
 		defer func() {
@@ -326,8 +331,9 @@ func restoreWithDecompression(ctx context.Context, target *config.Target, restor
 		}()
 		logger.InfoS("Starting decompression",
 			"component", "restore",
-			"target", target.Name)
-		decompressor, err := compress.New("tgz", target.Conn.Database)
+			"target", target.Name,
+			"compression_type", compressionType)
+		decompressor, err := compress.New(compressionType, target.Conn.Database)
 		if err != nil {
 			decompressErr = err
 			return
@@ -601,4 +607,16 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 				"reason", "on_success_disabled")
 		}
 	}
+}
+
+// detectCompressionType determines the compression type from the backup file path
+func detectCompressionType(backupPath string) string {
+	if strings.HasSuffix(backupPath, ".tar.gz") || strings.HasSuffix(backupPath, ".tgz") {
+		return "tgz"
+	}
+	if strings.HasSuffix(backupPath, ".gz") {
+		return "gz"
+	}
+	// Default to tgz for backward compatibility
+	return "tgz"
 }
