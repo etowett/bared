@@ -77,6 +77,22 @@ func CheckCommandExists(name string) error {
 	return nil
 }
 
+// DetectCommand checks for the first available command from a list of candidates
+// Returns the first command found in PATH, or an error if none are available
+func DetectCommand(candidates ...string) (string, error) {
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no command candidates provided")
+	}
+
+	for _, cmd := range candidates {
+		if err := CheckCommandExists(cmd); err == nil {
+			return cmd, nil
+		}
+	}
+
+	return "", fmt.Errorf("none of the required commands found: %v", candidates)
+}
+
 // ExecuteCommandWithStdin runs a command with input from reader
 func ExecuteCommandWithStdin(ctx context.Context, r io.Reader, name string, args ...string) error {
 	return ExecuteCommandWithStdinAndEnv(ctx, r, nil, name, args...)

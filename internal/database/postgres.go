@@ -33,22 +33,47 @@ func (p *Postgres) Name() string {
 
 // Validate checks if pg_dump command exists
 func (p *Postgres) Validate(_ context.Context) error {
+	logger := util.GetLogger()
+
 	if err := util.CheckCommandExists("pg_dump"); err != nil {
+		logger.ErrorS("Failed to detect PostgreSQL dump command",
+			"component", "postgres",
+			"database", p.conn.Database,
+			"command", "pg_dump",
+			"error", err)
 		return fmt.Errorf("pg_dump not found: %w (install postgresql-client package)", err)
 	}
+
+	logger.InfoS("PostgreSQL dump command detected",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"command", "pg_dump")
+
 	return nil
 }
 
 // Dump executes pg_dump and writes to the writer
 func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
+	logger := util.GetLogger()
 	startTime := time.Now()
 
 	args := p.buildDumpArgs()
 
 	env := make(map[string]string)
+	passwordSet := false
 	if p.conn.Password != "" {
 		env["PGPASSWORD"] = p.conn.Password
+		passwordSet = true
 	}
+
+	logger.InfoS("Starting PostgreSQL dump",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"host", p.conn.Host,
+		"port", p.conn.Port,
+		"command", "pg_dump",
+		"password_env", passwordSet,
+		"args", args)
 
 	var err error
 	if len(env) > 0 {
@@ -58,13 +83,26 @@ func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
 	}
 
 	if err != nil {
+		logger.ErrorS("PostgreSQL dump failed",
+			"component", "postgres",
+			"database", p.conn.Database,
+			"command", "pg_dump",
+			"duration", time.Since(startTime).String(),
+			"error", err)
 		return nil, fmt.Errorf("pg_dump failed: %w", err)
 	}
+
+	duration := time.Since(startTime)
+	logger.InfoS("PostgreSQL dump completed successfully",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"command", "pg_dump",
+		"duration", duration.String())
 
 	metadata := &DumpMetadata{
 		DatabaseName: p.conn.Database,
 		DatabaseType: "postgres",
-		Duration:     time.Since(startTime),
+		Duration:     duration,
 		Timestamp:    startTime,
 	}
 
@@ -73,12 +111,26 @@ func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
 
 // Restore executes psql restore from the reader
 func (p *Postgres) Restore(ctx context.Context, r io.Reader) error {
+	logger := util.GetLogger()
+	startTime := time.Now()
+
 	args := p.buildRestoreArgs()
 
 	env := make(map[string]string)
+	passwordSet := false
 	if p.conn.Password != "" {
 		env["PGPASSWORD"] = p.conn.Password
+		passwordSet = true
 	}
+
+	logger.InfoS("Starting PostgreSQL restore",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"host", p.conn.Host,
+		"port", p.conn.Port,
+		"command", "psql",
+		"password_env", passwordSet,
+		"args", args)
 
 	var err error
 	if len(env) > 0 {
@@ -88,8 +140,21 @@ func (p *Postgres) Restore(ctx context.Context, r io.Reader) error {
 	}
 
 	if err != nil {
+		logger.ErrorS("PostgreSQL restore failed",
+			"component", "postgres",
+			"database", p.conn.Database,
+			"command", "psql",
+			"duration", time.Since(startTime).String(),
+			"error", err)
 		return fmt.Errorf("psql restore failed: %w", err)
 	}
+
+	duration := time.Since(startTime)
+	logger.InfoS("PostgreSQL restore completed successfully",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"command", "psql",
+		"duration", duration.String())
 
 	return nil
 }
@@ -130,10 +195,22 @@ func (p *Postgres) buildRestoreArgs() []string {
 
 // ValidateConnection tests PostgreSQL connectivity
 func (p *Postgres) ValidateConnection(ctx context.Context) error {
+	logger := util.GetLogger()
+
 	// Check if psql command exists
 	if err := util.CheckCommandExists("psql"); err != nil {
+		logger.ErrorS("Failed to detect PostgreSQL restore command",
+			"component", "postgres",
+			"database", p.conn.Database,
+			"command", "psql",
+			"error", err)
 		return fmt.Errorf("psql not found: %w (install postgresql-client package)", err)
 	}
+
+	logger.InfoS("PostgreSQL restore command detected",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"command", "psql")
 
 	// Build test connection args
 	args := []string{
@@ -146,9 +223,19 @@ func (p *Postgres) ValidateConnection(ctx context.Context) error {
 	}
 
 	env := make(map[string]string)
+	passwordSet := false
 	if p.conn.Password != "" {
 		env["PGPASSWORD"] = p.conn.Password
+		passwordSet = true
 	}
+
+	logger.InfoS("Testing PostgreSQL connection",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"host", p.conn.Host,
+		"port", p.conn.Port,
+		"command", "psql",
+		"password_env", passwordSet)
 
 	// Execute test connection (use Discard since we just need to check connection)
 	var err error
@@ -159,8 +246,20 @@ func (p *Postgres) ValidateConnection(ctx context.Context) error {
 	}
 
 	if err != nil {
+		logger.ErrorS("PostgreSQL connection test failed",
+			"component", "postgres",
+			"database", p.conn.Database,
+			"host", p.conn.Host,
+			"port", p.conn.Port,
+			"error", err)
 		return fmt.Errorf("database connection failed: %w", err)
 	}
+
+	logger.InfoS("PostgreSQL connection test successful",
+		"component", "postgres",
+		"database", p.conn.Database,
+		"host", p.conn.Host,
+		"port", p.conn.Port)
 
 	return nil
 }

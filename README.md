@@ -269,7 +269,10 @@ bared/
 
 ### Runtime Dependencies
 
-- **MySQL/MariaDB backups**: `mysqldump` and `mysql` commands
+- **MySQL/MariaDB backups**:
+  - MariaDB: `mariadb-dump` and `mariadb` commands (preferred)
+  - MySQL: `mysqldump` and `mysql` commands (fallback)
+  - BareD automatically detects which commands are available
 - **PostgreSQL backups**: `pg_dump` and `psql` commands
 - **Redis backups**: `redis-cli` command
 

@@ -197,6 +197,90 @@ func TestCheckCommandExists(t *testing.T) {
 	}
 }
 
+func TestDetectCommand(t *testing.T) {
+	tests := []struct {
+		name        string
+		candidates  []string
+		wantErr     bool
+		errContains string
+		validate    func(*testing.T, string)
+	}{
+		{
+			name:       "detect existing command - first available",
+			candidates: []string{"echo", "nonexistent"},
+			wantErr:    false,
+			validate: func(t *testing.T, cmd string) {
+				assert.Equal(t, "echo", cmd)
+			},
+		},
+		{
+			name:       "detect existing command - second available",
+			candidates: []string{"nonexistent-xyz", getLsCommand()},
+			wantErr:    false,
+			validate: func(t *testing.T, cmd string) {
+				assert.Equal(t, getLsCommand(), cmd)
+			},
+		},
+		{
+			name:        "no valid command",
+			candidates:  []string{"nonexistent-cmd-123", "another-fake-cmd-456"},
+			wantErr:     true,
+			errContains: "none of the required commands found",
+		},
+		{
+			name:        "empty candidates list",
+			candidates:  []string{},
+			wantErr:     true,
+			errContains: "no command candidates provided",
+		},
+		{
+			name:       "prefer first available - ls before cat",
+			candidates: []string{getLsCommand(), getCatCommand()},
+			wantErr:    false,
+			validate: func(t *testing.T, cmd string) {
+				assert.Equal(t, getLsCommand(), cmd)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd, err := DetectCommand(tt.candidates...)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Empty(t, cmd)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.NotEmpty(t, cmd)
+				if tt.validate != nil {
+					tt.validate(t, cmd)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectCommand_MySQLMariaDB(t *testing.T) {
+	// Test realistic scenario: detecting mysql/mariadb commands
+	candidates := []string{"mariadb", "mysql"}
+	cmd, err := DetectCommand(candidates...)
+
+	// At least one should be available on a system with MySQL/MariaDB installed
+	// If neither is available, that's also fine (test will just verify error handling)
+	if err == nil {
+		assert.NotEmpty(t, cmd)
+		assert.Contains(t, candidates, cmd)
+		t.Logf("Detected command: %s", cmd)
+	} else {
+		assert.Contains(t, err.Error(), "none of the required commands found")
+		t.Logf("Neither mysql nor mariadb found (expected on systems without MySQL/MariaDB)")
+	}
+}
+
 func TestExecuteCommandWithStdin(t *testing.T) {
 	tests := []struct {
 		name        string
