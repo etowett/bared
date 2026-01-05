@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"bared/internal/storage"
+	"bared/internal/util"
 )
 
 // BackupRecord represents a backup in the tracker
@@ -142,14 +143,26 @@ func (t *Tracker) CleanupOldBackups(stor storage.Storage, keep int) error {
 	}
 
 	// Delete old backups from storage
+	logger := util.GetLogger()
+
 	for _, backup := range oldBackups {
 		if err := stor.Delete(context.Background(), backup.Path); err != nil {
 			// Log error but continue with other deletions
-			fmt.Printf("Warning: failed to delete backup %s: %v\n", backup.Path, err)
+			logger.WarnS("Failed to delete backup during cleanup",
+				"component", "retention",
+				"backup_path", backup.Path,
+				"storage", t.StorageName,
+				"target", t.TargetName,
+				"error", err)
 		} else {
 			// Remove from tracker
 			if err := t.RemoveBackup(backup.Path); err != nil {
-				fmt.Printf("Warning: failed to remove backup from tracker %s: %v\n", backup.Path, err)
+				logger.WarnS("Failed to remove backup from tracker",
+					"component", "retention",
+					"backup_path", backup.Path,
+					"storage", t.StorageName,
+					"target", t.TargetName,
+					"error", err)
 			}
 		}
 	}

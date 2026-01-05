@@ -80,10 +80,13 @@ var validateConfigCmd = &cobra.Command{
 			return validateErr
 		}
 
-		fmt.Println("Configuration is valid ✓")
-		fmt.Printf("  Targets: %d\n", len(cfg.Targets))
-		fmt.Printf("  Storages: %d\n", len(cfg.Storages))
-		fmt.Printf("  Notifiers: %d\n", len(cfg.Notifiers))
+		logger := util.GetLogger()
+		logger.InfoS("Configuration validation successful",
+			"component", "cli",
+			"command", "validate",
+			"targets", len(cfg.Targets),
+			"storages", len(cfg.Storages),
+			"notifiers", len(cfg.Notifiers))
 
 		return nil
 	},
@@ -120,6 +123,7 @@ var backupCmd = &cobra.Command{
 		}
 
 		// Execute backup
+		logger := util.GetLogger()
 		ctx := context.Background()
 		result, err := app.BackupTarget(ctx, cfg, target, nil) // nil = no progress tracking for CLI
 		if err != nil {
@@ -127,13 +131,15 @@ var backupCmd = &cobra.Command{
 		}
 
 		if result.Success {
-			fmt.Printf("\n✓ Backup completed successfully\n")
-			fmt.Printf("  Target: %s\n", result.Target)
-			fmt.Printf("  Storage: %s\n", result.StorageName)
-			fmt.Printf("    Path: %s\n", result.BackupPath)
-			fmt.Printf("    Duration: %v\n", result.Duration)
-			fmt.Printf("    Size: %s\n", formatBytes(result.Size))
-
+			logger.InfoS("Backup completed successfully",
+				"component", "cli",
+				"command", "backup",
+				"target", result.Target,
+				"storage", result.StorageName,
+				"backup_path", result.BackupPath,
+				"duration", result.Duration.String(),
+				"size_bytes", result.Size,
+				"size_formatted", formatBytes(result.Size))
 		}
 
 		return nil
@@ -231,42 +237,65 @@ Examples:
 
 		// If backup is "latest", find the most recent backup
 		if backupPath == "latest" {
-			fmt.Printf("Finding latest backup for target...\n")
+			logger.InfoS("Finding latest backup for target",
+				"component", "cli",
+				"command", "restore",
+				"target", target.Name)
 			latestBackup, findErr := app.FindLatestBackup(ctx, cfg, target)
 			if findErr != nil {
 				return fmt.Errorf("failed to find latest backup: %w", findErr)
 			}
 			backupPath = latestBackup.Path
-			fmt.Printf("Using latest backup: %s\n", backupPath)
+			logger.InfoS("Latest backup found",
+				"component", "cli",
+				"command", "restore",
+				"backup_path", backupPath)
 		}
 
-		// Display restore details
-		fmt.Printf("\n")
-		fmt.Printf("=== Restore Details ===\n")
-		if isRestoreTarget {
-			fmt.Printf("Restore Target: %s\n", restoreTarget.Name)
-			if restoreTarget.Description != "" {
-				fmt.Printf("  Description: %s\n", restoreTarget.Description)
-			}
-			if restoreTarget.SourceTarget != "" {
-				fmt.Printf("  Source Target: %s\n", restoreTarget.SourceTarget)
-			}
-		} else {
-			fmt.Printf("Target: %s\n", target.Name)
-		}
-		fmt.Printf("Database: %s@%s:%d/%s\n",
-			target.Conn.User, target.Conn.Host, target.Conn.Port, target.Conn.Database)
-		fmt.Printf("Backup File: %s\n", backupPath)
-		fmt.Printf("Storage: %s (%s)\n", storageCfg.Name, storageCfg.Type)
+		// Log restore details
+		mode := "LIVE"
 		if dryRun {
-			fmt.Printf("Mode: DRY-RUN (validation only)\n")
-		} else {
-			fmt.Printf("Mode: LIVE RESTORE\n")
+			mode = "DRY-RUN"
 		}
-		fmt.Printf("======================\n\n")
+
+		if isRestoreTarget {
+			logger.InfoS("Restore operation starting",
+				"component", "cli",
+				"command", "restore",
+				"mode", mode,
+				"restore_target", restoreTarget.Name,
+				"description", restoreTarget.Description,
+				"source_target", restoreTarget.SourceTarget,
+				"database_user", target.Conn.User,
+				"database_host", target.Conn.Host,
+				"database_port", target.Conn.Port,
+				"database_name", target.Conn.Database,
+				"backup_path", backupPath,
+				"storage", storageCfg.Name,
+				"storage_type", storageCfg.Type)
+		} else {
+			logger.InfoS("Restore operation starting",
+				"component", "cli",
+				"command", "restore",
+				"mode", mode,
+				"target", target.Name,
+				"database_user", target.Conn.User,
+				"database_host", target.Conn.Host,
+				"database_port", target.Conn.Port,
+				"database_name", target.Conn.Database,
+				"backup_path", backupPath,
+				"storage", storageCfg.Name,
+				"storage_type", storageCfg.Type)
+		}
 
 		// Confirmation prompt (unless --yes or --dry-run)
 		if !dryRun && !noConfirm {
+			logger.WarnS("Restore requires confirmation - will overwrite database",
+				"component", "cli",
+				"command", "restore",
+				"database", target.Conn.Database,
+				"host", target.Conn.Host)
+
 			fmt.Printf("⚠️  WARNING: This will overwrite the database '%s' on %s!\n",
 				target.Conn.Database, target.Conn.Host)
 			fmt.Printf("Continue with restore? (yes/no): ")
@@ -275,9 +304,15 @@ Examples:
 			//nolint:errcheck // Error reading user input is handled by checking response value
 			_, _ = fmt.Scanln(&response)
 			if strings.ToLower(response) != "yes" {
-				fmt.Println("Restore cancelled.")
+				logger.InfoS("Restore cancelled by user",
+					"component", "cli",
+					"command", "restore",
+					"user_response", response)
 				return nil
 			}
+			logger.InfoS("Restore confirmed by user",
+				"component", "cli",
+				"command", "restore")
 		}
 
 		// Execute restore with options
@@ -294,18 +329,19 @@ Examples:
 
 		if result.Success {
 			if result.DryRun {
-				fmt.Printf("\n✓ Dry-run completed successfully\n")
-				fmt.Printf("\nValidations performed:\n")
-				for _, v := range result.Validations {
-					fmt.Printf("  ✓ %s\n", v)
-				}
-				fmt.Printf("\nRestore is ready to execute. Remove --dry-run to perform actual restore.\n")
+				logger.InfoS("Dry-run completed successfully",
+					"component", "cli",
+					"command", "restore",
+					"validations", result.Validations,
+					"validation_count", len(result.Validations))
 			} else {
-				fmt.Printf("\n✓ Restore completed successfully\n")
-				fmt.Printf("  Target: %s\n", result.Target)
-				fmt.Printf("  Storage: %s\n", result.StorageName)
-				fmt.Printf("  Backup: %s\n", result.BackupPath)
-				fmt.Printf("  Duration: %v\n", result.Duration)
+				logger.InfoS("Restore completed successfully",
+					"component", "cli",
+					"command", "restore",
+					"target", result.Target,
+					"storage", result.StorageName,
+					"backup_path", result.BackupPath,
+					"duration", result.Duration.String())
 			}
 		}
 
@@ -355,26 +391,38 @@ var listCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// List backups
+		logger := util.GetLogger()
 		backups, err := app.ListBackups(ctx, cfg, target)
 		if err != nil {
 			return fmt.Errorf("failed to list backups: %w", err)
 		}
 
 		if len(backups) == 0 {
-			fmt.Printf("No backups found for target: %s\n", target.Name)
+			logger.InfoS("No backups found for target",
+				"component", "cli",
+				"command", "list-backups",
+				"target", target.Name)
 			return nil
 		}
 
-		fmt.Printf("Backups for target '%s' (%d total):\n\n", target.Name, len(backups))
+		logger.InfoS("Backups found for target",
+			"component", "cli",
+			"command", "list-backups",
+			"target", target.Name,
+			"backup_count", len(backups))
+
 		for i, backup := range backups {
-			fmt.Printf("%d. %s\n", i+1, backup.Path)
-			fmt.Printf("   Size: %s\n", formatBytes(backup.Size))
-			fmt.Printf("   Modified: %s\n", backup.LastModified.Format("2006-01-02 15:04:05"))
-			fmt.Printf("   Storage: %s\n", backup.StorageName)
-			if i == 0 {
-				fmt.Printf("   [LATEST]\n")
-			}
-			fmt.Println()
+			isLatest := i == 0
+			logger.InfoS("Backup details",
+				"component", "cli",
+				"command", "list-backups",
+				"index", i+1,
+				"path", backup.Path,
+				"size_bytes", backup.Size,
+				"size_formatted", formatBytes(backup.Size),
+				"modified", backup.LastModified.Format("2006-01-02 15:04:05"),
+				"storage", backup.StorageName,
+				"is_latest", isLatest)
 		}
 
 		return nil
