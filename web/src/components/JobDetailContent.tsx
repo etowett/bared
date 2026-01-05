@@ -50,8 +50,8 @@ export function JobDetailContent({ job, compact = false }: JobDetailContentProps
   }
 
   return (
-    <ScrollArea className={compact ? 'flex-1 pr-4' : 'h-full'}>
-      <div className="space-y-6">
+    <ScrollArea className="h-full">
+      <div className="space-y-6 pr-4">
         {/* Job Info Grid */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">

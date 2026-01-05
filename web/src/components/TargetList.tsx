@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatDate } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useConfirm } from '../hooks/useConfirm'
 import { useTriggerBackup } from '../hooks/useJobs'
 import type { Target } from '../types'
 
@@ -11,13 +13,25 @@ interface TargetListProps {
 
 export function TargetList({ targets }: TargetListProps) {
   const triggerBackup = useTriggerBackup()
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const handleBackup = async (targetName: string) => {
-    if (confirm(`Start backup for ${targetName}?`)) {
+    const confirmed = await confirm({
+      title: 'Start Backup',
+      description: `Are you sure you want to start a backup for ${targetName}?`,
+      confirmLabel: 'Start Backup',
+      variant: 'default',
+    })
+
+    if (confirmed) {
       try {
         await triggerBackup.mutateAsync(targetName)
+        toast.success('Backup started successfully')
       } catch (error) {
-        alert(`Failed to trigger backup: ${error}`)
+        const errorMessage = error instanceof Error ? error.message : 'Failed to trigger backup'
+        toast.error('Failed to trigger backup', {
+          description: errorMessage,
+        })
       }
     }
   }
@@ -27,8 +41,10 @@ export function TargetList({ targets }: TargetListProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {targets.map((target) => (
+    <>
+      {ConfirmDialog}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {targets.map((target) => (
         <Card key={target.name} className="border-border/50 hover:border-border transition-colors">
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -79,6 +95,7 @@ export function TargetList({ targets }: TargetListProps) {
           </CardContent>
         </Card>
       ))}
-    </div>
+      </div>
+    </>
   )
 }

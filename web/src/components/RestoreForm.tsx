@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { AlertTriangle, Info } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { useTriggerRestore } from '../hooks/useJobs'
 import { useRestoreTargets } from '../hooks/useRestoreTargets'
 import type { RestoreTarget } from '../types'
@@ -146,7 +147,9 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
     e.preventDefault()
 
     if (!selectedTarget || !backupPath) {
-      alert('Please select a restore target and enter a backup path')
+      toast.error('Validation Error', {
+        description: 'Please select a restore target and enter a backup path',
+      })
       return
     }
 
@@ -166,7 +169,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
         dry_run: dryRun,
       })
 
-      alert(
+      toast.success(
         dryRun ? 'Restore validation job queued successfully!' : 'Restore job queued successfully!'
       )
 
@@ -179,7 +182,10 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
       if (onSuccess) onSuccess()
     } catch (error) {
-      alert(`Failed to trigger restore: ${error}`)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to trigger restore'
+      toast.error('Failed to trigger restore', {
+        description: errorMessage,
+      })
     }
   }
 
