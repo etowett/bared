@@ -128,13 +128,13 @@ func TestLocal_Store(t *testing.T) {
 		},
 		{
 			name:    "store in subdirectory",
-			path:    "mysql/2025-12-02/backup.sql",
+			path:    "mysql-target/backup-2025-12-02T10-00-00Z.sql",
 			data:    "mysql backup data",
 			wantErr: false,
 		},
 		{
-			name:    "store with deep nesting",
-			path:    "target/mysql/2025-12-02T10-30-00Z/testdb.sql.tar.gz",
+			name:    "store with new path format",
+			path:    "target/backup-2025-12-02T10-30-00Z.sql.tar.gz",
 			data:    "nested backup",
 			wantErr: false,
 		},

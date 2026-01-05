@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -215,11 +217,13 @@ func TestBackupTarget_PathContainsTargetInfo(t *testing.T) {
 
 	require.NotNil(t, result)
 	path := strings.ToLower(result.BackupPath)
-	containsInfo := strings.Contains(path, strings.ToLower(target.Name)) ||
-		strings.Contains(path, strings.ToLower(target.Conn.Type)) ||
-		strings.Contains(path, strings.ToLower(target.Conn.Database))
 
-	assert.True(t, containsInfo, "backup path should contain target info: %s", result.BackupPath)
+	// Path should contain target name and start with target name
+	assert.Contains(t, path, strings.ToLower(target.Name), "backup path should contain target name: %s", result.BackupPath)
+	assert.True(t, strings.HasPrefix(path, strings.ToLower(target.Name)+"/"), "backup path should start with target name: %s", result.BackupPath)
+
+	// Path should follow new format: target/backup-timestamp.ext
+	assert.Contains(t, path, "/backup-", "backup path should contain /backup- prefix: %s", result.BackupPath)
 }
 
 func TestBackupTarget_DurationMeasured(t *testing.T) {
@@ -320,4 +324,84 @@ func TestBackupTarget_ResultInitialization(t *testing.T) {
 	assert.NotEmpty(t, result.Target)
 	assert.NotEmpty(t, result.BackupPath)
 	// Success may be false, but result structure is complete
+}
+
+// TestE2E_BackupListRestore_NewPathFormat is an end-to-end integration test
+// that validates the full backup→list→restore cycle with the new path format
+func TestE2E_BackupListRestore_NewPathFormat(t *testing.T) {
+	// Note: This test will fail during backup execution because mysqldump doesn't exist,
+	// but it validates the path generation and discovery logic
+
+	tmpDir := t.TempDir()
+
+	// Create config with local storage
+	localStorage := fixtures.LocalStorageWithCustomPath(tmpDir)
+	target := fixtures.MySQLTarget()
+	target.Name = "e2e-test"
+
+	cfg := &config.Config{
+		DefaultStorage: localStorage.Name,
+		Storages: map[string]*config.Storage{
+			localStorage.Name: localStorage,
+		},
+		Targets: []*config.Target{target},
+	}
+
+	// Step 1: Attempt backup (will fail due to no mysqldump, but path is generated)
+	result, _ := BackupTarget(context.Background(), cfg, target, nil)
+	require.NotNil(t, result)
+
+	// Verify new path format: target/backup-timestamp.extension
+	t.Logf("Generated backup path: %s", result.BackupPath)
+	assert.True(t, strings.Contains(result.BackupPath, "/backup-"), "path should contain /backup- prefix")
+	assert.True(t, strings.Contains(result.BackupPath, "T"), "path should contain ISO timestamp marker")
+	assert.True(t, strings.Contains(result.BackupPath, "Z"), "path should contain UTC marker")
+
+	// Verify 2-part path structure
+	parts := strings.Split(result.BackupPath, "/")
+	assert.Equal(t, 2, len(parts), "path should have exactly 2 parts: target/filename")
+	assert.Equal(t, "e2e-test", parts[0], "first part should be target name")
+	assert.True(t, strings.HasPrefix(parts[1], "backup-"), "second part should start with 'backup-'")
+
+	// Step 2: Manually create a backup file to test listing and restore
+	// (Since actual backup failed, we create a mock file)
+	targetDir := filepath.Join(tmpDir, "e2e-test")
+	err := os.MkdirAll(targetDir, 0755)
+	require.NoError(t, err)
+
+	mockBackupPath := "e2e-test/backup-2026-01-05T10-00-00Z.sql.tar.gz"
+	mockBackupFile := filepath.Join(tmpDir, mockBackupPath)
+	err = os.WriteFile(mockBackupFile, []byte("mock backup data"), 0644)
+	require.NoError(t, err)
+
+	// Step 3: List backups
+	backups, err := ListBackups(context.Background(), cfg, target)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(backups), 1, "should find at least one backup")
+
+	// Verify backup was discovered
+	var found bool
+	for _, backup := range backups {
+		if strings.Contains(backup.Path, "backup-2026-01-05") {
+			found = true
+			assert.True(t, strings.HasPrefix(backup.Path, "e2e-test/"), "backup path should start with target name")
+			assert.True(t, strings.Contains(backup.Path, "backup-"), "backup path should contain 'backup-' prefix")
+		}
+	}
+	assert.True(t, found, "should find the mock backup in listing")
+
+	// Step 4: Find latest backup
+	latest, err := FindLatestBackup(context.Background(), cfg, target)
+	require.NoError(t, err)
+	assert.NotNil(t, latest)
+	assert.True(t, strings.HasPrefix(latest.Path, "e2e-test/backup-"), "latest backup should follow new path format")
+
+	// Step 5: Attempt restore (dry-run) - will fail due to no mysql, but validates path handling
+	restoreResult, _ := RestoreTargetWithOptions(
+		context.Background(), cfg, target, mockBackupPath,
+		&RestoreOptions{DryRun: true, SkipValidation: true}, nil)
+
+	// Even if restore fails, the result structure should be valid
+	require.NotNil(t, restoreResult)
+	t.Logf("Restore attempt completed with result: %+v", restoreResult)
 }

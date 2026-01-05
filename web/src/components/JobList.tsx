@@ -10,10 +10,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn, formatDate, formatDuration } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useNavigate } from '@tanstack/react-router'
+import { useConfirm } from '../hooks/useConfirm'
 import { useCancelJob } from '../hooks/useJobs'
 import type { Job } from '../types'
 import { JobProgress } from './JobProgress'
-import { useNavigate } from '@tanstack/react-router'
 
 interface JobListProps {
   jobs: Job[]
@@ -30,6 +32,7 @@ export function JobList({
 }: JobListProps) {
   const navigate = useNavigate()
   const cancelJob = useCancelJob()
+  const { confirm, ConfirmDialog } = useConfirm()
 
   const handleRowClick = (job: Job) => {
     if (navigationMode) {
@@ -41,11 +44,23 @@ export function JobList({
 
   const handleCancel = async (e: React.MouseEvent, jobId: string) => {
     e.stopPropagation()
-    if (confirm('Are you sure you want to cancel this job?')) {
+    const confirmed = await confirm({
+      title: 'Cancel Job',
+      description: 'Are you sure you want to cancel this job?',
+      confirmLabel: 'Cancel Job',
+      cancelLabel: 'Keep Running',
+      variant: 'destructive',
+    })
+
+    if (confirmed) {
       try {
         await cancelJob.mutateAsync(jobId)
+        toast.success('Job cancellation requested')
       } catch (error) {
-        alert(`Failed to cancel job: ${error}`)
+        const errorMessage = error instanceof Error ? error.message : 'Failed to cancel job'
+        toast.error('Failed to cancel job', {
+          description: errorMessage,
+        })
       }
     }
   }
@@ -55,8 +70,10 @@ export function JobList({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
+    <>
+      {ConfirmDialog}
+      <div className="overflow-x-auto">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>ID</TableHead>
@@ -133,6 +150,7 @@ export function JobList({
           ))}
         </TableBody>
       </Table>
-    </div>
+      </div>
+    </>
   )
 }

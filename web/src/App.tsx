@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { Toaster } from 'sonner'
 import { ThemeProvider } from './contexts/ThemeContext'
 
 // Import the generated route tree
@@ -29,6 +30,7 @@ export function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        <Toaster position="top-right" richColors />
       </QueryClientProvider>
     </ThemeProvider>
   )

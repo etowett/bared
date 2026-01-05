@@ -13,8 +13,8 @@ interface JobDetailProps {
 export function JobDetail({ job, onClose }: JobDetailProps) {
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle>Job Details</DialogTitle>
             <div className="flex items-center gap-2">
@@ -31,7 +31,9 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
           </div>
         </DialogHeader>
 
-        <JobDetailContent job={job} compact={true} />
+        <div className="flex-1 min-h-0 overflow-hidden px-6 pb-6">
+          <JobDetailContent job={job} compact={true} />
+        </div>
       </DialogContent>
     </Dialog>
   )

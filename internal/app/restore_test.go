@@ -566,12 +566,12 @@ func TestDetectCompressionType(t *testing.T) {
 		},
 		{
 			name:         "complex path with tar.gz",
-			backupPath:   "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.tar.gz",
+			backupPath:   "db-backups/wa_messenger/backup-2026-01-05T09-34-31Z.tar.gz",
 			expectedType: "tgz",
 		},
 		{
 			name:         "complex path with gz",
-			backupPath:   "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.gz",
+			backupPath:   "db-backups/wa_messenger/backup-2026-01-05T09-34-31Z.gz",
 			expectedType: "gz",
 		},
 	}
@@ -694,7 +694,7 @@ func TestBackupRestoreRoundtripExtensions(t *testing.T) {
 	}{
 		{
 			name:             "gz file from gzip backup",
-			backupPath:       "db-backups/wa_messenger/mysql/2026-01-05T09-34-31Z/wa_messenger.gz",
+			backupPath:       "db-backups/wa_messenger/backup-2026-01-05T09-34-31Z.gz",
 			shouldDecompress: true,
 			expectedType:     "gz",
 		},

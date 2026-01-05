@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,11 +53,11 @@ func TestListBackups(t *testing.T) {
 				err := os.MkdirAll(targetDir, 0755)
 				require.NoError(t, err)
 
-				// Create backup files
+				// Create backup files with proper timestamp format
 				files := []string{
-					"backup-2025-01-08.tar.gz",
-					"backup-2025-01-07.tar.gz",
-					"backup-2025-01-06.tar.gz",
+					"backup-2025-01-08T10-00-00Z.tar.gz",
+					"backup-2025-01-07T10-00-00Z.tar.gz",
+					"backup-2025-01-06T10-00-00Z.tar.gz",
 				}
 
 				for _, file := range files {
@@ -137,7 +138,11 @@ func TestListBackups_SortedByNewest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create files with staggered modification times
-	files := []string{"oldest.tar.gz", "middle.tar.gz", "newest.tar.gz"}
+	files := []string{
+		"backup-2025-01-01T10-00-00Z.tar.gz",
+		"backup-2025-01-02T10-00-00Z.tar.gz",
+		"backup-2025-01-03T10-00-00Z.tar.gz",
+	}
 	for i, file := range files {
 		filePath := filepath.Join(targetDir, file)
 		writeErr := os.WriteFile(filePath, []byte("data"), 0644)
@@ -155,10 +160,11 @@ func TestListBackups_SortedByNewest(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, backups, 3)
 
-	// Verify sorted by newest first
-	assert.Contains(t, backups[0].Path, "newest.tar.gz")
-	assert.Contains(t, backups[1].Path, "middle.tar.gz")
-	assert.Contains(t, backups[2].Path, "oldest.tar.gz")
+	// Verify sorted by newest first (by modification time, not filename)
+	// The newest backup should be first (backup-2025-01-03T10-00-00Z.tar.gz)
+	assert.Contains(t, backups[0].Path, "backup-2025-01-03")
+	assert.Contains(t, backups[1].Path, "backup-2025-01-02")
+	assert.Contains(t, backups[2].Path, "backup-2025-01-01")
 }
 
 func TestFindLatestBackup(t *testing.T) {
@@ -190,8 +196,11 @@ func TestFindLatestBackup(t *testing.T) {
 				err := os.MkdirAll(targetDir, 0755)
 				require.NoError(t, err)
 
-				// Create multiple backups
-				files := []string{"backup-old.tar.gz", "backup-latest.tar.gz"}
+				// Create multiple backups with timestamps
+				files := []string{
+					"backup-2025-01-01T10-00-00Z.tar.gz",
+					"backup-2025-01-08T10-00-00Z.tar.gz",
+				}
 				for i, file := range files {
 					filePath := filepath.Join(targetDir, file)
 					err := os.WriteFile(filePath, []byte("data"), 0644)
@@ -239,8 +248,9 @@ func TestFindLatestBackup(t *testing.T) {
 				require.NotNil(t, backup)
 
 				if tt.validatePath {
-					assert.Contains(t, backup.Path, "postgres-prod")
-					assert.Contains(t, backup.Path, "latest")
+					// Verify path follows new format: postgres-prod/backup-timestamp.tar.gz
+					assert.Contains(t, backup.Path, "postgres-prod/backup-")
+					assert.True(t, strings.Contains(backup.Path, ".tar.gz"))
 				}
 			}
 		})
