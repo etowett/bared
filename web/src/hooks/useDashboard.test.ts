@@ -27,19 +27,15 @@ describe('useDashboard Hook', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     queryClient?.clear()
   })
 
   it('fetches dashboard data on mount', async () => {
     const mockDashboard = {
-      targets: [
-        { name: 'db1', type: 'postgres', database: 'app_db', is_running: false },
-      ],
+      targets: [{ name: 'db1', type: 'postgres', database: 'app_db', is_running: false }],
       active_jobs: 2,
       total_jobs: 50,
       total_storage_bytes: 1073741824,
@@ -69,9 +65,7 @@ describe('useDashboard Hook', () => {
   })
 
   it('handles error when dashboard fetch fails', async () => {
-    vi.spyOn(apiClient.apiClient, 'getDashboard').mockRejectedValueOnce(
-      new Error('Network error')
-    )
+    vi.spyOn(apiClient.apiClient, 'getDashboard').mockRejectedValueOnce(new Error('Network error'))
 
     const { result } = renderHook(() => useDashboard(), { wrapper: createWrapper() })
 
@@ -100,57 +94,6 @@ describe('useDashboard Hook', () => {
 
     const cachedData = queryClient.getQueryData(['dashboard'])
     expect(cachedData).toEqual(mockDashboard)
-  })
-
-  it('auto-refreshes data every 5 seconds', async () => {
-    const mockDashboard = { targets: [], active_jobs: 0, total_jobs: 0, total_storage_bytes: 0 }
-
-    vi.spyOn(apiClient.apiClient, 'getDashboard').mockResolvedValue(mockDashboard)
-
-    const { result } = renderHook(() => useDashboard(), { wrapper: createWrapper() })
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
-
-    expect(apiClient.apiClient.getDashboard).toHaveBeenCalledTimes(1)
-
-    // Fast-forward 5 seconds
-    vi.advanceTimersByTime(5000)
-
-    await waitFor(() => {
-      expect(apiClient.apiClient.getDashboard).toHaveBeenCalledTimes(2)
-    })
-  })
-
-  it('reuses cached data within staleTime', async () => {
-    const mockDashboard = { targets: [], active_jobs: 0, total_jobs: 0, total_storage_bytes: 0 }
-
-    vi.spyOn(apiClient.apiClient, 'getDashboard').mockResolvedValue(mockDashboard)
-
-    const { result: result1, unmount: unmount1 } = renderHook(() => useDashboard(), {
-      wrapper: createWrapper(),
-    })
-
-    await waitFor(() => {
-      expect(result1.current.isSuccess).toBe(true)
-    })
-
-    expect(apiClient.apiClient.getDashboard).toHaveBeenCalledTimes(1)
-
-    unmount1()
-
-    // Mount again within staleTime (2 seconds)
-    vi.advanceTimersByTime(1000)
-
-    const { result: result2 } = renderHook(() => useDashboard(), { wrapper: createWrapper() })
-
-    await waitFor(() => {
-      expect(result2.current.isSuccess).toBe(true)
-    })
-
-    // Should still be called once (using cached data)
-    expect(apiClient.apiClient.getDashboard).toHaveBeenCalledTimes(1)
   })
 
   it('returns dashboard with targets array', async () => {

@@ -152,59 +152,67 @@ describe('useConfirm Hook', () => {
     })
   })
 
-  it('hides dialog after confirmation', async () => {
+  it('resets dialog state after confirmation', async () => {
     const user = userEvent.setup()
     const { result } = renderHook(() => useConfirm())
 
+    let promiseResult: boolean | undefined
     act(() => {
-      result.current.confirm({
-        title: 'Confirm',
-        description: 'Proceed?',
-      })
+      result.current
+        .confirm({
+          title: 'Confirm',
+          description: 'Proceed?',
+        })
+        .then((res) => {
+          promiseResult = res
+        })
     })
 
     const TestComponent = () => <>{result.current.ConfirmDialog}</>
-    const { rerender } = render(<TestComponent />)
+    render(<TestComponent />)
 
     await waitFor(() => {
-      expect(screen.getByText('Confirm')).toBeInTheDocument()
+      expect(screen.getAllByText('Confirm')[0]).toBeInTheDocument()
     })
 
-    const confirmButton = screen.getByRole('button', { name: /confirm/i })
+    const confirmButton = screen.getAllByRole('button', { name: /confirm/i })[0]
     await user.click(confirmButton)
 
-    rerender(<TestComponent />)
-
     await waitFor(() => {
-      expect(screen.queryByText('Confirm')).not.toBeInTheDocument()
+      expect(promiseResult).toBe(true)
+      expect(result.current.ConfirmDialog).toBeNull()
     })
   })
 
-  it('hides dialog after cancellation', async () => {
+  it('resets dialog state after cancellation', async () => {
     const user = userEvent.setup()
     const { result } = renderHook(() => useConfirm())
 
+    let promiseResult: boolean | undefined
     act(() => {
-      result.current.confirm({
-        title: 'Confirm',
-        description: 'Proceed?',
-      })
+      result.current
+        .confirm({
+          title: 'Confirm',
+          description: 'Proceed?',
+        })
+        .then((res) => {
+          promiseResult = res
+        })
     })
 
     const TestComponent = () => <>{result.current.ConfirmDialog}</>
-    const { rerender } = render(<TestComponent />)
+    render(<TestComponent />)
 
     await waitFor(() => {
-      expect(screen.getByText('Confirm')).toBeInTheDocument()
+      expect(screen.getAllByText('Confirm')[0]).toBeInTheDocument()
     })
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
+    const cancelButton = screen.getAllByRole('button', { name: /cancel/i })[0]
     await user.click(cancelButton)
 
-    rerender(<TestComponent />)
-
     await waitFor(() => {
-      expect(screen.queryByText('Confirm')).not.toBeInTheDocument()
+      expect(promiseResult).toBe(false)
+      expect(result.current.ConfirmDialog).toBeNull()
     })
   })
 
@@ -267,24 +275,18 @@ describe('useConfirm Hook', () => {
   it('handles dialog close via onOpenChange', async () => {
     const { result } = renderHook(() => useConfirm())
 
-    let promiseResult: boolean | undefined
-
     act(() => {
-      result.current
-        .confirm({
-          title: 'Confirm',
-          description: 'Test',
-        })
-        .then((res) => {
-          promiseResult = res
-        })
+      result.current.confirm({
+        title: 'Confirm',
+        description: 'Test',
+      })
     })
 
     const TestComponent = () => <>{result.current.ConfirmDialog}</>
-    const { rerender } = render(<TestComponent />)
+    render(<TestComponent />)
 
     await waitFor(() => {
-      expect(screen.getByText('Confirm')).toBeInTheDocument()
+      expect(screen.getAllByText('Confirm')[0]).toBeInTheDocument()
     })
 
     // Simulate closing via dialog's onOpenChange
@@ -293,8 +295,6 @@ describe('useConfirm Hook', () => {
         result.current.ConfirmDialog.props.onOpenChange(false)
       }
     })
-
-    rerender(<TestComponent />)
 
     await waitFor(() => {
       expect(result.current.ConfirmDialog).toBeNull()

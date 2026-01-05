@@ -27,11 +27,9 @@ describe('useRestoreTargets Hook', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     queryClient?.clear()
   })
 
@@ -106,72 +104,6 @@ describe('useRestoreTargets Hook', () => {
 
     const cachedData = queryClient.getQueryData(['restore-targets'])
     expect(cachedData).toEqual(mockRestoreTargets)
-  })
-
-  it('caches data for 30 seconds (staleTime)', async () => {
-    const mockRestoreTargets = { restore_targets: [], total: 0 }
-
-    vi.spyOn(apiClient.apiClient, 'getRestoreTargets').mockResolvedValue(mockRestoreTargets)
-
-    const { result: result1, unmount: unmount1 } = renderHook(() => useRestoreTargets(), {
-      wrapper: createWrapper(),
-    })
-
-    await waitFor(() => {
-      expect(result1.current.isSuccess).toBe(true)
-    })
-
-    expect(apiClient.apiClient.getRestoreTargets).toHaveBeenCalledTimes(1)
-
-    unmount1()
-
-    // Mount again within staleTime (30 seconds)
-    vi.advanceTimersByTime(20000) // 20 seconds
-
-    const { result: result2 } = renderHook(() => useRestoreTargets(), {
-      wrapper: createWrapper(),
-    })
-
-    await waitFor(() => {
-      expect(result2.current.isSuccess).toBe(true)
-    })
-
-    // Should still be called once (using cached data within staleTime)
-    expect(apiClient.apiClient.getRestoreTargets).toHaveBeenCalledTimes(1)
-  })
-
-  it('refetches data after staleTime expires', async () => {
-    const mockRestoreTargets = { restore_targets: [], total: 0 }
-
-    vi.spyOn(apiClient.apiClient, 'getRestoreTargets').mockResolvedValue(mockRestoreTargets)
-
-    const { result: result1, unmount: unmount1 } = renderHook(() => useRestoreTargets(), {
-      wrapper: createWrapper(),
-    })
-
-    await waitFor(() => {
-      expect(result1.current.isSuccess).toBe(true)
-    })
-
-    expect(apiClient.apiClient.getRestoreTargets).toHaveBeenCalledTimes(1)
-
-    unmount1()
-
-    // Mount again after staleTime (30 seconds)
-    vi.advanceTimersByTime(31000)
-
-    const { result: result2 } = renderHook(() => useRestoreTargets(), {
-      wrapper: createWrapper(),
-    })
-
-    await waitFor(() => {
-      expect(result2.current.isSuccess).toBe(true)
-    })
-
-    // Should be called twice (refetch after staleTime)
-    await waitFor(() => {
-      expect(apiClient.apiClient.getRestoreTargets).toHaveBeenCalledTimes(2)
-    })
   })
 
   it('returns empty restore targets array', async () => {

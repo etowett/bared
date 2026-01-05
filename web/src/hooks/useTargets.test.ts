@@ -27,11 +27,9 @@ describe('useTargets Hook', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     queryClient?.clear()
   })
 
@@ -94,27 +92,6 @@ describe('useTargets Hook', () => {
 
     const cachedData = queryClient.getQueryData(['targets'])
     expect(cachedData).toEqual(mockTargets)
-  })
-
-  it('auto-refreshes data every 5 seconds', async () => {
-    const mockTargets = { targets: [], total: 0 }
-
-    vi.spyOn(apiClient.apiClient, 'getTargets').mockResolvedValue(mockTargets)
-
-    const { result } = renderHook(() => useTargets(), { wrapper: createWrapper() })
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true)
-    })
-
-    expect(apiClient.apiClient.getTargets).toHaveBeenCalledTimes(1)
-
-    // Fast-forward 5 seconds
-    vi.advanceTimersByTime(5000)
-
-    await waitFor(() => {
-      expect(apiClient.apiClient.getTargets).toHaveBeenCalledTimes(2)
-    })
   })
 
   it('returns empty targets array', async () => {

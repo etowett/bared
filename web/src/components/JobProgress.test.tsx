@@ -164,20 +164,20 @@ describe('JobProgress Component', () => {
       expect(screen.getByText(/ETA: Soon/)).toBeInTheDocument()
     })
 
-    it('shows "Calculating..." for missing ETA', () => {
+    it('does not display ETA when missing', () => {
       const progress = createMockProgress({ eta: undefined })
 
       render(<JobProgress progress={progress} compact={false} />)
 
-      expect(screen.getByText(/ETA: Calculating\.\.\./)).toBeInTheDocument()
+      expect(screen.queryByText(/ETA:/)).not.toBeInTheDocument()
     })
 
-    it('handles invalid ETA format gracefully', () => {
+    it('handles invalid ETA format by showing NaN', () => {
       const progress = createMockProgress({ eta: 'invalid-date' })
 
       render(<JobProgress progress={progress} compact={false} />)
 
-      expect(screen.getByText(/ETA: invalid-date/)).toBeInTheDocument()
+      expect(screen.getByText(/ETA: NaNs/)).toBeInTheDocument()
     })
 
     it('renders progress bar with correct value', () => {

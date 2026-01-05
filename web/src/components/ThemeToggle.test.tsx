@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '../test/utils'
@@ -140,14 +141,14 @@ describe('ThemeToggle Component', () => {
   })
 
   it('uses ghost variant for button styling', () => {
-    const { container } = render(<ThemeToggle />)
+    render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
     expect(button).toBeInTheDocument()
   })
 
   it('uses icon size for button', () => {
-    const { container } = render(<ThemeToggle />)
+    render(<ThemeToggle />)
 
     const button = screen.getByRole('button')
     expect(button).toBeInTheDocument()
