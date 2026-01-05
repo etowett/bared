@@ -15,6 +15,8 @@ type MySQL struct {
 	conn           *config.Connection
 	excludeTables  []string
 	additionalArgs []string
+	dumpCmd        string // cached: mariadb-dump or mysqldump
+	restoreCmd     string // cached: mariadb or mysql
 }
 
 // NewMySQL creates a new MySQL dumper
@@ -33,9 +35,12 @@ func (m *MySQL) Name() string {
 
 // Validate checks if mysqldump command exists
 func (m *MySQL) Validate(_ context.Context) error {
-	if err := util.CheckCommandExists("mysqldump"); err != nil {
-		return fmt.Errorf("mysqldump not found: %w (install mysql-client package)", err)
+	// Prefer mariadb-dump, fall back to mysqldump
+	cmd, err := util.DetectCommand("mariadb-dump", "mysqldump")
+	if err != nil {
+		return fmt.Errorf("no dump command found: tried mariadb-dump, mysqldump (install mysql-client or mariadb-client package)")
 	}
+	m.dumpCmd = cmd
 	return nil
 }
 
@@ -43,10 +48,17 @@ func (m *MySQL) Validate(_ context.Context) error {
 func (m *MySQL) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 	startTime := time.Now()
 
+	// Ensure command is detected (defensive programming)
+	if m.dumpCmd == "" {
+		if err := m.Validate(ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	args := m.buildDumpArgs()
 
-	if err := util.ExecuteCommand(ctx, w, "mysqldump", args...); err != nil {
-		return nil, fmt.Errorf("mysqldump failed: %w", err)
+	if err := util.ExecuteCommand(ctx, w, m.dumpCmd, args...); err != nil {
+		return nil, fmt.Errorf("%s failed: %w", m.dumpCmd, err)
 	}
 
 	metadata := &DumpMetadata{
@@ -61,10 +73,17 @@ func (m *MySQL) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error) {
 
 // Restore executes mysql restore from the reader
 func (m *MySQL) Restore(ctx context.Context, r io.Reader) error {
+	// Ensure command is detected (defensive programming)
+	if m.restoreCmd == "" {
+		if err := m.ValidateConnection(ctx); err != nil {
+			return err
+		}
+	}
+
 	args := m.buildRestoreArgs()
 
-	if err := util.ExecuteCommandWithStdin(ctx, r, "mysql", args...); err != nil {
-		return fmt.Errorf("mysql restore failed: %w", err)
+	if err := util.ExecuteCommandWithStdin(ctx, r, m.restoreCmd, args...); err != nil {
+		return fmt.Errorf("%s restore failed: %w", m.restoreCmd, err)
 	}
 
 	return nil
@@ -101,7 +120,8 @@ func (m *MySQL) buildRestoreArgs() []string {
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
-		"--skip-ssl", // Disable SSL (compatible with both MySQL and MariaDB)
+		"--skip-ssl",      // Disable SSL (compatible with both MySQL and MariaDB)
+		"--binary-mode=1", // Required for MariaDB binary data handling
 	}
 
 	if m.conn.Password != "" {
@@ -116,17 +136,20 @@ func (m *MySQL) buildRestoreArgs() []string {
 
 // ValidateConnection tests MySQL connectivity
 func (m *MySQL) ValidateConnection(ctx context.Context) error {
-	// Check if mysql command exists
-	if err := util.CheckCommandExists("mysql"); err != nil {
-		return fmt.Errorf("mysql not found: %w (install mysql-client package)", err)
+	// Prefer mariadb, fall back to mysql
+	cmd, err := util.DetectCommand("mariadb", "mysql")
+	if err != nil {
+		return fmt.Errorf("no restore command found: tried mariadb, mysql (install mysql-client or mariadb-client package)")
 	}
+	m.restoreCmd = cmd
 
-	// Build test connection args
+	// Build test connection args with binary-mode for MariaDB compatibility
 	args := []string{
 		fmt.Sprintf("--host=%s", m.conn.Host),
 		fmt.Sprintf("--port=%d", m.conn.Port),
 		fmt.Sprintf("--user=%s", m.conn.User),
-		"--skip-ssl", // Disable SSL (compatible with both MySQL and MariaDB)
+		"--skip-ssl",      // Disable SSL (compatible with both MySQL and MariaDB)
+		"--binary-mode=1", // Required for MariaDB binary data handling
 	}
 
 	if m.conn.Password != "" {
@@ -135,7 +158,7 @@ func (m *MySQL) ValidateConnection(ctx context.Context) error {
 
 	args = append(args, m.conn.Database, "-e", "SELECT 1;")
 
-	if err := util.ExecuteCommand(ctx, io.Discard, "mysql", args...); err != nil {
+	if err := util.ExecuteCommand(ctx, io.Discard, cmd, args...); err != nil {
 		return fmt.Errorf("database connection failed: %w", err)
 	}
 

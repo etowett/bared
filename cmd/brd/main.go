@@ -209,8 +209,12 @@ Examples:
 		// Resolve target (could be regular target or restore target)
 		target, restoreTarget, isRestoreTarget, err := cfg.ResolveRestoreTarget(targetName)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to resolve restore target: %w", err)
 		}
+
+		logger := util.GetLogger()
+
+		logger.InfoS("Resolved restore target", "target", target, "restoreTarget", restoreTarget, "isRestoreTarget", isRestoreTarget)
 
 		// Get storage info for logging
 		var storageCfg *config.Storage

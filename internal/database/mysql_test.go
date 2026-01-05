@@ -230,6 +230,18 @@ func TestMySQL_BuildRestoreArgs(t *testing.T) {
 				"--password=secret",
 			},
 		},
+		{
+			name: "restore includes binary-mode for MariaDB compatibility",
+			conn: &config.Connection{
+				Host:     "localhost",
+				Port:     3306,
+				User:     "root",
+				Database: "testdb",
+			},
+			wantContains: []string{
+				"--binary-mode=1",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -246,6 +258,17 @@ func TestMySQL_BuildRestoreArgs(t *testing.T) {
 			assert.Equal(t, tt.conn.Database, args[len(args)-1])
 		})
 	}
+}
+
+func TestMySQL_BinaryModeInRestoreArgs(t *testing.T) {
+	// Additional dedicated test for binary-mode flag
+	conn := fixtures.MySQLConnection()
+	mysql := NewMySQL(conn, nil, nil)
+	args := mysql.buildRestoreArgs()
+
+	argsStr := strings.Join(args, " ")
+	assert.Contains(t, argsStr, "--binary-mode=1",
+		"restore args should contain --binary-mode=1 for MariaDB compatibility")
 }
 
 func TestMySQL_Validate(t *testing.T) {
