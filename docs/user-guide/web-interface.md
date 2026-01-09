@@ -11,6 +11,7 @@ The BareD web interface provides a modern, real-time dashboard for monitoring an
 - **Progress Tracking** - Real-time progress with ETA
 - **Log Streaming** - Live logs via WebSocket
 - **Job Management** - View history and cancel jobs
+- **Configuration Management** - Dynamic config management for storages, notifiers, targets, and restore targets
 
 ## Quick Start
 
@@ -235,6 +236,243 @@ Backup progress is divided into weighted stages:
 - Job list is paginated (if many jobs)
 - Completed jobs show final backup path
 
+## Configuration Management
+
+BareD provides comprehensive configuration management through the web interface, enabling dynamic updates without editing YAML files or restarting the daemon.
+
+### Overview
+
+Access configuration management at `/config` in the web interface. The configuration dashboard provides:
+
+- **Storages** - Manage backup storage backends (Local, S3, SFTP)
+- **Notifiers** - Configure notification channels (Slack, Email, Webhook)
+- **Targets** - Manage backup targets with schedules
+- **Restore Targets** - Configure restore destinations
+- **Config Source Badge** - Shows whether configs are loaded from Database or YAML
+
+### Configuration Sources
+
+The web interface displays badges indicating the configuration source:
+
+- **DB Badge** - Configuration loaded from database (can be edited via UI)
+- **YAML Badge** - Configuration loaded from YAML file (read-only in UI)
+
+When using YAML configuration, edit/delete buttons are disabled with helpful tooltips.
+
+### Storage Management
+
+Navigate to **Configuration → Storages** to manage storage backends.
+
+**Features**:
+- List all configured storages with type, path/bucket info, and retention settings
+- Create new storage backends
+- Edit existing storage configurations
+- Delete unused storages
+- Enable/disable storages
+
+**Storage Types**:
+
+1. **Local Storage**:
+   - Path - Local directory path
+   - Keep - Number of backups to retain
+
+2. **S3 Storage**:
+   - Bucket - S3 bucket name
+   - Region - AWS region
+   - Endpoint - Custom endpoint for S3-compatible services (MinIO, DigitalOcean Spaces)
+   - Access Key ID - AWS access key (encrypted at rest)
+   - Secret Access Key - AWS secret key (encrypted at rest)
+   - Keep - Number of backups to retain
+
+3. **SFTP Storage**:
+   - Host - SFTP server hostname
+   - Port - SFTP port (usually 22)
+   - User - Username
+   - Password - Password (encrypted at rest) or Private Key
+   - Path - Remote directory path
+   - Keep - Number of backups to retain
+
+**Secret Fields**:
+- Passwords and keys are masked with `***REDACTED***` in API responses
+- When editing, leave secret fields blank to keep existing values
+- Enter new values only when changing secrets
+- All secrets are encrypted using AES-256-GCM
+
+### Notifier Management
+
+Navigate to **Configuration → Notifiers** to manage notification channels.
+
+**Features**:
+- List all notifiers with type badges and configuration details
+- Create new notification channels
+- Edit existing notifiers
+- Delete unused notifiers
+- Toggle notifications on success vs. failures only
+
+**Notifier Types**:
+
+1. **Slack**:
+   - Webhook URL - Slack incoming webhook URL (encrypted at rest)
+   - Channel - Override default channel (optional)
+   - Notify On Success - Send notifications for successful backups
+
+2. **Email**:
+   - SMTP Host - Mail server hostname
+   - SMTP Port - Mail server port (usually 587)
+   - From Email - Sender email address
+   - To Email - Recipient email address
+   - Username - SMTP authentication username
+   - Password - SMTP password (encrypted at rest)
+   - Notify On Success - Send emails for successful backups
+
+3. **Webhook**:
+   - URL - Webhook endpoint URL
+   - Method - HTTP method (GET, POST, PUT)
+   - Headers - Custom HTTP headers (optional)
+   - Notify On Success - Trigger webhook for successful backups
+
+### Target Management
+
+Navigate to **Configuration → Targets** to manage backup targets.
+
+**Features**:
+- List all backup targets with connection info, storage, and schedule
+- Create new backup targets
+- Edit existing target configurations
+- Delete targets
+- View last backup timestamp
+- View next scheduled backup time
+- Cron schedule builder (simple + advanced modes)
+
+**Target Configuration**:
+
+**Connection Settings** (by database type):
+
+1. **MySQL/MariaDB**:
+   - Host - Database server hostname
+   - Port - Database port (usually 3306)
+   - User - Database user
+   - Password - Database password (encrypted at rest)
+   - Database - Database name to backup
+
+2. **PostgreSQL**:
+   - Host - Database server hostname
+   - Port - Database port (usually 5432)
+   - User - Database user
+   - Password - Database password (encrypted at rest)
+   - Database - Database name to backup
+
+3. **Redis**:
+   - Host - Redis server hostname
+   - Port - Redis port (usually 6379)
+   - Password - Redis password if AUTH enabled (encrypted at rest)
+   - DB - Redis database number (optional)
+
+**Backup Settings**:
+- **Schedule** - Cron expression (e.g., `0 2 * * *` for daily at 2 AM)
+  - Use visual cron builder or enter expression manually
+  - Leave blank for manual-only backups
+- **Storage** - Select storage backend to use
+- **Notifiers** - Select notification channels (multiple allowed)
+- **Compression** - Enable/disable tar.gz compression
+- **Exclude Tables** - List of table names to exclude (optional)
+- **Additional Args** - Extra database-specific flags (e.g., `--single-transaction`)
+- **Enabled** - Enable/disable target
+
+**Cron Schedule Builder**:
+- Simple mode with dropdowns for common schedules
+- Advanced mode for custom cron expressions
+- Validation with human-readable description
+- Common presets: Daily, Weekly, Monthly
+
+### Restore Target Management
+
+Navigate to **Configuration → Restore Targets** to manage restore destinations.
+
+**Features**:
+- List all restore targets with source target linkage
+- Create new restore destinations
+- Edit existing restore targets
+- Delete restore targets
+- Link to specific source backup target
+
+**Restore Target Configuration**:
+- **Connection Settings** - Same as backup targets (host, port, user, password, database)
+- **Source Target** - Link to backup target (optional, for filtering backups)
+- **Storage** - Storage backend to retrieve backups from
+- **Description** - Optional description (e.g., "Staging environment")
+- **Enabled** - Enable/disable restore target
+
+**Use Case**:
+Define restore destinations (e.g., staging databases) that can receive backups from production targets for testing or development.
+
+### YAML to Database Migration
+
+If you're currently using YAML configuration and want to switch to database-backed configuration:
+
+1. Navigate to **Configuration → Dashboard**
+2. Click **"Migrate to Database"** button
+3. Confirm migration
+4. All configs are imported to database
+5. Secrets are encrypted automatically
+6. UI shows "DB" badges instead of "YAML"
+7. Configuration becomes editable via UI
+
+**Migration Details**:
+- Imports: storages, notifiers, targets, restore targets, global settings
+- Encrypts: all passwords, keys, tokens, SMTP credentials
+- Validates: all configs before importing
+- Atomic: migration succeeds or fails completely (no partial state)
+- Non-destructive: YAML file remains unchanged
+
+**Post-Migration**:
+- Daemon automatically uses database config on next reload
+- YAML file is no longer read (database takes precedence)
+- Use "Reload Configuration" to apply changes without restart
+
+### Hot Reload
+
+After making configuration changes via the web UI, click **"Reload Configuration"** to apply changes immediately without restarting the daemon.
+
+**What Gets Reloaded**:
+- Storage backends
+- Notification channels
+- Backup targets (new/updated/deleted)
+- Restore targets
+- Cron schedules (jobs are automatically rescheduled)
+
+**Reload Process**:
+1. Click "Reload" button in header or config dashboard
+2. Daemon validates new configuration
+3. If valid, applies changes and reschedules jobs
+4. If invalid, shows error and keeps current config
+5. Success/error notification appears
+
+**Use Cases**:
+- Change backup schedule without downtime
+- Add new storage backend and start using immediately
+- Update database credentials without restart
+- Enable/disable notification channels on the fly
+
+### Encryption & Security
+
+**Encryption**:
+- All secrets are encrypted using AES-256-GCM
+- Encryption key from `BARED_ENCRYPTION_KEY` environment variable (recommended)
+- Or auto-generated and stored in database (development only)
+
+**Secret Handling**:
+- Secrets never appear in API responses (shown as `***REDACTED***`)
+- Secrets are decrypted only when needed for backup/restore operations
+- Leave secret fields blank when editing to preserve existing values
+
+**Best Practices**:
+- Set `BARED_ENCRYPTION_KEY` environment variable in production
+- Use 32-byte base64-encoded key: `openssl rand -base64 32`
+- Rotate encryption keys periodically (requires re-encrypting secrets)
+- Restrict database file permissions: `chmod 600 bared.db`
+- Use HTTPS for web interface in production
+
 ## Authentication
 
 ### Login Flow
@@ -398,6 +636,34 @@ websocat -H "Authorization: Basic $(echo -n admin:changeme | base64)" \
   ws://localhost:8080/api/jobs/{job-id}/logs/stream
 ```
 
+### Configuration Management
+
+```bash
+# List storages
+curl -u admin:changeme http://localhost:8080/api/config/storages
+
+# Create storage
+curl -u admin:changeme -X POST \
+  http://localhost:8080/api/config/storages \
+  -H "Content-Type: application/json" \
+  -d '{"name": "s3-backups", "type": "s3", "enabled": true, "config": {...}, "keep": 30}'
+
+# Update target
+curl -u admin:changeme -X PUT \
+  http://localhost:8080/api/config/targets/mysql-prod \
+  -H "Content-Type: application/json" \
+  -d '{"name": "mysql-prod", "enabled": true, "connection": {...}, "schedule": "0 3 * * *"}'
+
+# Hot reload configuration
+curl -u admin:changeme -X POST \
+  http://localhost:8080/api/config/reload
+
+# Check config source
+curl -u admin:changeme http://localhost:8080/api/config/source
+```
+
+For complete API reference, see [API Endpoints Documentation](../api/endpoints.md#configuration-management).
+
 ## Troubleshooting
 
 ### Web UI Not Loading
@@ -472,12 +738,12 @@ The web interface is responsive and works on mobile devices:
 Planned features:
 
 - [ ] Dark mode toggle
-- [ ] Email notifications
-- [ ] Backup retention policy management
-- [ ] Restore from backup UI
-- [ ] Multi-target batch operations
+- [ ] Restore from backup UI (direct restore trigger from job history)
+- [ ] Multi-target batch operations (bulk backup triggers)
 - [ ] Export job history to CSV
 - [ ] Grafana dashboard integration
+- [ ] Config change audit logs
+- [ ] Backup retention policy visualization
 
 ## Support
 
