@@ -25,6 +25,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from 'lucide-react'
+import type { ConfigSource, MigrateConfigResult, ReloadConfigResult } from '@/types'
 
 export const Route = createFileRoute('/config/')({
   component: ConfigDashboardPage,
@@ -34,24 +35,30 @@ function ConfigDashboardPage() {
   const { data: storagesData, isLoading: storagesLoading, error: storagesError } = useStorages()
   const { data: notifiersData, isLoading: notifiersLoading, error: notifiersError } = useNotifiers()
   const { data: targetsData, isLoading: targetsLoading, error: targetsError } = useTargetsConfig()
-  const { data: restoreTargetsData, isLoading: restoreTargetsLoading, error: restoreTargetsError } = useRestoreTargetsConfig()
+  const {
+    data: restoreTargetsData,
+    isLoading: restoreTargetsLoading,
+    error: restoreTargetsError,
+  } = useRestoreTargetsConfig()
   const { data: configSourceData, isLoading: sourceLoading, error: sourceError } = useConfigSource()
 
   const migrateMutation = useMigrateConfig()
   const reloadMutation = useReloadConfig()
   const { confirm } = useConfirm()
 
-  const [migrateResult, setMigrateResult] = useState<any>(null)
-  const [reloadResult, setReloadResult] = useState<any>(null)
+  const [migrateResult, setMigrateResult] = useState<MigrateConfigResult | null>(null)
+  const [reloadResult, setReloadResult] = useState<ReloadConfigResult | null>(null)
 
-  const source = configSourceData?.source || 'yaml'
+  const source: ConfigSource = (configSourceData?.source as ConfigSource) || 'yaml'
   const storageCount = storagesData?.storages?.length ?? 0
   const notifierCount = notifiersData?.notifiers?.length ?? 0
   const targetCount = targetsData?.targets?.length ?? 0
   const restoreTargetCount = restoreTargetsData?.restore_targets?.length ?? 0
 
-  const isLoading = storagesLoading || notifiersLoading || targetsLoading || restoreTargetsLoading || sourceLoading
-  const hasError = storagesError || notifiersError || targetsError || restoreTargetsError || sourceError
+  const isLoading =
+    storagesLoading || notifiersLoading || targetsLoading || restoreTargetsLoading || sourceLoading
+  const hasError =
+    storagesError || notifiersError || targetsError || restoreTargetsError || sourceError
 
   const handleMigrate = async () => {
     const confirmed = await confirm({
@@ -81,7 +88,7 @@ function ConfigDashboardPage() {
     if (confirmed) {
       try {
         const result = await reloadMutation.mutateAsync()
-        setReloadResult(result)
+        setReloadResult(result as ReloadConfigResult)
         setMigrateResult(null)
       } catch (err) {
         console.error('Reload failed:', err)
@@ -90,11 +97,7 @@ function ConfigDashboardPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        Loading configuration...
-      </div>
-    )
+    return <div className="text-center py-12 text-muted-foreground">Loading configuration...</div>
   }
 
   if (hasError) {
@@ -135,7 +138,7 @@ function ConfigDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <SourceBadge source={source as any} />
+          <SourceBadge source={source} />
         </div>
       </div>
 
@@ -149,8 +152,9 @@ function ConfigDashboardPage() {
                   Migration Successful
                 </h3>
                 <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  Imported {migrateResult.storages_count} storage(s), {migrateResult.notifiers_count}{' '}
-                  notifier(s), and {migrateResult.targets_count} target(s) from YAML to database.
+                  Imported {migrateResult.storages_count} storage(s),{' '}
+                  {migrateResult.notifiers_count} notifier(s), and {migrateResult.targets_count}{' '}
+                  target(s) from YAML to database.
                 </p>
               </div>
             </div>
@@ -168,8 +172,8 @@ function ConfigDashboardPage() {
                   Configuration Reloaded
                 </h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  Configuration has been reloaded from {reloadResult.source}. All scheduled jobs have
-                  been updated.
+                  Configuration has been reloaded from {reloadResult.source}. All scheduled jobs
+                  have been updated.
                 </p>
               </div>
             </div>
@@ -187,8 +191,8 @@ function ConfigDashboardPage() {
                   Using YAML Configuration
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                  Configuration is currently loaded from YAML file. To manage configs through the UI,
-                  migrate to database storage.
+                  Configuration is currently loaded from YAML file. To manage configs through the
+                  UI, migrate to database storage.
                 </p>
                 <Button
                   onClick={handleMigrate}
@@ -207,22 +211,10 @@ function ConfigDashboardPage() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Storages"
-          value={storageCount}
-        />
-        <StatCard
-          title="Notifiers"
-          value={notifierCount}
-        />
-        <StatCard
-          title="Targets"
-          value={targetCount}
-        />
-        <StatCard
-          title="Restore Targets"
-          value={restoreTargetCount}
-        />
+        <StatCard title="Storages" value={storageCount} />
+        <StatCard title="Notifiers" value={notifierCount} />
+        <StatCard title="Targets" value={targetCount} />
+        <StatCard title="Restore Targets" value={restoreTargetCount} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -314,12 +306,10 @@ function ConfigDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4">
-              <Button
-                onClick={handleReload}
-                disabled={reloadMutation.isPending}
-                variant="outline"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${reloadMutation.isPending ? 'animate-spin' : ''}`} />
+              <Button onClick={handleReload} disabled={reloadMutation.isPending} variant="outline">
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${reloadMutation.isPending ? 'animate-spin' : ''}`}
+                />
                 {reloadMutation.isPending ? 'Reloading...' : 'Reload Configuration'}
               </Button>
               <p className="text-sm text-gray-500 flex items-center">

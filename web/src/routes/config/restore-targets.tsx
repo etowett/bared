@@ -21,7 +21,12 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, ArrowDownToLine } from 'lucide-react'
-import type { RestoreTargetConfig, RestoreTargetConfigRequest } from '@/types'
+import type {
+  RestoreTargetConfig,
+  RestoreTargetConfigRequest,
+  ConfigSource,
+  ConnectionConfig,
+} from '@/types'
 
 export const Route = createFileRoute('/config/restore-targets')({
   component: RestoreTargetsPage,
@@ -38,7 +43,7 @@ function RestoreTargetsPage() {
   const { confirm } = useConfirm()
 
   const targets = data?.restore_targets ?? []
-  const source = data?.source ?? 'yaml'
+  const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
 
   const handleCreate = () => {
     setEditingTarget(undefined)
@@ -109,19 +114,18 @@ function RestoreTargetsPage() {
           <CardTitle>
             {targets.length} Restore Target{targets.length !== 1 ? 's' : ''}
           </CardTitle>
-          <SourceBadge source={source as any} />
+          <SourceBadge source={source} />
         </CardHeader>
         <CardContent>
           {error ? (
             <div className="text-center py-12">
               <div className="text-destructive mb-4">
-                Failed to load restore targets: {error instanceof Error ? error.message : String(error)}
+                Failed to load restore targets:{' '}
+                {error instanceof Error ? error.message : String(error)}
               </div>
             </div>
           ) : isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">
-              Loading restore targets...
-            </div>
+            <div className="text-center py-6 text-muted-foreground">Loading restore targets...</div>
           ) : targets.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <ArrowDownToLine className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -146,16 +150,14 @@ function RestoreTargetsPage() {
               </TableHeader>
               <TableBody>
                 {targets.map((target) => {
-                  const conn = target.connection as any
+                  const conn = target.connection as ConnectionConfig
                   return (
                     <TableRow key={target.name}>
                       <TableCell className="font-medium">
                         <div>
                           <div>{target.name}</div>
                           {target.description && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {target.description}
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{target.description}</div>
                           )}
                         </div>
                       </TableCell>
@@ -167,7 +169,9 @@ function RestoreTargetsPage() {
                       <TableCell>
                         <div className="text-sm text-gray-500">
                           {conn.type === 'redis' ? (
-                            <span>{conn.host}:{conn.port}</span>
+                            <span>
+                              {conn.host}:{conn.port}
+                            </span>
                           ) : (
                             <span>
                               {conn.user}@{conn.host}:{conn.port}/{conn.database}
@@ -186,9 +190,7 @@ function RestoreTargetsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">
-                          {target.storage_name || (
-                            <span className="text-gray-500">Default</span>
-                          )}
+                          {target.storage_name || <span className="text-gray-500">Default</span>}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -209,9 +211,7 @@ function RestoreTargetsPage() {
                             size="sm"
                             onClick={() => handleEdit(target)}
                             disabled={source === 'yaml'}
-                            title={
-                              source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'
-                            }
+                            title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>

@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, Bell, Mail, Webhook } from 'lucide-react'
-import type { Notifier, NotifierRequest } from '@/types'
+import type { Notifier, NotifierRequest, ConfigSource, WebhookNotifierConfig } from '@/types'
 
 export const Route = createFileRoute('/config/notifiers')({
   component: NotifiersPage,
@@ -38,7 +38,7 @@ function NotifiersPage() {
   const { confirm } = useConfirm()
 
   const notifiers = data?.notifiers ?? []
-  const source = data?.source ?? 'yaml'
+  const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
 
   const handleCreate = () => {
     setEditingNotifier(undefined)
@@ -122,7 +122,7 @@ function NotifiersPage() {
           <CardTitle>
             {notifiers.length} Notifier{notifiers.length !== 1 ? 's' : ''}
           </CardTitle>
-          <SourceBadge source={source as any} />
+          <SourceBadge source={source} />
         </CardHeader>
         <CardContent>
           {error ? (
@@ -171,11 +171,12 @@ function NotifiersPage() {
                         {notifier.type === 'slack' && (
                           <span>Channel: {notifier.config.channel || 'default'}</span>
                         )}
-                        {notifier.type === 'email' && (
-                          <span>To: {notifier.config.to_email}</span>
-                        )}
+                        {notifier.type === 'email' && <span>To: {notifier.config.to_email}</span>}
                         {notifier.type === 'webhook' && (
-                          <span>{notifier.config.method} {new URL(notifier.config.url).hostname}</span>
+                          <span>
+                            {(notifier.config as WebhookNotifierConfig).method}{' '}
+                            {new URL((notifier.config as WebhookNotifierConfig).url).hostname}
+                          </span>
                         )}
                       </div>
                     </TableCell>

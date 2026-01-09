@@ -10,13 +10,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { PasswordInput } from './PasswordInput'
 import { useStorages, useTargetsConfig } from '../../hooks/useConfig'
@@ -29,7 +23,12 @@ interface RestoreTargetFormProps {
   onSubmit: (target: RestoreTargetConfigRequest) => Promise<void>
 }
 
-export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: RestoreTargetFormProps) {
+export function RestoreTargetForm({
+  open,
+  onOpenChange,
+  target,
+  onSubmit,
+}: RestoreTargetFormProps) {
   const isEdit = !!target
   const { data: storagesData } = useStorages()
   const { data: targetsData } = useTargetsConfig()
@@ -38,11 +37,16 @@ export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: Rest
 
   const [formData, setFormData] = useState({
     name: target?.name || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     type: (target?.connection as any)?.type || 'mysql',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     host: (target?.connection as any)?.host || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     port: (target?.connection as any)?.port || 3306,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     user: (target?.connection as any)?.user || '',
     password: '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     database: (target?.connection as any)?.database || '',
     storage_name: target?.storage_name || '',
     source_target: target?.source_target || '',
@@ -69,6 +73,7 @@ export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: Rest
     setIsSubmitting(true)
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic connection object for union type
       const connection: any = {
         type: formData.type,
         host: formData.host,
@@ -174,6 +179,7 @@ export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: Rest
                 <SelectItem value="">No specific source</SelectItem>
                 {targets.map((t) => (
                   <SelectItem key={t.name} value={t.name}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access for display */}
                     {t.name} ({(t.connection as any).type})
                   </SelectItem>
                 ))}
@@ -190,7 +196,9 @@ export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: Rest
             </Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, type: value as 'mysql' | 'postgres' | 'redis' })
+              }
               disabled={isEdit}
             >
               <SelectTrigger id="type">
@@ -290,9 +298,7 @@ export function RestoreTargetForm({ open, onOpenChange, target, onSubmit }: Rest
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
-              Where to find backups for restoration
-            </p>
+            <p className="text-xs text-gray-500">Where to find backups for restoration</p>
           </div>
 
           <DialogFooter>

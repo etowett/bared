@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 
 interface CronBuilderProps {
@@ -97,7 +91,11 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
         </Label>
       )}
 
-      <Tabs value={mode} onValueChange={(v: string) => setMode(v as 'simple' | 'advanced')} className="w-full">
+      <Tabs
+        value={mode}
+        onValueChange={(v: string) => setMode(v as 'simple' | 'advanced')}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="simple">Simple</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
@@ -131,9 +129,7 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
                 value={simpleMode.minute}
                 onChange={(e) => handleTimeChange('minute', e.target.value)}
               />
-              <p className="text-xs text-gray-500">
-                Run every hour at minute {simpleMode.minute}
-              </p>
+              <p className="text-xs text-gray-500">Run every hour at minute {simpleMode.minute}</p>
             </div>
           )}
 
@@ -169,10 +165,7 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
               {simpleMode.preset === 'weekly' && (
                 <div className="space-y-2">
                   <Label htmlFor="dayOfWeek">Day of Week</Label>
-                  <Select
-                    value={simpleMode.dayOfWeek}
-                    onValueChange={handleDayChange}
-                  >
+                  <Select value={simpleMode.dayOfWeek} onValueChange={handleDayChange}>
                     <SelectTrigger id="dayOfWeek">
                       <SelectValue />
                     </SelectTrigger>
@@ -222,7 +215,8 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
               Format: minute hour day-of-month month day-of-week
             </p>
             <p className="text-xs text-gray-500">
-              Example: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">0 2 * * *</code> = Daily at 2:00 AM
+              Example: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">0 2 * * *</code>{' '}
+              = Daily at 2:00 AM
             </p>
           </div>
         </TabsContent>

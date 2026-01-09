@@ -10,13 +10,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Checkbox } from '../ui/checkbox'
 import { PasswordInput } from './PasswordInput'
 import { CronBuilder } from './CronBuilder'
@@ -37,11 +31,16 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
 
   const [formData, setFormData] = useState({
     name: target?.name || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     type: (target?.connection as any)?.type || 'mysql',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     host: (target?.connection as any)?.host || '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     port: (target?.connection as any)?.port || 3306,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     user: (target?.connection as any)?.user || '',
     password: '',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access in form initialization
     database: (target?.connection as any)?.database || '',
     storage_name: target?.storage_name || '',
     schedule: target?.schedule || '0 2 * * *',
@@ -71,6 +70,7 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
     setIsSubmitting(true)
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic connection object for union type
       const connection: any = {
         type: formData.type,
         host: formData.host,
@@ -176,7 +176,9 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
             </Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, type: value as 'mysql' | 'postgres' | 'redis' })
+              }
               disabled={isEdit}
             >
               <SelectTrigger id="type">
@@ -276,9 +278,7 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
-              Leave empty to use the default storage backend
-            </p>
+            <p className="text-xs text-gray-500">Leave empty to use the default storage backend</p>
           </div>
 
           <CronBuilder
@@ -310,7 +310,7 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
                 <Select
                   value={formData.compress_type}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, compress_type: value as any })
+                    setFormData({ ...formData, compress_type: value as 'gzip' | 'tgz' })
                   }
                 >
                   <SelectTrigger id="compress_type">

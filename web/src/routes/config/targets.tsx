@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, Database, Calendar } from 'lucide-react'
-import type { TargetConfig, TargetConfigRequest } from '@/types'
+import type { TargetConfig, TargetConfigRequest, ConfigSource, ConnectionConfig } from '@/types'
 
 export const Route = createFileRoute('/config/targets')({
   component: TargetsPage,
@@ -38,7 +38,7 @@ function TargetsPage() {
   const { confirm } = useConfirm()
 
   const targets = data?.targets ?? []
-  const source = data?.source ?? 'yaml'
+  const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
 
   const handleCreate = () => {
     setEditingTarget(undefined)
@@ -109,7 +109,7 @@ function TargetsPage() {
           <CardTitle>
             {targets.length} Target{targets.length !== 1 ? 's' : ''}
           </CardTitle>
-          <SourceBadge source={source as any} />
+          <SourceBadge source={source} />
         </CardHeader>
         <CardContent>
           {error ? (
@@ -144,7 +144,7 @@ function TargetsPage() {
               </TableHeader>
               <TableBody>
                 {targets.map((target) => {
-                  const conn = target.connection as any
+                  const conn = target.connection as ConnectionConfig
                   return (
                     <TableRow key={target.name}>
                       <TableCell className="font-medium">{target.name}</TableCell>
@@ -156,7 +156,9 @@ function TargetsPage() {
                       <TableCell>
                         <div className="text-sm text-gray-500">
                           {conn.type === 'redis' ? (
-                            <span>{conn.host}:{conn.port}</span>
+                            <span>
+                              {conn.host}:{conn.port}
+                            </span>
                           ) : (
                             <span>
                               {conn.user}@{conn.host}:{conn.port}/{conn.database}
@@ -166,9 +168,7 @@ function TargetsPage() {
                       </TableCell>
                       <TableCell>
                         <span className="text-sm">
-                          {target.storage_name || (
-                            <span className="text-gray-500">Default</span>
-                          )}
+                          {target.storage_name || <span className="text-gray-500">Default</span>}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -201,9 +201,7 @@ function TargetsPage() {
                             size="sm"
                             onClick={() => handleEdit(target)}
                             disabled={source === 'yaml'}
-                            title={
-                              source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'
-                            }
+                            title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>

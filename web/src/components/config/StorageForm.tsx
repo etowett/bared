@@ -10,13 +10,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { PasswordInput } from './PasswordInput'
 import type { Storage, StorageRequest } from '../../types'
 
@@ -49,6 +43,7 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
 
     try {
       // Build the config object based on storage type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic config object for union type
       let config: Record<string, any> = {}
 
       if (formData.type === 'local') {
@@ -59,7 +54,8 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
         config = {
           bucket: (document.getElementById('s3_bucket') as HTMLInputElement)?.value || '',
           region: (document.getElementById('s3_region') as HTMLInputElement)?.value || '',
-          access_key_id: (document.getElementById('s3_access_key_id') as HTMLInputElement)?.value || '',
+          access_key_id:
+            (document.getElementById('s3_access_key_id') as HTMLInputElement)?.value || '',
           endpoint: (document.getElementById('s3_endpoint') as HTMLInputElement)?.value || '',
         }
       } else if (formData.type === 'sftp') {
@@ -136,9 +132,7 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
               required
               disabled={isEdit}
             />
-            {isEdit && (
-              <p className="text-xs text-gray-500">Storage name cannot be changed</p>
-            )}
+            {isEdit && <p className="text-xs text-gray-500">Storage name cannot be changed</p>}
           </div>
 
           <div className="space-y-2">
@@ -147,7 +141,9 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
             </Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, type: value as 'local' | 's3' | 'sftp' })
+              }
               disabled={isEdit}
             >
               <SelectTrigger id="type">
@@ -159,9 +155,7 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
                 <SelectItem value="sftp">SFTP</SelectItem>
               </SelectContent>
             </Select>
-            {isEdit && (
-              <p className="text-xs text-gray-500">Storage type cannot be changed</p>
-            )}
+            {isEdit && <p className="text-xs text-gray-500">Storage type cannot be changed</p>}
           </div>
 
           <div className="space-y-2">

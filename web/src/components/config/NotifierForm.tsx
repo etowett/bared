@@ -10,13 +10,7 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Checkbox } from '../ui/checkbox'
 import { PasswordInput } from './PasswordInput'
 import type { Notifier, NotifierRequest } from '../../types'
@@ -51,17 +45,21 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
     setIsSubmitting(true)
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic config object for union type
       let config: Record<string, any> = {}
 
       if (formData.type === 'slack') {
         config = {
-          webhook_url: (document.getElementById('slack_webhook_url') as HTMLInputElement)?.value || '',
+          webhook_url:
+            (document.getElementById('slack_webhook_url') as HTMLInputElement)?.value || '',
           channel: (document.getElementById('slack_channel') as HTMLInputElement)?.value || '',
         }
       } else if (formData.type === 'email') {
         config = {
           smtp_host: (document.getElementById('smtp_host') as HTMLInputElement)?.value || '',
-          smtp_port: parseInt((document.getElementById('smtp_port') as HTMLInputElement)?.value || '587'),
+          smtp_port: parseInt(
+            (document.getElementById('smtp_port') as HTMLInputElement)?.value || '587'
+          ),
           smtp_user: (document.getElementById('smtp_user') as HTMLInputElement)?.value || '',
           from_email: (document.getElementById('from_email') as HTMLInputElement)?.value || '',
           to_email: (document.getElementById('to_email') as HTMLInputElement)?.value || '',
@@ -96,7 +94,8 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
           payload.webhook_auth_token = formData.webhook_auth_token
         } else if (config.auth_type === 'header' && formData.webhook_auth_header_value) {
           payload.webhook_auth_header_value = formData.webhook_auth_header_value
-          config.auth_header_name = (document.getElementById('webhook_auth_header_name') as HTMLInputElement)?.value || ''
+          config.auth_header_name =
+            (document.getElementById('webhook_auth_header_name') as HTMLInputElement)?.value || ''
         }
       }
 
@@ -156,9 +155,7 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
               required
               disabled={isEdit}
             />
-            {isEdit && (
-              <p className="text-xs text-gray-500">Notifier name cannot be changed</p>
-            )}
+            {isEdit && <p className="text-xs text-gray-500">Notifier name cannot be changed</p>}
           </div>
 
           <div className="space-y-2">
@@ -167,7 +164,9 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
             </Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData({ ...formData, type: value as any })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, type: value as 'slack' | 'email' | 'webhook' })
+              }
               disabled={isEdit}
             >
               <SelectTrigger id="type">
@@ -179,9 +178,7 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
                 <SelectItem value="webhook">Webhook</SelectItem>
               </SelectContent>
             </Select>
-            {isEdit && (
-              <p className="text-xs text-gray-500">Notifier type cannot be changed</p>
-            )}
+            {isEdit && <p className="text-xs text-gray-500">Notifier type cannot be changed</p>}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -328,10 +325,7 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
 
               <div className="space-y-2">
                 <Label htmlFor="webhook_auth_type">Authentication</Label>
-                <Select
-                  value={webhookAuthType}
-                  onValueChange={setWebhookAuthType}
-                >
+                <Select value={webhookAuthType} onValueChange={setWebhookAuthType}>
                   <SelectTrigger id="webhook_auth_type">
                     <SelectValue />
                   </SelectTrigger>

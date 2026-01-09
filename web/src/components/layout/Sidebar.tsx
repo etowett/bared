@@ -43,7 +43,13 @@ const navItems: NavItem[] = [
     label: 'Configuration',
     icon: Settings,
     to: '/config',
-    matchPaths: ['/config', '/config/storages', '/config/notifiers', '/config/targets', '/config/restore-targets'],
+    matchPaths: [
+      '/config',
+      '/config/storages',
+      '/config/notifiers',
+      '/config/targets',
+      '/config/restore-targets',
+    ],
   },
 ]
 

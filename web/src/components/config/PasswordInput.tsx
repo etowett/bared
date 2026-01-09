@@ -22,9 +22,7 @@ export function PasswordInput({
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
-  const displayPlaceholder = isEdit && !value
-    ? 'Leave blank to keep existing value'
-    : placeholder
+  const displayPlaceholder = isEdit && !value ? 'Leave blank to keep existing value' : placeholder
 
   return (
     <div className="space-y-2">

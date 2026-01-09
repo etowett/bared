@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, HardDrive, Cloud, Server } from 'lucide-react'
-import type { Storage, StorageRequest } from '@/types'
+import type { Storage, StorageRequest, ConfigSource } from '@/types'
 
 export const Route = createFileRoute('/config/storages')({
   component: StoragesPage,
@@ -38,7 +38,7 @@ function StoragesPage() {
   const { confirm } = useConfirm()
 
   const storages = data?.storages ?? []
-  const source = data?.source ?? 'yaml'
+  const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
 
   const handleCreate = () => {
     setEditingStorage(undefined)
@@ -122,7 +122,7 @@ function StoragesPage() {
           <CardTitle>
             {storages.length} Storage Backend{storages.length !== 1 ? 's' : ''}
           </CardTitle>
-          <SourceBadge source={source as any} />
+          <SourceBadge source={source} />
         </CardHeader>
         <CardContent>
           {error ? (
@@ -168,9 +168,7 @@ function StoragesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-500">
-                        {storage.type === 'local' && (
-                          <span>Path: {storage.config.path}</span>
-                        )}
+                        {storage.type === 'local' && <span>Path: {storage.config.path}</span>}
                         {storage.type === 's3' && (
                           <span>
                             Bucket: {storage.config.bucket} ({storage.config.region})

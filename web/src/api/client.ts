@@ -160,7 +160,10 @@ export const apiClient = {
     })
   },
 
-  async updateStorage(name: string, storage: StorageRequest): Promise<{ message: string; name: string }> {
+  async updateStorage(
+    name: string,
+    storage: StorageRequest
+  ): Promise<{ message: string; name: string }> {
     return apiFetch(`/api/config/storages/${name}`, {
       method: 'PUT',
       body: JSON.stringify(storage),
@@ -185,7 +188,10 @@ export const apiClient = {
     })
   },
 
-  async updateNotifier(name: string, notifier: NotifierRequest): Promise<{ message: string; name: string }> {
+  async updateNotifier(
+    name: string,
+    notifier: NotifierRequest
+  ): Promise<{ message: string; name: string }> {
     return apiFetch(`/api/config/notifiers/${name}`, {
       method: 'PUT',
       body: JSON.stringify(notifier),
@@ -203,21 +209,29 @@ export const apiClient = {
     return apiFetch('/api/config/targets')
   },
 
-  async createTargetConfig(target: TargetConfigRequest): Promise<{ message: string; name: string }> {
+  async createTargetConfig(
+    target: TargetConfigRequest
+  ): Promise<{ message: string; name: string }> {
     return apiFetch('/api/config/targets', {
       method: 'POST',
       body: JSON.stringify(target),
     })
   },
 
-  async updateTargetConfig(name: string, target: TargetConfigRequest): Promise<{ message: string; name: string }> {
+  async updateTargetConfig(
+    name: string,
+    target: TargetConfigRequest
+  ): Promise<{ message: string; name: string }> {
     return apiFetch(`/api/config/targets/${name}`, {
       method: 'PUT',
       body: JSON.stringify(target),
     })
   },
 
-  async updateTargetSchedule(name: string, schedule: string): Promise<{ message: string; name: string }> {
+  async updateTargetSchedule(
+    name: string,
+    schedule: string
+  ): Promise<{ message: string; name: string }> {
     return apiFetch(`/api/config/targets/${name}/schedule`, {
       method: 'PATCH',
       body: JSON.stringify({ schedule }),
@@ -269,7 +283,10 @@ export const apiClient = {
     return apiFetch('/api/config/global')
   },
 
-  async updateGlobalConfig(key: string, value: string): Promise<{ message: string; key: string; value: string }> {
+  async updateGlobalConfig(
+    key: string,
+    value: string
+  ): Promise<{ message: string; key: string; value: string }> {
     return apiFetch(`/api/config/global/${key}`, {
       method: 'PUT',
       body: JSON.stringify({ value }),
