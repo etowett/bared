@@ -1,4 +1,21 @@
-import type { Dashboard, Job, LogEntry, PaginationMetadata, RestoreTarget, Target } from '../types'
+import type {
+  Dashboard,
+  Job,
+  LogEntry,
+  PaginationMetadata,
+  RestoreTarget,
+  Target,
+  Storage,
+  StorageRequest,
+  Notifier,
+  NotifierRequest,
+  TargetConfig,
+  TargetConfigRequest,
+  RestoreTargetConfig,
+  RestoreTargetConfigRequest,
+  GlobalConfig,
+  ConfigSourceResponse,
+} from '../types'
 
 // Get auth from sessionStorage (set on login)
 export const getAuthHeader = (): string => {
@@ -125,5 +142,159 @@ export const apiClient = {
 
   async getJobLogs(id: string): Promise<{ job_id: string; logs: LogEntry[]; total: number }> {
     return apiFetch(`/api/jobs/${id}/logs`)
+  },
+
+  // Config Management - Storages
+  async getStorages(): Promise<{ storages: Storage[]; total: number; source: string }> {
+    return apiFetch('/api/config/storages')
+  },
+
+  async getStorage(name: string): Promise<Storage> {
+    return apiFetch(`/api/config/storages/${name}`)
+  },
+
+  async createStorage(storage: StorageRequest): Promise<{ message: string; name: string }> {
+    return apiFetch('/api/config/storages', {
+      method: 'POST',
+      body: JSON.stringify(storage),
+    })
+  },
+
+  async updateStorage(name: string, storage: StorageRequest): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/storages/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify(storage),
+    })
+  },
+
+  async deleteStorage(name: string): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/storages/${name}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Config Management - Notifiers
+  async getNotifiers(): Promise<{ notifiers: Notifier[]; total: number; source: string }> {
+    return apiFetch('/api/config/notifiers')
+  },
+
+  async createNotifier(notifier: NotifierRequest): Promise<{ message: string; name: string }> {
+    return apiFetch('/api/config/notifiers', {
+      method: 'POST',
+      body: JSON.stringify(notifier),
+    })
+  },
+
+  async updateNotifier(name: string, notifier: NotifierRequest): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/notifiers/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify(notifier),
+    })
+  },
+
+  async deleteNotifier(name: string): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/notifiers/${name}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Config Management - Targets
+  async getTargetsConfig(): Promise<{ targets: TargetConfig[]; total: number; source: string }> {
+    return apiFetch('/api/config/targets')
+  },
+
+  async createTargetConfig(target: TargetConfigRequest): Promise<{ message: string; name: string }> {
+    return apiFetch('/api/config/targets', {
+      method: 'POST',
+      body: JSON.stringify(target),
+    })
+  },
+
+  async updateTargetConfig(name: string, target: TargetConfigRequest): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/targets/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify(target),
+    })
+  },
+
+  async updateTargetSchedule(name: string, schedule: string): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/targets/${name}/schedule`, {
+      method: 'PATCH',
+      body: JSON.stringify({ schedule }),
+    })
+  },
+
+  async deleteTargetConfig(name: string): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/targets/${name}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Config Management - Restore Targets
+  async getRestoreTargetsConfig(): Promise<{
+    restore_targets: RestoreTargetConfig[]
+    total: number
+    source: string
+  }> {
+    return apiFetch('/api/config/restore-targets')
+  },
+
+  async createRestoreTargetConfig(
+    target: RestoreTargetConfigRequest
+  ): Promise<{ message: string; name: string }> {
+    return apiFetch('/api/config/restore-targets', {
+      method: 'POST',
+      body: JSON.stringify(target),
+    })
+  },
+
+  async updateRestoreTargetConfig(
+    name: string,
+    target: RestoreTargetConfigRequest
+  ): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/restore-targets/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify(target),
+    })
+  },
+
+  async deleteRestoreTargetConfig(name: string): Promise<{ message: string; name: string }> {
+    return apiFetch(`/api/config/restore-targets/${name}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Config Management - Global Config
+  async getGlobalConfig(): Promise<GlobalConfig> {
+    return apiFetch('/api/config/global')
+  },
+
+  async updateGlobalConfig(key: string, value: string): Promise<{ message: string; key: string; value: string }> {
+    return apiFetch(`/api/config/global/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    })
+  },
+
+  // Config Management - Utilities
+  async getConfigSource(): Promise<ConfigSourceResponse> {
+    return apiFetch('/api/config/source')
+  },
+
+  async migrateConfig(): Promise<{
+    message: string
+    storages_count: number
+    notifiers_count: number
+    targets_count: number
+  }> {
+    return apiFetch('/api/config/migrate', {
+      method: 'POST',
+    })
+  },
+
+  async reloadConfig(): Promise<{ message: string; source: string }> {
+    return apiFetch('/api/config/reload', {
+      method: 'POST',
+    })
   },
 }

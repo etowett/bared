@@ -62,3 +62,114 @@ export interface PaginationMetadata {
   has_next: boolean
   has_prev: boolean
 }
+
+// Config Management Types
+
+export type ConfigSource = 'database' | 'yaml'
+
+export interface Storage {
+  name: string
+  type: 'local' | 's3' | 'sftp'
+  keep: number
+  config: Record<string, any>
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StorageRequest {
+  name: string
+  type: 'local' | 's3' | 'sftp'
+  keep: number
+  config: Record<string, any>
+  secret_access_key?: string
+  password?: string
+}
+
+export interface Notifier {
+  name: string
+  type: 'slack' | 'email' | 'webhook'
+  on_success: boolean
+  config: Record<string, any>
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface NotifierRequest {
+  name: string
+  type: 'slack' | 'email' | 'webhook'
+  on_success: boolean
+  config: Record<string, any>
+  smtp_password?: string
+  webhook_auth_password?: string
+  webhook_auth_token?: string
+  webhook_auth_header_value?: string
+}
+
+export interface ConnectionConfig {
+  type: 'mysql' | 'postgres' | 'redis'
+  user?: string
+  password?: string
+  database?: string
+  host: string
+  port: number
+}
+
+export interface CompressionConfig {
+  enabled: boolean
+  type?: 'gzip' | 'tgz'
+}
+
+export interface TargetConfig {
+  name: string
+  connection: Record<string, any>
+  storage_name?: string
+  schedule?: string
+  compress?: CompressionConfig
+  exclude_tables?: string[]
+  additional_args?: string[]
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface TargetConfigRequest {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  schedule?: string
+  compress?: CompressionConfig
+  exclude_tables?: string[]
+  additional_args?: string[]
+}
+
+export interface RestoreTargetConfig {
+  name: string
+  connection: Record<string, any>
+  storage_name?: string
+  source_target?: string
+  description?: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RestoreTargetConfigRequest {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  source_target?: string
+  description?: string
+}
+
+export interface GlobalConfig {
+  default_storage: string
+  log_level: string
+  log_format: string
+  source: ConfigSource
+}
+
+export interface ConfigSourceResponse {
+  source: ConfigSource
+}

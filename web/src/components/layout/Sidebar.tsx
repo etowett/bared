@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { LayoutDashboard, RotateCcw, Database, ChevronLeft, ListTodo } from 'lucide-react'
+import { LayoutDashboard, RotateCcw, Database, ChevronLeft, ListTodo, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
@@ -37,6 +37,13 @@ const navItems: NavItem[] = [
     icon: RotateCcw,
     to: '/restore',
     matchPaths: ['/restore', '/restore/jobs'],
+  },
+  {
+    id: 'config',
+    label: 'Configuration',
+    icon: Settings,
+    to: '/config',
+    matchPaths: ['/config', '/config/storages', '/config/notifiers', '/config/targets', '/config/restore-targets'],
   },
 ]
 
