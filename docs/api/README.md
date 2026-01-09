@@ -88,9 +88,33 @@ websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
 # Format: JSON messages streamed in real-time
 ```
 
+**Configuration Management** (Dynamic config via API):
+
+```bash
+# List storages
+curl -u admin:password http://localhost:8080/api/config/storages
+
+# Create a new backup target
+curl -u admin:password -X POST \
+  http://localhost:8080/api/config/targets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "mysql-prod",
+    "enabled": true,
+    "connection": {"type": "mysql", "host": "localhost", "port": 3306, "user": "backup", "password": "secret", "database": "prod"},
+    "schedule": "0 2 * * *",
+    "storage_name": "s3-backups"
+  }'
+
+# Hot reload configuration
+curl -u admin:password -X POST http://localhost:8080/api/config/reload
+```
+
 ## API Overview
 
 ### REST Endpoints
+
+**Core Operations**:
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -101,6 +125,24 @@ websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
 | `/api/jobs/{id}/logs` | GET | Get job logs |
 | `/api/jobs/backup` | POST | Trigger manual backup |
 | `/api/jobs/{id}` | DELETE | Cancel running job |
+
+**Configuration Management**:
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/config/storages` | GET/POST | List or create storages |
+| `/api/config/storages/{name}` | GET/PUT/DELETE | Get, update, or delete storage |
+| `/api/config/notifiers` | GET/POST | List or create notifiers |
+| `/api/config/notifiers/{name}` | GET/PUT/DELETE | Get, update, or delete notifier |
+| `/api/config/targets` | GET/POST | List or create backup targets |
+| `/api/config/targets/{name}` | GET/PUT/DELETE | Get, update, or delete target |
+| `/api/config/restore-targets` | GET/POST | List or create restore targets |
+| `/api/config/restore-targets/{name}` | GET/PUT/DELETE | Get, update, or delete restore target |
+| `/api/config/global` | GET | Get global configuration |
+| `/api/config/global/{key}` | PUT | Update global setting |
+| `/api/config/source` | GET | Check config source (DB vs YAML) |
+| `/api/config/migrate` | POST | Migrate YAML to database |
+| `/api/config/reload` | POST | Hot reload configuration |
 
 **See**: [REST API Endpoints](endpoints.md) for complete documentation
 

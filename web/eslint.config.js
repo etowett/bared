@@ -41,9 +41,11 @@ export default [
         HTMLTableCellElement: 'readonly',
         HTMLTableCaptionElement: 'readonly',
         HTMLTextAreaElement: 'readonly',
+        HTMLSelectElement: 'readonly',
         MouseEvent: 'readonly',
         Node: 'readonly',
         React: 'readonly',
+        URL: 'readonly',
       },
     },
     plugins: {

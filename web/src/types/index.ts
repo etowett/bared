@@ -62,3 +62,169 @@ export interface PaginationMetadata {
   has_next: boolean
   has_prev: boolean
 }
+
+// Config Management Types
+
+export type ConfigSource = 'database' | 'yaml'
+
+export interface Storage {
+  name: string
+  type: 'local' | 's3' | 'sftp'
+  keep: number
+  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic storage config
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StorageRequest {
+  name: string
+  type: 'local' | 's3' | 'sftp'
+  keep: number
+  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic storage config
+  secret_access_key?: string
+  password?: string
+}
+
+// Webhook notifier config for type narrowing
+export interface WebhookNotifierConfig {
+  url: string
+  method?: string
+  headers?: Record<string, string>
+  auth_type?: string
+  auth_username?: string
+  auth_password?: string
+  auth_token?: string
+  auth_header_name?: string
+  auth_header_value?: string
+}
+
+export interface Notifier {
+  name: string
+  type: 'slack' | 'email' | 'webhook'
+  on_success: boolean
+  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic notifier config
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface NotifierRequest {
+  name: string
+  type: 'slack' | 'email' | 'webhook'
+  on_success: boolean
+  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic notifier config
+  smtp_password?: string
+  webhook_auth_password?: string
+  webhook_auth_token?: string
+  webhook_auth_header_value?: string
+}
+
+// Connection config types
+export interface MySQLConnectionConfig {
+  type: 'mysql'
+  host: string
+  port: number
+  user: string
+  password: string
+  database: string
+}
+
+export interface PostgresConnectionConfig {
+  type: 'postgres'
+  host: string
+  port: number
+  user: string
+  password: string
+  database: string
+}
+
+export interface RedisConnectionConfig {
+  type: 'redis'
+  host: string
+  port: number
+  password?: string
+  db?: number
+}
+
+export type ConnectionConfig =
+  | MySQLConnectionConfig
+  | PostgresConnectionConfig
+  | RedisConnectionConfig
+
+export interface CompressionConfig {
+  enabled: boolean
+  type?: 'gzip' | 'tgz'
+}
+
+export interface TargetConfig {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  schedule?: string
+  compress?: CompressionConfig
+  exclude_tables?: string[]
+  additional_args?: string[]
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface TargetConfigRequest {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  schedule?: string
+  compress?: CompressionConfig
+  exclude_tables?: string[]
+  additional_args?: string[]
+}
+
+export interface RestoreTargetConfig {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  source_target?: string
+  description?: string
+  enabled: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface RestoreTargetConfigRequest {
+  name: string
+  connection: ConnectionConfig
+  storage_name?: string
+  source_target?: string
+  description?: string
+}
+
+export interface GlobalConfig {
+  default_storage: string
+  log_level: string
+  log_format: string
+  source: ConfigSource
+}
+
+export interface ConfigSourceResponse {
+  source: ConfigSource
+}
+
+export interface MigrateConfigResult {
+  message: string
+  storages_count?: number
+  notifiers_count?: number
+  targets_count?: number
+  restore_targets_count?: number
+  global_settings_count?: number
+}
+
+export interface ReloadConfigResult {
+  message: string
+  source?: ConfigSource
+  storages_count?: number
+  notifiers_count?: number
+  targets_count?: number
+  restore_targets_count?: number
+  schedules_updated?: boolean
+}

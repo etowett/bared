@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bared/internal/config"
+	"bared/internal/configservice"
 	"bared/internal/jobs"
 	"bared/internal/util"
 	"bared/internal/web"
@@ -15,22 +16,29 @@ import (
 
 // Server represents the HTTP API server
 type Server struct {
-	addr       string
-	jobManager *jobs.Manager
-	cfg        *config.Config
-	httpServer *http.Server
-	authUser   string
-	authPass   string
+	addr          string
+	jobManager    *jobs.Manager
+	cfg           *config.Config
+	httpServer    *http.Server
+	authUser      string
+	authPass      string
+	configService *configservice.Service
+	configLoader  *configservice.Loader
+	reloadChan    chan struct{}
 }
 
 // NewServer creates a new API server
-func NewServer(addr, authUser, authPass string, jobManager *jobs.Manager, cfg *config.Config) *Server {
+func NewServer(addr, authUser, authPass string, jobManager *jobs.Manager, cfg *config.Config,
+	configService *configservice.Service, configLoader *configservice.Loader, reloadChan chan struct{}) *Server {
 	return &Server{
-		addr:       addr,
-		authUser:   authUser,
-		authPass:   authPass,
-		jobManager: jobManager,
-		cfg:        cfg,
+		addr:          addr,
+		authUser:      authUser,
+		authPass:      authPass,
+		jobManager:    jobManager,
+		cfg:           cfg,
+		configService: configService,
+		configLoader:  configLoader,
+		reloadChan:    reloadChan,
 	}
 }
 
@@ -81,6 +89,34 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	mux.HandleFunc("/api/restore-targets", corsMiddleware(s.basicAuthMiddleware(s.handleListRestoreTargets)))
 	mux.HandleFunc("/api/jobs", corsMiddleware(s.basicAuthMiddleware(s.handleJobsRouter)))
 	mux.HandleFunc("/api/jobs/", corsMiddleware(s.basicAuthMiddleware(s.handleJobsDetailRouter)))
+
+	// Config management routes (require authentication)
+	if s.configService != nil {
+		// Storages
+		mux.HandleFunc("/api/config/storages", corsMiddleware(s.basicAuthMiddleware(s.handleStoragesRouter)))
+		mux.HandleFunc("/api/config/storages/", corsMiddleware(s.basicAuthMiddleware(s.handleStoragesDetailRouter)))
+
+		// Notifiers
+		mux.HandleFunc("/api/config/notifiers", corsMiddleware(s.basicAuthMiddleware(s.handleNotifiersRouter)))
+		mux.HandleFunc("/api/config/notifiers/", corsMiddleware(s.basicAuthMiddleware(s.handleNotifiersDetailRouter)))
+
+		// Targets
+		mux.HandleFunc("/api/config/targets", corsMiddleware(s.basicAuthMiddleware(s.handleTargetsConfigRouter)))
+		mux.HandleFunc("/api/config/targets/", corsMiddleware(s.basicAuthMiddleware(s.handleTargetsConfigDetailRouter)))
+
+		// Restore targets
+		mux.HandleFunc("/api/config/restore-targets", corsMiddleware(s.basicAuthMiddleware(s.handleRestoreTargetsRouter)))
+		mux.HandleFunc("/api/config/restore-targets/", corsMiddleware(s.basicAuthMiddleware(s.handleRestoreTargetsDetailRouter)))
+
+		// Global config
+		mux.HandleFunc("/api/config/global", corsMiddleware(s.basicAuthMiddleware(s.handleGlobalConfigRouter)))
+		mux.HandleFunc("/api/config/global/", corsMiddleware(s.basicAuthMiddleware(s.handleGlobalConfigDetailRouter)))
+
+		// Utility endpoints
+		mux.HandleFunc("/api/config/migrate", corsMiddleware(s.basicAuthMiddleware(s.handleMigrateConfig)))
+		mux.HandleFunc("/api/config/reload", corsMiddleware(s.basicAuthMiddleware(s.handleReloadConfig)))
+		mux.HandleFunc("/api/config/source", corsMiddleware(s.basicAuthMiddleware(s.handleGetConfigSource)))
+	}
 
 	// Serve React SPA for all non-API routes
 	mux.Handle("/", web.GetHandler())

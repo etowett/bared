@@ -3,6 +3,8 @@ package daemon
 
 import (
 	"context"
+	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,6 +15,8 @@ import (
 
 	"bared/internal/api"
 	"bared/internal/config"
+	"bared/internal/configservice"
+	"bared/internal/encryption"
 	"bared/internal/jobs"
 	"bared/internal/notify"
 	"bared/internal/persistence"
@@ -21,12 +25,15 @@ import (
 
 // Daemon represents the backup daemon
 type Daemon struct {
-	cfg        *config.Config
-	scheduler  *cron.Cron
-	jobManager *jobs.Manager
-	store      jobs.JobStore
-	ctx        context.Context
-	cancel     context.CancelFunc
+	cfg           *config.Config
+	scheduler     *cron.Cron
+	jobManager    *jobs.Manager
+	store         jobs.JobStore
+	ctx           context.Context
+	cancel        context.CancelFunc
+	configService *configservice.Service
+	configLoader  *configservice.Loader
+	reloadChan    chan struct{}
 
 	// HTTP server configuration (optional)
 	httpAddr  string
@@ -80,6 +87,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 
 	// Initialize persistence
 	var store jobs.JobStore
+	var db *sql.DB
 	if cfg.Persistence != nil && cfg.Persistence.Enabled {
 		// Default to sqlite if not specified but enabled
 		driver := cfg.Persistence.Type
@@ -107,6 +115,34 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 				"driver", driver,
 				"dsn", sanitized)
 			store = sqlStore // Only assign if successful
+			db = sqlStore.DB()
+		}
+	}
+
+	// Initialize encryption service and config service
+	var configSvc *configservice.Service
+	var configLoader *configservice.Loader
+	var reloadChan chan struct{}
+
+	if db != nil {
+		// Initialize encryption key (check env var, fallback to DB)
+		encryptionKey, err := initializeEncryptionKey(db, logger)
+		if err != nil {
+			logger.WarnS("Failed to initialize encryption key. Config management disabled.",
+				"component", "daemon",
+				"error", err)
+		} else {
+			encryptionSvc, err := encryption.NewService(encryptionKey)
+			if err != nil {
+				logger.WarnS("Failed to create encryption service. Config management disabled.",
+					"component", "daemon",
+					"error", err)
+			} else {
+				configSvc = configservice.NewService(db, encryptionSvc)
+				configLoader = configservice.NewLoader(configSvc, cfg)
+				reloadChan = make(chan struct{}, 1)
+				logger.InfoS("Config management service initialized", "component", "daemon")
+			}
 		}
 	}
 
@@ -117,6 +153,9 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		ctx:               ctx,
 		cancel:            cancel,
 		store:             store,
+		configService:     configSvc,
+		configLoader:      configLoader,
+		reloadChan:        reloadChan,
 		maxConcurrentJobs: 3,
 		jobHistorySize:    10,
 		shutdownTimeout:   1 * time.Hour,
@@ -135,10 +174,56 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		logger.InfoS("Creating HTTP server",
 			"component", "daemon",
 			"address", d.httpAddr)
-		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg)
+		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg,
+			configSvc, configLoader, reloadChan)
 	}
 
 	return d
+}
+
+// initializeEncryptionKey initializes the encryption key from env var or DB
+func initializeEncryptionKey(db *sql.DB, logger *util.Logger) ([]byte, error) {
+	// Check for environment variable first
+	if envKey := os.Getenv("BARED_ENCRYPTION_KEY"); envKey != "" {
+		logger.InfoS("Using encryption key from environment variable", "component", "daemon")
+		key, err := base64.StdEncoding.DecodeString(envKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode BARED_ENCRYPTION_KEY: %w", err)
+		}
+		if len(key) != 32 {
+			return nil, fmt.Errorf("BARED_ENCRYPTION_KEY must be 32 bytes (64 hex chars), got %d", len(key))
+		}
+		return key, nil
+	}
+
+	// Check DB for existing active key
+	var keyData string
+	err := db.QueryRow(`SELECT key_data FROM encryption_keys WHERE active = true ORDER BY created_at DESC LIMIT 1`).Scan(&keyData)
+	if err == nil {
+		logger.InfoS("Using encryption key from database", "component", "daemon")
+		return base64.StdEncoding.DecodeString(keyData)
+	}
+
+	if err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to query encryption keys: %w", err)
+	}
+
+	// Generate new key and store in DB
+	logger.InfoS("Generating new encryption key", "component", "daemon")
+	key, err := encryption.GenerateKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+
+	keyData = base64.StdEncoding.EncodeToString(key)
+	_, err = db.Exec(`INSERT INTO encryption_keys (key_data, active, created_at) VALUES (?, true, ?)`,
+		keyData, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("failed to store encryption key: %w", err)
+	}
+
+	logger.InfoS("Generated and stored new encryption key", "component", "daemon")
+	return key, nil
 }
 
 // Start starts the daemon and scheduler
@@ -184,20 +269,17 @@ func (d *Daemon) Start() error {
 			"address", d.httpAddr)
 	}
 
-	// Schedule all targets that have a schedule configured
-	scheduledCount := 0
-	for _, target := range d.cfg.Targets {
-		if target.Schedule != "" {
-			if err := d.scheduleTarget(target); err != nil {
-				return fmt.Errorf("failed to schedule target '%s': %w", target.Name, err)
-			}
-			scheduledCount++
-			logger.InfoS("Scheduled target",
-				"component", "daemon",
-				"target", target.Name,
-				"cron", target.Schedule)
-		}
+	// Load runtime configuration (DB first, then YAML fallback)
+	runtimeCfg, source, err := d.loadRuntimeConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load runtime config: %w", err)
 	}
+	logger.InfoS("Loaded runtime configuration",
+		"component", "daemon",
+		"source", source)
+
+	// Schedule all targets that have a schedule configured
+	scheduledCount := d.scheduleAllTargets(runtimeCfg)
 
 	// Require at least one schedule OR HTTP server to be configured
 	if scheduledCount == 0 && d.httpAddr == "" {
@@ -215,6 +297,12 @@ func (d *Daemon) Start() error {
 	} else {
 		logger.InfoS("Scheduler disabled - no targets with schedules configured",
 			"component", "daemon")
+	}
+
+	// Start hot reload listener if config service is available
+	if d.reloadChan != nil {
+		go d.hotReloadListener()
+		logger.InfoS("Hot reload listener started", "component", "daemon")
 	}
 
 	// Setup signal handling
@@ -511,4 +599,99 @@ func (d *Daemon) sendScheduleFailureNotification(ctx context.Context, targetName
 				"duration", time.Since(start))
 		}
 	}
+}
+
+// loadRuntimeConfig loads configuration from DB or YAML fallback
+func (d *Daemon) loadRuntimeConfig() (*config.Config, configservice.ConfigSource, error) {
+	if d.configLoader != nil {
+		cfg, source, err := d.configLoader.LoadConfig(d.ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		return cfg, source, nil
+	}
+	// Fallback to original YAML config
+	return d.cfg, configservice.SourceYAML, nil
+}
+
+// scheduleAllTargets schedules all targets with cron expressions
+func (d *Daemon) scheduleAllTargets(cfg *config.Config) int {
+	logger := util.GetLogger()
+	scheduledCount := 0
+	for _, target := range cfg.Targets {
+		if target.Schedule != "" {
+			if err := d.scheduleTarget(target); err != nil {
+				logger.ErrorS("Failed to schedule target",
+					"component", "daemon",
+					"target", target.Name,
+					"error", err)
+				continue
+			}
+			scheduledCount++
+			logger.InfoS("Scheduled target",
+				"component", "daemon",
+				"target", target.Name,
+				"cron", target.Schedule)
+		}
+	}
+	return scheduledCount
+}
+
+// hotReloadListener listens for reload requests and reloads configuration
+func (d *Daemon) hotReloadListener() {
+	logger := util.GetLogger()
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-d.reloadChan:
+			logger.InfoS("Hot reload requested", "component", "daemon")
+			if err := d.reloadConfiguration(); err != nil {
+				logger.ErrorS("Hot reload failed",
+					"component", "daemon",
+					"error", err)
+			} else {
+				logger.InfoS("Hot reload completed successfully", "component", "daemon")
+			}
+		}
+	}
+}
+
+// reloadConfiguration reloads configuration and reschedules targets
+func (d *Daemon) reloadConfiguration() error {
+	logger := util.GetLogger()
+
+	// Load new configuration
+	newCfg, source, err := d.loadRuntimeConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	logger.InfoS("Reloaded configuration",
+		"component", "daemon",
+		"source", source)
+
+	// Stop existing scheduler
+	logger.InfoS("Stopping existing scheduler", "component", "daemon")
+	ctx := d.scheduler.Stop()
+	<-ctx.Done()
+
+	// Create new scheduler
+	d.scheduler = cron.New()
+
+	// Reschedule all targets
+	scheduledCount := d.scheduleAllTargets(newCfg)
+	logger.InfoS("Rescheduled targets",
+		"component", "daemon",
+		"count", scheduledCount)
+
+	// Start scheduler if there are scheduled targets
+	if scheduledCount > 0 {
+		d.scheduler.Start()
+		logger.InfoS("Scheduler restarted",
+			"component", "daemon",
+			"scheduled_targets", scheduledCount)
+	}
+
+	return nil
 }

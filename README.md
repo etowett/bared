@@ -7,8 +7,14 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 - **Database Support**: MySQL/MariaDB, PostgreSQL, Redis
 - **Storage Backends**: Local filesystem, S3 (and S3-compatible services), SFTP
 - **Compression**: tar.gz compression with streaming
-- **Configuration**: YAML-based with environment variable expansion
-- **CLI Interface**: Simple command-line interface
+- **Configuration Management**:
+  - YAML-based configuration with environment variable expansion
+  - API-based dynamic configuration (database-backed)
+  - Web UI for managing storages, notifiers, targets, and restore targets
+  - Hot reload without daemon restart
+- **Web Interface**: Modern React-based dashboard for monitoring and management
+- **REST API**: Comprehensive HTTP API for automation and integration
+- **CLI Interface**: Simple command-line interface for manual operations
 
 ## Implementation Status
 
@@ -139,7 +145,63 @@ targets:
 
 # Run as daemon with scheduler
 ./bin/brd daemon --config bared.yml
+
+# Run as daemon with web UI (API-based config management enabled)
+./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
 ```
+
+### Configuration Management
+
+BareD supports two configuration approaches:
+
+#### 1. YAML-Based Configuration (Traditional)
+Configure everything via YAML files. Simple and suitable for GitOps workflows.
+
+```yaml
+# bared.yml
+storages:
+  local_disk:
+    type: local
+    path: /backups
+    keep: 20
+
+targets:
+  - name: my_mysql_db
+    conn:
+      type: mysql
+      user: root
+      password: ${MYSQL_PASSWORD}
+      database: myapp
+      host: localhost
+      port: 3306
+    schedule: "0 2 * * *"  # Daily at 2 AM
+```
+
+#### 2. Database-Backed Configuration (Dynamic)
+Manage configuration through the Web UI or REST API. Config is stored in SQLite with encrypted secrets.
+
+**Benefits:**
+- ✅ Manage configs through intuitive Web UI
+- ✅ Hot reload without daemon restart
+- ✅ Encrypted secrets (AES-256-GCM)
+- ✅ No config file editing required
+- ✅ Perfect for teams and dynamic environments
+
+**Migration:**
+Start with YAML and migrate to database when ready using the built-in migration tool in the Web UI.
+
+**Access the Web UI:**
+```bash
+# Start daemon with HTTP server
+./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
+
+# Access at http://localhost:8080
+# Navigate to Configuration → Migrate to Database
+```
+
+**Encryption Key Management:**
+- Set `BARED_ENCRYPTION_KEY` environment variable for production (32 bytes, base64-encoded)
+- Or let BareD auto-generate and store a key in the database (dev/testing only)
 
 ### Daemon Modes
 

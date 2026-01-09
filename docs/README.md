@@ -78,8 +78,14 @@ For developers integrating with BareD programmatically:
 **...use the web interface**
 → See [Web Interface Guide](user-guide/web-interface.md)
 
+**...manage configuration dynamically via UI**
+→ See [Configuration Management](user-guide/web-interface.md#configuration-management) in the Web Interface Guide
+
 **...integrate with BareD via API**
 → Check [REST API](api/endpoints.md) and [WebSocket API](api/websocket.md)
+
+**...migrate from YAML to database-backed config**
+→ See [YAML to Database Migration](user-guide/web-interface.md#yaml-to-database-migration)
 
 ## 📖 Configuration Examples
 
