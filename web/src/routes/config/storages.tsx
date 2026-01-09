@@ -31,14 +31,14 @@ function StoragesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingStorage, setEditingStorage] = useState<Storage | undefined>(undefined)
 
-  const { data, isLoading } = useStorages()
+  const { data, isLoading, error } = useStorages()
   const createMutation = useCreateStorage()
   const updateMutation = useUpdateStorage()
   const deleteMutation = useDeleteStorage()
   const { confirm } = useConfirm()
 
-  const storages = data?.storages || []
-  const source = data?.source || 'yaml'
+  const storages = data?.storages ?? []
+  const source = data?.source ?? 'yaml'
 
   const handleCreate = () => {
     setEditingStorage(undefined)
@@ -125,7 +125,13 @@ function StoragesPage() {
           <SourceBadge source={source as any} />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                Failed to load storages: {error instanceof Error ? error.message : String(error)}
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-6 text-muted-foreground">Loading storages...</div>
           ) : storages.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

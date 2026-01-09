@@ -460,7 +460,7 @@ func (s *Service) getSecrets(ctx context.Context, refType string, refID int64) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to query secrets: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	secrets := make(map[string]string)
 	for rows.Next() {

@@ -20,7 +20,7 @@ import {
   useDeleteRestoreTargetConfig,
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
-import { Plus, Pencil, Trash2, Database, ArrowDownToLine } from 'lucide-react'
+import { Plus, Pencil, Trash2, ArrowDownToLine } from 'lucide-react'
 import type { RestoreTargetConfig, RestoreTargetConfigRequest } from '@/types'
 
 export const Route = createFileRoute('/config/restore-targets')({
@@ -31,14 +31,14 @@ function RestoreTargetsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTarget, setEditingTarget] = useState<RestoreTargetConfig | undefined>(undefined)
 
-  const { data, isLoading } = useRestoreTargetsConfig()
+  const { data, isLoading, error } = useRestoreTargetsConfig()
   const createMutation = useCreateRestoreTargetConfig()
   const updateMutation = useUpdateRestoreTargetConfig()
   const deleteMutation = useDeleteRestoreTargetConfig()
   const { confirm } = useConfirm()
 
-  const targets = data?.restore_targets || []
-  const source = data?.source || 'yaml'
+  const targets = data?.restore_targets ?? []
+  const source = data?.source ?? 'yaml'
 
   const handleCreate = () => {
     setEditingTarget(undefined)
@@ -112,7 +112,13 @@ function RestoreTargetsPage() {
           <SourceBadge source={source as any} />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                Failed to load restore targets: {error instanceof Error ? error.message : String(error)}
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-6 text-muted-foreground">
               Loading restore targets...
             </div>

@@ -1,15 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../api/client'
 import type {
-  Storage,
   StorageRequest,
-  Notifier,
   NotifierRequest,
-  TargetConfig,
   TargetConfigRequest,
-  RestoreTargetConfig,
   RestoreTargetConfigRequest,
-  GlobalConfig,
 } from '../types'
 
 // Storages

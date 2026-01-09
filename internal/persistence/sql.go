@@ -214,6 +214,7 @@ func (s *SQLStore) initSchema() error {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);`
 
+	//nolint:gosec // G101: false positive - this is a SQL table definition, not hardcoded credentials
 	createSecretsTable := `
 	CREATE TABLE IF NOT EXISTS secrets (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,6 +227,7 @@ func (s *SQLStore) initSchema() error {
 		UNIQUE(ref_type, ref_id, field_name)
 	);`
 
+	//nolint:gosec // G101: false positive - this is a SQL index definition
 	createSecretsIndexes := `
 	CREATE INDEX IF NOT EXISTS idx_secrets_ref ON secrets(ref_type, ref_id);`
 

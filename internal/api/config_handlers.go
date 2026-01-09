@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,7 +27,7 @@ func (s *Server) handleListStorages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get config source
-	source, _ := s.configLoader.GetConfigSource(ctx)
+	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	// Convert to response format with secret filtering
 	var responses []StorageResponse
@@ -190,7 +189,7 @@ func (s *Server) handleListNotifiers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, _ := s.configLoader.GetConfigSource(ctx)
+	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	var responses []NotifierResponse
 	for _, notifier := range notifiers {
@@ -321,7 +320,7 @@ func (s *Server) handleListTargetsConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	source, _ := s.configLoader.GetConfigSource(ctx)
+	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	var responses []TargetResponse
 	for _, target := range targets {
@@ -350,7 +349,7 @@ func (s *Server) handleCreateTarget(w http.ResponseWriter, r *http.Request) {
 	target := s.requestToTarget(&req)
 
 	// Get storages for validation
-	storages, _ := s.configService.ListStorages(r.Context())
+	storages, _ := s.configService.ListStorages(r.Context()) //nolint:errcheck // validation will catch missing storage
 	if err := configservice.ValidateTarget(target, storages); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Validation failed: %v", err))
 		return
@@ -395,7 +394,7 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	req.Name = name
 	target := s.requestToTarget(&req)
 
-	storages, _ := s.configService.ListStorages(r.Context())
+	storages, _ := s.configService.ListStorages(r.Context()) //nolint:errcheck // validation will catch missing storage
 	if err := configservice.ValidateTarget(target, storages); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Validation failed: %v", err))
 		return
@@ -481,7 +480,7 @@ func (s *Server) handleDeleteTarget(w http.ResponseWriter, r *http.Request) {
 
 // RestoreTarget handlers
 
-func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListRestoreTargetsConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
@@ -494,7 +493,7 @@ func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	source, _ := s.configLoader.GetConfigSource(ctx)
+	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	var responses []RestoreTargetResponse
 	for _, rt := range restoreTargets {
@@ -522,8 +521,8 @@ func (s *Server) handleCreateRestoreTarget(w http.ResponseWriter, r *http.Reques
 
 	rt := s.requestToRestoreTarget(&req)
 
-	storages, _ := s.configService.ListStorages(r.Context())
-	targets, _ := s.configService.ListTargets(r.Context())
+	storages, _ := s.configService.ListStorages(r.Context()) //nolint:errcheck // validation will catch missing storage
+	targets, _ := s.configService.ListTargets(r.Context())   //nolint:errcheck // validation will catch missing target
 	targetsMap := make(map[string]*config.Target)
 	for _, t := range targets {
 		targetsMap[t.Name] = t
@@ -570,8 +569,8 @@ func (s *Server) handleUpdateRestoreTarget(w http.ResponseWriter, r *http.Reques
 	req.Name = name
 	rt := s.requestToRestoreTarget(&req)
 
-	storages, _ := s.configService.ListStorages(r.Context())
-	targets, _ := s.configService.ListTargets(r.Context())
+	storages, _ := s.configService.ListStorages(r.Context()) //nolint:errcheck // validation will catch missing storage
+	targets, _ := s.configService.ListTargets(r.Context())   //nolint:errcheck // validation will catch missing target
 	targetsMap := make(map[string]*config.Target)
 	for _, t := range targets {
 		targetsMap[t.Name] = t
@@ -639,7 +638,7 @@ func (s *Server) handleGetGlobalConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, _ := s.configLoader.GetConfigSource(ctx)
+	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	respondJSON(w, http.StatusOK, GlobalConfigResponse{
 		DefaultStorage: configs["default_storage"],
@@ -715,7 +714,7 @@ func (s *Server) handleReloadConfig(w http.ResponseWriter, r *http.Request) {
 	if s.reloadChan != nil {
 		select {
 		case s.reloadChan <- struct{}{}:
-			source, _ := s.configLoader.GetConfigSource(r.Context())
+			source, _ := s.configLoader.GetConfigSource(r.Context()) //nolint:errcheck // default to empty string if fails
 			respondJSON(w, http.StatusOK, ReloadConfigResponse{
 				Message: "Configuration reload triggered successfully",
 				Source:  string(source),
@@ -1202,7 +1201,7 @@ func (s *Server) handleTargetsConfigDetailRouter(w http.ResponseWriter, r *http.
 func (s *Server) handleRestoreTargetsRouter(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		s.handleListRestoreTargets(w, r)
+		s.handleListRestoreTargetsConfig(w, r)
 	case http.MethodPost:
 		s.handleCreateRestoreTarget(w, r)
 	default:

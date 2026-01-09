@@ -123,7 +123,7 @@ func (s *Service) ListStorages(ctx context.Context) (map[string]*config.Storage,
 	if err != nil {
 		return nil, fmt.Errorf("failed to query storages: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	storages := make(map[string]*config.Storage)
 	for rows.Next() {
@@ -268,7 +268,7 @@ func (s *Service) ListNotifiers(ctx context.Context) (map[string]*config.Notifie
 	if err != nil {
 		return nil, fmt.Errorf("failed to query notifiers: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	notifiers := make(map[string]*config.Notifier)
 	for rows.Next() {
@@ -369,8 +369,8 @@ func (s *Service) CreateTarget(ctx context.Context, target *config.Target) error
 		}
 	}
 
-	excludeTablesJSON, _ := json.Marshal(target.ExcludeTables)
-	additionalArgsJSON, _ := json.Marshal(target.AdditionalArgs)
+	excludeTablesJSON, _ := json.Marshal(target.ExcludeTables)   //nolint:errcheck // marshaling string slice never fails
+	additionalArgsJSON, _ := json.Marshal(target.AdditionalArgs) //nolint:errcheck // marshaling string slice never fails
 
 	query := `INSERT INTO targets (name, type, conn_type, conn_json, storage_name, schedule,
 			  compress_enabled, compress_type, exclude_tables, additional_args, enabled, created_at, updated_at)
@@ -439,7 +439,7 @@ func (s *Service) ListTargets(ctx context.Context) ([]*config.Target, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query targets: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	var targets []*config.Target
 	for rows.Next() {
@@ -506,8 +506,8 @@ func (s *Service) UpdateTarget(ctx context.Context, name string, target *config.
 		}
 	}
 
-	excludeTablesJSON, _ := json.Marshal(target.ExcludeTables)
-	additionalArgsJSON, _ := json.Marshal(target.AdditionalArgs)
+	excludeTablesJSON, _ := json.Marshal(target.ExcludeTables)   //nolint:errcheck // marshaling string slice never fails
+	additionalArgsJSON, _ := json.Marshal(target.AdditionalArgs) //nolint:errcheck // marshaling string slice never fails
 
 	query := `UPDATE targets SET conn_type = ?, conn_json = ?, storage_name = ?, schedule = ?,
 			  compress_enabled = ?, compress_type = ?, exclude_tables = ?, additional_args = ?, updated_at = ?
@@ -646,7 +646,7 @@ func (s *Service) ListRestoreTargets(ctx context.Context) ([]*config.RestoreTarg
 	if err != nil {
 		return nil, fmt.Errorf("failed to query restore_targets: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	var restoreTargets []*config.RestoreTarget
 	for rows.Next() {
@@ -765,7 +765,7 @@ func (s *Service) ListGlobalConfig(ctx context.Context) (map[string]string, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to query global_config: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck // best effort cleanup
 
 	configs := make(map[string]string)
 	for rows.Next() {

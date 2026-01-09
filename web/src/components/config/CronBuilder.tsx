@@ -97,7 +97,7 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
         </Label>
       )}
 
-      <Tabs value={mode} onValueChange={(v) => setMode(v as any)} className="w-full">
+      <Tabs value={mode} onValueChange={(v: string) => setMode(v as 'simple' | 'advanced')} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="simple">Simple</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>

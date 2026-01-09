@@ -31,11 +31,11 @@ export const Route = createFileRoute('/config/')({
 })
 
 function ConfigDashboardPage() {
-  const { data: storagesData } = useStorages()
-  const { data: notifiersData } = useNotifiers()
-  const { data: targetsData } = useTargetsConfig()
-  const { data: restoreTargetsData } = useRestoreTargetsConfig()
-  const { data: configSourceData } = useConfigSource()
+  const { data: storagesData, isLoading: storagesLoading, error: storagesError } = useStorages()
+  const { data: notifiersData, isLoading: notifiersLoading, error: notifiersError } = useNotifiers()
+  const { data: targetsData, isLoading: targetsLoading, error: targetsError } = useTargetsConfig()
+  const { data: restoreTargetsData, isLoading: restoreTargetsLoading, error: restoreTargetsError } = useRestoreTargetsConfig()
+  const { data: configSourceData, isLoading: sourceLoading, error: sourceError } = useConfigSource()
 
   const migrateMutation = useMigrateConfig()
   const reloadMutation = useReloadConfig()
@@ -45,10 +45,13 @@ function ConfigDashboardPage() {
   const [reloadResult, setReloadResult] = useState<any>(null)
 
   const source = configSourceData?.source || 'yaml'
-  const storageCount = storagesData?.storages.length || 0
-  const notifierCount = notifiersData?.notifiers.length || 0
-  const targetCount = targetsData?.targets.length || 0
-  const restoreTargetCount = restoreTargetsData?.restore_targets.length || 0
+  const storageCount = storagesData?.storages?.length ?? 0
+  const notifierCount = notifiersData?.notifiers?.length ?? 0
+  const targetCount = targetsData?.targets?.length ?? 0
+  const restoreTargetCount = restoreTargetsData?.restore_targets?.length ?? 0
+
+  const isLoading = storagesLoading || notifiersLoading || targetsLoading || restoreTargetsLoading || sourceLoading
+  const hasError = storagesError || notifiersError || targetsError || restoreTargetsError || sourceError
 
   const handleMigrate = async () => {
     const confirmed = await confirm({
@@ -84,6 +87,42 @@ function ConfigDashboardPage() {
         console.error('Reload failed:', err)
       }
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Loading configuration...
+      </div>
+    )
+  }
+
+  if (hasError) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold">Configuration Management</h2>
+        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-red-900 dark:text-red-100">
+                  Configuration Not Available
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  Configuration management is not enabled. The daemon may need to be restarted with
+                  database config support, or config management might not be available in your
+                  deployment.
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                  Error details: {String(hasError)}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -171,22 +210,18 @@ function ConfigDashboardPage() {
         <StatCard
           title="Storages"
           value={storageCount}
-          icon={<HardDrive className="h-5 w-5" />}
         />
         <StatCard
           title="Notifiers"
           value={notifierCount}
-          icon={<Bell className="h-5 w-5" />}
         />
         <StatCard
           title="Targets"
           value={targetCount}
-          icon={<Database className="h-5 w-5" />}
         />
         <StatCard
           title="Restore Targets"
           value={restoreTargetCount}
-          icon={<ArrowDownToLine className="h-5 w-5" />}
         />
       </div>
 

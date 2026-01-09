@@ -31,14 +31,14 @@ function NotifiersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingNotifier, setEditingNotifier] = useState<Notifier | undefined>(undefined)
 
-  const { data, isLoading } = useNotifiers()
+  const { data, isLoading, error } = useNotifiers()
   const createMutation = useCreateNotifier()
   const updateMutation = useUpdateNotifier()
   const deleteMutation = useDeleteNotifier()
   const { confirm } = useConfirm()
 
-  const notifiers = data?.notifiers || []
-  const source = data?.source || 'yaml'
+  const notifiers = data?.notifiers ?? []
+  const source = data?.source ?? 'yaml'
 
   const handleCreate = () => {
     setEditingNotifier(undefined)
@@ -125,7 +125,13 @@ function NotifiersPage() {
           <SourceBadge source={source as any} />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                Failed to load notifiers: {error instanceof Error ? error.message : String(error)}
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-6 text-muted-foreground">Loading notifiers...</div>
           ) : notifiers.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

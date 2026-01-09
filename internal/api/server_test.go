@@ -21,7 +21,7 @@ func TestNewServer(t *testing.T) {
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
 
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	require.NotNil(t, server)
 	assert.Equal(t, "localhost:8080", server.addr)
@@ -38,7 +38,7 @@ func TestNewServer_NoAuth(t *testing.T) {
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
 
-	server := NewServer("localhost:8080", "", "", mgr, cfg)
+	server := NewServer("localhost:8080", "", "", mgr, cfg, nil, nil, nil)
 
 	require.NotNil(t, server)
 	assert.Empty(t, server.authUser)
@@ -50,7 +50,7 @@ func TestSetupRoutes(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	mux := server.setupRoutes()
 
@@ -118,7 +118,7 @@ func TestSetupRoutes_WithAuth(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	mux := server.setupRoutes()
 
@@ -172,7 +172,7 @@ func TestHandleJobsRouter(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -218,7 +218,7 @@ func TestHandleJobsDetailRouter_BackupTrigger(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", "/api/jobs/backup", nil)
 	rr := httptest.NewRecorder()
@@ -235,7 +235,7 @@ func TestHandleJobsDetailRouter_RestoreTrigger(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("POST", "/api/jobs/restore", nil)
 	rr := httptest.NewRecorder()
@@ -252,7 +252,7 @@ func TestHandleJobsDetailRouter_GetJob(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/jobs/someid", nil)
 	rr := httptest.NewRecorder()
@@ -269,7 +269,7 @@ func TestHandleJobsDetailRouter_CancelJob(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("DELETE", "/api/jobs/someid", nil)
 	rr := httptest.NewRecorder()
@@ -286,7 +286,7 @@ func TestHandleJobsDetailRouter_GetLogs(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/api/jobs/someid/logs", nil)
 	rr := httptest.NewRecorder()
@@ -303,7 +303,7 @@ func TestHandleJobsDetailRouter_NotFound(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -336,7 +336,7 @@ func TestHandleJobsDetailRouter_MethodNotAllowed(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	// PUT not allowed on job detail
 	req := httptest.NewRequest("PUT", "/api/jobs/someid", nil)
@@ -352,7 +352,7 @@ func TestShutdown_NoServer(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	// Should not error when httpServer is nil
 	ctx := context.Background()
@@ -366,7 +366,7 @@ func TestShutdown_WithServer(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:0", "admin", "secret", mgr, cfg) // Use port 0 for any available port
+	server := NewServer("localhost:0", "admin", "secret", mgr, cfg, nil, nil, nil) // Use port 0 for any available port
 
 	// Create httpServer without actually listening
 	mux := server.setupRoutes()
@@ -402,7 +402,7 @@ func TestServer_RoutingIntegration(t *testing.T) {
 	}
 
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	mux := server.setupRoutes()
 
@@ -470,7 +470,7 @@ func TestServer_CORSHeaders(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	mux := server.setupRoutes()
 
@@ -489,7 +489,7 @@ func TestServer_OptionsRequest(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg)
+	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
 	mux := server.setupRoutes()
 

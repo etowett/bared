@@ -31,14 +31,14 @@ function TargetsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTarget, setEditingTarget] = useState<TargetConfig | undefined>(undefined)
 
-  const { data, isLoading } = useTargetsConfig()
+  const { data, isLoading, error } = useTargetsConfig()
   const createMutation = useCreateTargetConfig()
   const updateMutation = useUpdateTargetConfig()
   const deleteMutation = useDeleteTargetConfig()
   const { confirm } = useConfirm()
 
-  const targets = data?.targets || []
-  const source = data?.source || 'yaml'
+  const targets = data?.targets ?? []
+  const source = data?.source ?? 'yaml'
 
   const handleCreate = () => {
     setEditingTarget(undefined)
@@ -112,7 +112,13 @@ function TargetsPage() {
           <SourceBadge source={source as any} />
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="text-destructive mb-4">
+                Failed to load targets: {error instanceof Error ? error.message : String(error)}
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-6 text-muted-foreground">Loading targets...</div>
           ) : targets.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

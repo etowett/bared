@@ -63,13 +63,13 @@ type ListNotifiersResponse struct {
 
 // TargetRequest represents a request to create/update target
 type TargetRequest struct {
-	Name           string                 `json:"name"`
-	Connection     ConnectionRequest      `json:"connection"`
-	StorageName    string                 `json:"storage_name,omitempty"`
-	Schedule       string                 `json:"schedule,omitempty"`
-	Compress       *CompressionConfig     `json:"compress,omitempty"`
-	ExcludeTables  []string               `json:"exclude_tables,omitempty"`
-	AdditionalArgs []string               `json:"additional_args,omitempty"`
+	Name           string             `json:"name"`
+	Connection     ConnectionRequest  `json:"connection"`
+	StorageName    string             `json:"storage_name,omitempty"`
+	Schedule       string             `json:"schedule,omitempty"`
+	Compress       *CompressionConfig `json:"compress,omitempty"`
+	ExcludeTables  []string           `json:"exclude_tables,omitempty"`
+	AdditionalArgs []string           `json:"additional_args,omitempty"`
 }
 
 // ConnectionRequest represents a database connection
