@@ -121,8 +121,123 @@ func (s *SQLStore) initSchema() error {
 	CREATE INDEX IF NOT EXISTS idx_job_logs_job_id ON job_logs(job_id);
 	CREATE INDEX IF NOT EXISTS idx_job_logs_timestamp ON job_logs(timestamp);`
 
+	// Config management tables (added for API-based configuration)
+
+	createEncryptionKeysTable := `
+	CREATE TABLE IF NOT EXISTS encryption_keys (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		key_data TEXT NOT NULL,
+		active BOOLEAN NOT NULL DEFAULT true,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	createStoragesTable := `
+	CREATE TABLE IF NOT EXISTS storages (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		type TEXT NOT NULL,
+		config_json TEXT NOT NULL,
+		keep INTEGER NOT NULL DEFAULT 7,
+		enabled BOOLEAN NOT NULL DEFAULT true,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	createStoragesIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_storages_name ON storages(name);
+	CREATE INDEX IF NOT EXISTS idx_storages_enabled ON storages(enabled);`
+
+	createNotifiersTable := `
+	CREATE TABLE IF NOT EXISTS notifiers (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		type TEXT NOT NULL,
+		config_json TEXT NOT NULL,
+		on_success BOOLEAN NOT NULL DEFAULT false,
+		enabled BOOLEAN NOT NULL DEFAULT true,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	createNotifiersIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_notifiers_name ON notifiers(name);
+	CREATE INDEX IF NOT EXISTS idx_notifiers_enabled ON notifiers(enabled);`
+
+	createTargetsTable := `
+	CREATE TABLE IF NOT EXISTS targets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		type TEXT NOT NULL,
+		conn_type TEXT NOT NULL,
+		conn_json TEXT NOT NULL,
+		storage_name TEXT,
+		schedule TEXT,
+		compress_enabled BOOLEAN NOT NULL DEFAULT false,
+		compress_type TEXT,
+		exclude_tables TEXT,
+		additional_args TEXT,
+		enabled BOOLEAN NOT NULL DEFAULT true,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (storage_name) REFERENCES storages(name) ON DELETE SET NULL
+	);`
+
+	createTargetsIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_targets_name ON targets(name);
+	CREATE INDEX IF NOT EXISTS idx_targets_enabled ON targets(enabled);
+	CREATE INDEX IF NOT EXISTS idx_targets_schedule ON targets(schedule) WHERE schedule IS NOT NULL;`
+
+	createRestoreTargetsTable := `
+	CREATE TABLE IF NOT EXISTS restore_targets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT UNIQUE NOT NULL,
+		conn_type TEXT NOT NULL,
+		conn_json TEXT NOT NULL,
+		storage_name TEXT,
+		source_target TEXT,
+		description TEXT,
+		enabled BOOLEAN NOT NULL DEFAULT true,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (storage_name) REFERENCES storages(name) ON DELETE SET NULL,
+		FOREIGN KEY (source_target) REFERENCES targets(name) ON DELETE SET NULL
+	);`
+
+	createRestoreTargetsIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_restore_targets_name ON restore_targets(name);
+	CREATE INDEX IF NOT EXISTS idx_restore_targets_enabled ON restore_targets(enabled);`
+
+	createGlobalConfigTable := `
+	CREATE TABLE IF NOT EXISTS global_config (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+
+	createSecretsTable := `
+	CREATE TABLE IF NOT EXISTS secrets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		ref_type TEXT NOT NULL,
+		ref_id INTEGER NOT NULL,
+		field_name TEXT NOT NULL,
+		encrypted_value TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(ref_type, ref_id, field_name)
+	);`
+
+	createSecretsIndexes := `
+	CREATE INDEX IF NOT EXISTS idx_secrets_ref ON secrets(ref_type, ref_id);`
+
+	initGlobalConfig := `
+	INSERT OR IGNORE INTO global_config (key, value) VALUES
+		('default_storage', ''),
+		('log_level', 'info'),
+		('log_format', 'auto');`
+
 	// DB specific syntax adjustments could be handled here
 
+	// Execute original tables
 	if _, err := s.db.Exec(createJobsTable); err != nil {
 		return fmt.Errorf("failed to create jobs table: %w", err)
 	}
@@ -134,6 +249,47 @@ func (s *SQLStore) initSchema() error {
 	}
 	if _, err := s.db.Exec(createJobLogsIndexes); err != nil {
 		return fmt.Errorf("failed to create job_logs indexes: %w", err)
+	}
+
+	// Execute config management tables
+	if _, err := s.db.Exec(createEncryptionKeysTable); err != nil {
+		return fmt.Errorf("failed to create encryption_keys table: %w", err)
+	}
+	if _, err := s.db.Exec(createStoragesTable); err != nil {
+		return fmt.Errorf("failed to create storages table: %w", err)
+	}
+	if _, err := s.db.Exec(createStoragesIndexes); err != nil {
+		return fmt.Errorf("failed to create storages indexes: %w", err)
+	}
+	if _, err := s.db.Exec(createNotifiersTable); err != nil {
+		return fmt.Errorf("failed to create notifiers table: %w", err)
+	}
+	if _, err := s.db.Exec(createNotifiersIndexes); err != nil {
+		return fmt.Errorf("failed to create notifiers indexes: %w", err)
+	}
+	if _, err := s.db.Exec(createTargetsTable); err != nil {
+		return fmt.Errorf("failed to create targets table: %w", err)
+	}
+	if _, err := s.db.Exec(createTargetsIndexes); err != nil {
+		return fmt.Errorf("failed to create targets indexes: %w", err)
+	}
+	if _, err := s.db.Exec(createRestoreTargetsTable); err != nil {
+		return fmt.Errorf("failed to create restore_targets table: %w", err)
+	}
+	if _, err := s.db.Exec(createRestoreTargetsIndexes); err != nil {
+		return fmt.Errorf("failed to create restore_targets indexes: %w", err)
+	}
+	if _, err := s.db.Exec(createGlobalConfigTable); err != nil {
+		return fmt.Errorf("failed to create global_config table: %w", err)
+	}
+	if _, err := s.db.Exec(createSecretsTable); err != nil {
+		return fmt.Errorf("failed to create secrets table: %w", err)
+	}
+	if _, err := s.db.Exec(createSecretsIndexes); err != nil {
+		return fmt.Errorf("failed to create secrets indexes: %w", err)
+	}
+	if _, err := s.db.Exec(initGlobalConfig); err != nil {
+		return fmt.Errorf("failed to initialize global_config: %w", err)
 	}
 
 	return nil
@@ -396,4 +552,9 @@ func (s *SQLStore) GetJobLogs(ctx context.Context, jobID jobs.JobID, limit int) 
 	}
 
 	return entries, nil
+}
+
+// DB returns the underlying database connection for use by other services
+func (s *SQLStore) DB() *sql.DB {
+	return s.db
 }
