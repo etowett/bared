@@ -11,6 +11,7 @@ A simple yet powerful backup and restore daemon for databases written in Go.
   - YAML-based configuration with environment variable expansion
   - API-based dynamic configuration (database-backed)
   - Web UI for managing storages, notifiers, targets, and restore targets
+  - CLI tool for importing YAML configs to database with conflict resolution
   - Hot reload without daemon restart
 - **Web Interface**: Modern React-based dashboard for monitoring and management
 - **REST API**: Comprehensive HTTP API for automation and integration
@@ -148,6 +149,9 @@ targets:
 
 # Run as daemon with web UI (API-based config management enabled)
 ./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
+
+# Import YAML configuration into database via API
+./bin/brd config import bared.yml --user admin --pass secret
 ```
 
 ### Configuration Management
@@ -155,6 +159,7 @@ targets:
 BareD supports two configuration approaches:
 
 #### 1. YAML-Based Configuration (Traditional)
+
 Configure everything via YAML files. Simple and suitable for GitOps workflows.
 
 ```yaml
@@ -178,9 +183,11 @@ targets:
 ```
 
 #### 2. Database-Backed Configuration (Dynamic)
+
 Manage configuration through the Web UI or REST API. Config is stored in SQLite with encrypted secrets.
 
 **Benefits:**
+
 - ✅ Manage configs through intuitive Web UI
 - ✅ Hot reload without daemon restart
 - ✅ Encrypted secrets (AES-256-GCM)
@@ -188,9 +195,32 @@ Manage configuration through the Web UI or REST API. Config is stored in SQLite 
 - ✅ Perfect for teams and dynamic environments
 
 **Migration:**
-Start with YAML and migrate to database when ready using the built-in migration tool in the Web UI.
+Start with YAML and migrate to database when ready using either the Web UI or CLI import tool.
 
-**Access the Web UI:**
+**Method 1: Using the CLI Import Tool (Recommended for automation)**
+
+```bash
+# Start daemon first
+./bin/brd daemon --http :8080 --http-user admin --http-pass secret
+
+# In another terminal, import your YAML config
+./bin/brd config import bared.yml --user admin --pass secret
+
+# Interactive mode - prompts for conflicts
+./bin/brd config import bared.yml --user admin --pass secret --mode interactive
+
+# Override mode - updates all existing configs
+./bin/brd config import bared.yml --user admin --pass secret --mode override
+
+# Skip mode - only creates new configs
+./bin/brd config import bared.yml --user admin --pass secret --mode skip
+
+# Dry run - validate without importing
+./bin/brd config import bared.yml --user admin --pass secret --dry-run
+```
+
+**Method 2: Using the Web UI**
+
 ```bash
 # Start daemon with HTTP server
 ./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
@@ -200,6 +230,7 @@ Start with YAML and migrate to database when ready using the built-in migration 
 ```
 
 **Encryption Key Management:**
+
 - Set `BARED_ENCRYPTION_KEY` environment variable for production (32 bytes, base64-encoded)
 - Or let BareD auto-generate and store a key in the database (dev/testing only)
 
@@ -208,6 +239,7 @@ Start with YAML and migrate to database when ready using the built-in migration 
 BareD daemon can run in three distinct modes to fit different operational needs:
 
 #### 1. Cron-only Mode (Scheduled Backups)
+
 Run automated backups on a schedule without HTTP API access:
 
 ```bash
@@ -215,12 +247,14 @@ Run automated backups on a schedule without HTTP API access:
 ```
 
 **Requirements:**
+
 - At least one target must have a `schedule` field configured in YAML
 - No HTTP server flags needed
 
 **Use case:** Traditional scheduled backups in environments where API access is not needed.
 
 #### 2. API-only Mode (Manual Backups)
+
 Run the HTTP server for manual backups via web UI or API without any scheduled jobs:
 
 ```bash
@@ -228,12 +262,14 @@ Run the HTTP server for manual backups via web UI or API without any scheduled j
 ```
 
 **Requirements:**
+
 - `--http` flag must be specified
 - Targets do NOT need `schedule` fields (they can be omitted)
 
 **Use case:** On-demand backups triggered manually through the web interface or API calls, ideal for development environments or when you need full control over backup timing.
 
 #### 3. Hybrid Mode (Scheduled + Manual)
+
 Run both scheduled backups AND provide HTTP API access:
 
 ```bash
@@ -241,6 +277,7 @@ Run both scheduled backups AND provide HTTP API access:
 ```
 
 **Requirements:**
+
 - `--http` flag specified
 - Some targets have `schedule` fields (scheduled), others may omit schedules (API-only)
 

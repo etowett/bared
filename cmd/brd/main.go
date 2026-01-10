@@ -45,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(validateConfigCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(configCmd)
 }
 
 // initializeLogger initializes the logger with config settings

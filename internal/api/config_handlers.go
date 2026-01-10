@@ -192,8 +192,10 @@ func (s *Server) handleListNotifiers(w http.ResponseWriter, r *http.Request) {
 	source, _ := s.configLoader.GetConfigSource(ctx) //nolint:errcheck // default to empty string if fails
 
 	var responses []NotifierResponse
-	for _, notifier := range notifiers {
-		responses = append(responses, s.notifierToResponse(notifier))
+	for name, notifier := range notifiers {
+		resp := s.notifierToResponse(notifier)
+		resp.Name = name // Set the name from the map key
+		responses = append(responses, resp)
 	}
 
 	respondJSON(w, http.StatusOK, ListNotifiersResponse{
