@@ -29,6 +29,39 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
+// LoadOrEmpty reads and parses the configuration file, or returns an empty config if file doesn't exist.
+// This is useful for daemon mode where configs can be loaded from the database instead of YAML.
+func LoadOrEmpty(path string) (*Config, bool, error) {
+	//#nosec G304 -- path is from user-provided config file argument
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Return empty config with persistence enabled - will be populated from database
+			return &Config{
+				Storages:  make(map[string]*Storage),
+				Notifiers: make(map[string]*Notifier),
+				Targets:   []*Target{},
+				Persistence: &Persistence{
+					Enabled: true,
+					Type:    "sqlite3",
+					DSN:     "bared.db",
+				},
+			}, false, nil
+		}
+		return nil, false, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// Expand environment variables
+	expandedData := expandEnvVars(string(data))
+
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(expandedData), &cfg); err != nil {
+		return nil, false, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return &cfg, true, nil
+}
+
 // expandEnvVars replaces ${VAR_NAME} with environment variable values
 func expandEnvVars(data string) string {
 	return envVarRegex.ReplaceAllStringFunc(data, func(match string) string {

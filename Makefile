@@ -170,7 +170,15 @@ run-daemon: CGO=1
 run-daemon: web-build web-sync-dist build
 	@echo "Starting daemon in development mode with fresh web UI..."
 	./${BIN_DIR}/${BINARY_NAME} daemon \
-		--config config.yml \
+		--http :8080 \
+		--http-user admin \
+		--http-pass changeme
+
+# Run the daemon without building web UI (faster for backend-only development)
+run-daemon-fast: CGO=1
+run-daemon-fast: build
+	@echo "Starting daemon in development mode (backend only, no web rebuild)..."
+	./${BIN_DIR}/${BINARY_NAME} daemon \
 		--http :8080 \
 		--http-user admin \
 		--http-pass changeme

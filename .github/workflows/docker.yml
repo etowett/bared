@@ -16,7 +16,7 @@ env:
 jobs:
   build:
     name: Build and Push Docker Images
-    runs-on: [self-hosted, bared]
+    runs-on: ubuntu-latest
     environment: prod
     # Only run if the Release workflow succeeded
     if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
@@ -26,44 +26,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Ensure Docker is installed (self-hosted preflight)
-        run: |
-          set -euo pipefail
-
-          if command -v docker >/dev/null 2>&1; then
-            docker version
-            exit 0
-          fi
-
-          case "${{ runner.os }}" in
-            Linux)
-              if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update
-                sudo apt-get install -y --no-install-recommends docker.io
-                sudo systemctl enable --now docker || true
-                sudo usermod -aG docker "$USER" || true
-              elif command -v apk >/dev/null 2>&1; then
-                sudo apk add --no-cache docker
-                sudo rc-update add docker default || true
-                sudo service docker start || true
-              else
-                echo "No supported package manager found for Docker install (apt-get/apk). Install Docker Engine on the runner."
-                exit 1
-              fi
-              ;;
-            macOS)
-              echo "Docker not found. Install Docker Desktop on this macOS runner."
-              exit 1
-              ;;
-            *)
-              echo "Unsupported runner OS for Docker install: ${{ runner.os }}"
-              exit 1
-              ;;
-          esac
-
-          command -v docker
-          docker version
 
       - name: Extract version metadata
         id: meta
@@ -112,8 +74,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
-          driver-opts: |
-            network=host
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -156,7 +116,6 @@ jobs:
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
-          network: host
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             COMMIT=${{ steps.meta.outputs.commit_sha }}
