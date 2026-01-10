@@ -20,18 +20,20 @@ type HealthResponse struct {
 
 // JobResponse represents a job in API responses
 type JobResponse struct {
-	ID          string            `json:"id"`
-	Type        string            `json:"type"`
-	Target      string            `json:"target"`
-	Status      string            `json:"status"`
-	Progress    *ProgressResponse `json:"progress,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	CreatedAt   string            `json:"created_at"`
-	StartedAt   *string           `json:"started_at,omitempty"`
-	CompletedAt *string           `json:"completed_at,omitempty"`
-	Duration    *float64          `json:"duration_seconds,omitempty"`
-	Manual      bool              `json:"manual"`
-	BackupPath  string            `json:"backup_path,omitempty"`
+	ID             string            `json:"id"`
+	Type           string            `json:"type"`
+	Target         string            `json:"target"`
+	Status         string            `json:"status"`
+	Progress       *ProgressResponse `json:"progress,omitempty"`
+	Error          string            `json:"error,omitempty"`
+	CreatedAt      string            `json:"created_at"`
+	StartedAt      *string           `json:"started_at,omitempty"`
+	CompletedAt    *string           `json:"completed_at,omitempty"`
+	Duration       *float64          `json:"duration_seconds,omitempty"`
+	Manual         bool              `json:"manual"`
+	BackupPath     string            `json:"backup_path,omitempty"`
+	TargetSchedule *string           `json:"target_schedule,omitempty"` // The target's current schedule (cron expression)
+	TriggeredBy    *string           `json:"triggered_by,omitempty"`    // "manual", "schedule", or "api"
 }
 
 // ProgressResponse represents progress information

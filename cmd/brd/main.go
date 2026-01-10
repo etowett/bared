@@ -45,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(validateConfigCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(configCmd)
 }
 
 // initializeLogger initializes the logger with config settings
@@ -445,6 +446,9 @@ The daemon can run in three modes:
 
 At least one mode (cron or API) must be active for daemon to start.
 
+Configuration can be provided via YAML file or database (requires persistence enabled).
+When the config file is not present, daemon will load configuration from the database.
+
 Examples:
   # API-only mode (manual backups via web/API)
   brd daemon --http :8080 --http-user admin --http-pass secret
@@ -455,7 +459,7 @@ Examples:
   # Hybrid mode (both scheduled and manual backups)
   brd daemon --http :8080 --http-user admin --http-pass secret`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		cfg, err := config.Load(cfgFile)
+		cfg, fileExists, err := config.LoadOrEmpty(cfgFile)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
@@ -463,8 +467,21 @@ Examples:
 		// Initialize logger with config settings
 		initializeLogger(cfg)
 
-		if validateErr := cfg.Validate(); validateErr != nil {
-			return validateErr
+		logger := util.GetLogger()
+
+		// Only validate if config file exists
+		// When file doesn't exist, config will be loaded from database in daemon.Start()
+		if fileExists {
+			if validateErr := cfg.Validate(); validateErr != nil {
+				return validateErr
+			}
+			logger.InfoS("Loaded configuration from file",
+				"component", "daemon",
+				"config_file", cfgFile)
+		} else {
+			logger.InfoS("Config file not found, will load from database",
+				"component", "daemon",
+				"config_file", cfgFile)
 		}
 
 		// Get HTTP flags

@@ -11,6 +11,8 @@ export interface Job {
   duration_seconds?: number
   manual: boolean
   backup_path?: string
+  target_schedule?: string // The target's current schedule (cron expression)
+  triggered_by?: 'manual' | 'schedule' | 'api' // How the job was triggered
 }
 
 export interface Progress {

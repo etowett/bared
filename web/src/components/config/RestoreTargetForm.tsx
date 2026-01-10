@@ -169,14 +169,16 @@ export function RestoreTargetForm({
           <div className="space-y-2">
             <Label htmlFor="source_target">Source Target (optional)</Label>
             <Select
-              value={formData.source_target}
-              onValueChange={(value) => setFormData({ ...formData, source_target: value })}
+              value={formData.source_target || '__none__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, source_target: value === '__none__' ? '' : value })
+              }
             >
               <SelectTrigger id="source_target">
                 <SelectValue placeholder="Select source target" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No specific source</SelectItem>
+                <SelectItem value="__none__">No specific source</SelectItem>
                 {targets.map((t) => (
                   <SelectItem key={t.name} value={t.name}>
                     {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access for display */}
@@ -283,14 +285,16 @@ export function RestoreTargetForm({
           <div className="space-y-2">
             <Label htmlFor="storage_name">Storage Backend (optional)</Label>
             <Select
-              value={formData.storage_name}
-              onValueChange={(value) => setFormData({ ...formData, storage_name: value })}
+              value={formData.storage_name || '__default__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, storage_name: value === '__default__' ? '' : value })
+              }
             >
               <SelectTrigger id="storage_name">
                 <SelectValue placeholder="Use default storage" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Use default storage</SelectItem>
+                <SelectItem value="__default__">Use default storage</SelectItem>
                 {storages.map((storage) => (
                   <SelectItem key={storage.name} value={storage.name}>
                     {storage.name} ({storage.type})

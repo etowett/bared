@@ -6,12 +6,55 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/robfig/cron/v3"
 
 	"bared/internal/app"
+	"bared/internal/config"
 	"bared/internal/jobs"
 	"bared/internal/util"
 	"bared/internal/version"
 )
+
+// calculateNextRun calculates the next execution time for a cron expression
+func calculateNextRun(cronExpr string) (*time.Time, error) {
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	schedule, err := parser.Parse(cronExpr)
+	if err != nil {
+		return nil, err
+	}
+
+	next := schedule.Next(time.Now())
+	return &next, nil
+}
+
+// jobToResponse converts a job to a response with schedule information
+func (s *Server) jobToResponse(job *jobs.Job) JobResponse {
+	resp := JobToResponse(job)
+
+	// Add schedule context if target exists in config
+	if s.cfg != nil {
+		for _, target := range s.cfg.Targets {
+			if target.Name == job.TargetName {
+				// Add target's schedule if available
+				if target.Schedule != "" {
+					resp.TargetSchedule = &target.Schedule
+				}
+
+				// Determine trigger type
+				triggeredBy := "manual"
+				if !job.Manual {
+					triggeredBy = "schedule"
+				}
+				resp.TriggeredBy = &triggeredBy
+				break
+			}
+		}
+	}
+
+	return resp
+}
 
 // handleHealth returns the API health status
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -22,8 +65,24 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleListTargets returns all configured targets
-func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
-	targets := s.cfg.Targets
+func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Try to get targets from configService first (database), fall back to static config
+	var targets []*config.Target
+	if s.configService != nil {
+		dbTargets, err := s.configService.ListTargets(ctx)
+		if err == nil {
+			targets = dbTargets
+		} else {
+			// Fall back to static config if database read fails
+			targets = s.cfg.Targets
+		}
+	} else {
+		// No configService, use static config
+		targets = s.cfg.Targets
+	}
+
 	summaries := make([]TargetSummary, 0, len(targets))
 
 	for _, target := range targets {
@@ -35,8 +94,16 @@ func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
 			IsRunning: s.jobManager.IsTargetRunning(target.Name),
 		}
 
+		// Calculate next scheduled run if target has a schedule
+		if target.Schedule != "" {
+			nextRun, err := calculateNextRun(target.Schedule)
+			if err == nil && nextRun != nil {
+				nextRunStr := nextRun.Format(time.RFC3339)
+				summary.NextScheduled = &nextRunStr
+			}
+		}
+
 		// TODO: Add last backup time from storage
-		// TODO: Add next scheduled time from cron
 
 		summaries = append(summaries, summary)
 	}
@@ -48,8 +115,24 @@ func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleListRestoreTargets returns all configured restore targets
-func (s *Server) handleListRestoreTargets(w http.ResponseWriter, _ *http.Request) {
-	restoreTargets := s.cfg.RestoreTargets
+func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Try to get restore targets from configService first (database), fall back to static config
+	var restoreTargets []*config.RestoreTarget
+	if s.configService != nil {
+		dbRestoreTargets, err := s.configService.ListRestoreTargets(ctx)
+		if err == nil {
+			restoreTargets = dbRestoreTargets
+		} else {
+			// Fall back to static config if database read fails
+			restoreTargets = s.cfg.RestoreTargets
+		}
+	} else {
+		// No configService, use static config
+		restoreTargets = s.cfg.RestoreTargets
+	}
+
 	summaries := make([]RestoreTargetSummary, 0, len(restoreTargets))
 
 	for _, rt := range restoreTargets {
@@ -174,7 +257,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	// Convert to response format
 	responses := make([]JobResponse, 0, len(paginatedJobs))
 	for _, job := range paginatedJobs {
-		responses = append(responses, JobToResponse(job))
+		responses = append(responses, s.jobToResponse(job))
 	}
 
 	// Calculate pagination metadata
@@ -213,7 +296,7 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, JobToResponse(job))
+	respondJSON(w, http.StatusOK, s.jobToResponse(job))
 }
 
 // handleTriggerBackup triggers a manual backup
@@ -388,8 +471,23 @@ func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
 
 // handleDashboard returns dashboard summary
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	// Get all targets
-	targets := s.cfg.Targets
+	ctx := r.Context()
+
+	// Try to get targets from configService first (database), fall back to static config
+	var targets []*config.Target
+	if s.configService != nil {
+		dbTargets, err := s.configService.ListTargets(ctx)
+		if err == nil {
+			targets = dbTargets
+		} else {
+			// Fall back to static config if database read fails
+			targets = s.cfg.Targets
+		}
+	} else {
+		// No configService, use static config
+		targets = s.cfg.Targets
+	}
+
 	summaries := make([]TargetSummary, 0, len(targets))
 
 	for _, target := range targets {

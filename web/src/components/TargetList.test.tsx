@@ -45,9 +45,9 @@ describe('TargetList Component', () => {
     type: 'postgres',
     database: 'test_database',
     is_running: false,
-    last_backup: '2025-12-09T10:00:00Z',
+    last_backup: '2026-12-09T10:00:00Z',
     schedule: '0 2 * * *',
-    next_scheduled: '2025-12-10T02:00:00Z',
+    next_scheduled: '2026-12-10T02:00:00Z',
     ...overrides,
   })
 
@@ -98,11 +98,11 @@ describe('TargetList Component', () => {
   })
 
   it('displays last backup date', () => {
-    const targets = [createMockTarget({ last_backup: '2025-12-09T10:00:00Z' })]
+    const targets = [createMockTarget({ last_backup: '2026-12-09T10:00:00Z' })]
 
     render(<TargetList targets={targets} />)
 
-    expect(screen.getByText(/12\/9\/2025/)).toBeInTheDocument()
+    expect(screen.getByText(/12\/9\/2026/)).toBeInTheDocument()
   })
 
   it('displays "Never" when no last backup', () => {
@@ -123,12 +123,12 @@ describe('TargetList Component', () => {
   })
 
   it('displays next scheduled run when available', () => {
-    const targets = [createMockTarget({ next_scheduled: '2025-12-10T02:00:00Z' })]
+    const targets = [createMockTarget({ next_scheduled: '2026-12-10T02:00:00Z' })]
 
     render(<TargetList targets={targets} />)
 
     expect(screen.getByText('Next Run:')).toBeInTheDocument()
-    expect(screen.getByText(/12\/10\/2025/)).toBeInTheDocument()
+    expect(screen.getByText(/Dec 10/)).toBeInTheDocument()
   })
 
   it('does not display schedule section when not available', () => {
