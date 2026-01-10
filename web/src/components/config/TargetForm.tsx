@@ -263,14 +263,14 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
           <div className="space-y-2">
             <Label htmlFor="storage_name">Storage Backend (optional)</Label>
             <Select
-              value={formData.storage_name}
-              onValueChange={(value) => setFormData({ ...formData, storage_name: value })}
+              value={formData.storage_name || "__default__"}
+              onValueChange={(value) => setFormData({ ...formData, storage_name: value === "__default__" ? "" : value })}
             >
               <SelectTrigger id="storage_name">
                 <SelectValue placeholder="Use default storage" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Use default storage</SelectItem>
+                <SelectItem value="__default__">Use default storage</SelectItem>
                 {storages.map((storage) => (
                   <SelectItem key={storage.name} value={storage.name}>
                     {storage.name} ({storage.type})

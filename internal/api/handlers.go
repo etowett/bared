@@ -11,6 +11,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"bared/internal/app"
+	"bared/internal/config"
 	"bared/internal/jobs"
 	"bared/internal/util"
 	"bared/internal/version"
@@ -64,8 +65,24 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleListTargets returns all configured targets
-func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
-	targets := s.cfg.Targets
+func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Try to get targets from configService first (database), fall back to static config
+	var targets []*config.Target
+	if s.configService != nil {
+		dbTargets, err := s.configService.ListTargets(ctx)
+		if err == nil {
+			targets = dbTargets
+		} else {
+			// Fall back to static config if database read fails
+			targets = s.cfg.Targets
+		}
+	} else {
+		// No configService, use static config
+		targets = s.cfg.Targets
+	}
+
 	summaries := make([]TargetSummary, 0, len(targets))
 
 	for _, target := range targets {
@@ -98,8 +115,24 @@ func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleListRestoreTargets returns all configured restore targets
-func (s *Server) handleListRestoreTargets(w http.ResponseWriter, _ *http.Request) {
-	restoreTargets := s.cfg.RestoreTargets
+func (s *Server) handleListRestoreTargets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Try to get restore targets from configService first (database), fall back to static config
+	var restoreTargets []*config.RestoreTarget
+	if s.configService != nil {
+		dbRestoreTargets, err := s.configService.ListRestoreTargets(ctx)
+		if err == nil {
+			restoreTargets = dbRestoreTargets
+		} else {
+			// Fall back to static config if database read fails
+			restoreTargets = s.cfg.RestoreTargets
+		}
+	} else {
+		// No configService, use static config
+		restoreTargets = s.cfg.RestoreTargets
+	}
+
 	summaries := make([]RestoreTargetSummary, 0, len(restoreTargets))
 
 	for _, rt := range restoreTargets {
@@ -438,8 +471,23 @@ func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
 
 // handleDashboard returns dashboard summary
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	// Get all targets
-	targets := s.cfg.Targets
+	ctx := r.Context()
+
+	// Try to get targets from configService first (database), fall back to static config
+	var targets []*config.Target
+	if s.configService != nil {
+		dbTargets, err := s.configService.ListTargets(ctx)
+		if err == nil {
+			targets = dbTargets
+		} else {
+			// Fall back to static config if database read fails
+			targets = s.cfg.Targets
+		}
+	} else {
+		// No configService, use static config
+		targets = s.cfg.Targets
+	}
+
 	summaries := make([]TargetSummary, 0, len(targets))
 
 	for _, target := range targets {

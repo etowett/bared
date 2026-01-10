@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { SourceBadge } from '@/components/config/SourceBadge'
+import { TargetForm } from '@/components/config/TargetForm'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -10,18 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { TargetForm } from '@/components/config/TargetForm'
-import { SourceBadge } from '@/components/config/SourceBadge'
 import {
-  useTargetsConfig,
   useCreateTargetConfig,
-  useUpdateTargetConfig,
   useDeleteTargetConfig,
+  useTargetsConfig,
+  useUpdateTargetConfig,
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
-import { Plus, Pencil, Trash2, Database, Calendar } from 'lucide-react'
-import type { TargetConfig, TargetConfigRequest, ConfigSource, ConnectionConfig } from '@/types'
+import type { ConfigSource, ConnectionConfig, TargetConfig, TargetConfigRequest } from '@/types'
+import { createFileRoute } from '@tanstack/react-router'
+import { Calendar, Database, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/config/targets')({
   component: TargetsPage,
