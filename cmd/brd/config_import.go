@@ -69,13 +69,34 @@ func runConfigImport(cmd *cobra.Command, args []string) error {
 	configFile := args[0]
 
 	// Get flags
-	apiURL, _ := cmd.Flags().GetString("api-url")
-	user, _ := cmd.Flags().GetString("user")
-	pass, _ := cmd.Flags().GetString("pass")
-	modeStr, _ := cmd.Flags().GetString("mode")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	timeout, _ := cmd.Flags().GetDuration("timeout")
-	autoYes, _ := cmd.Flags().GetBool("yes")
+	apiURL, err := cmd.Flags().GetString("api-url")
+	if err != nil {
+		return fmt.Errorf("failed to get api-url flag: %w", err)
+	}
+	user, err := cmd.Flags().GetString("user")
+	if err != nil {
+		return fmt.Errorf("failed to get user flag: %w", err)
+	}
+	pass, err := cmd.Flags().GetString("pass")
+	if err != nil {
+		return fmt.Errorf("failed to get pass flag: %w", err)
+	}
+	modeStr, err := cmd.Flags().GetString("mode")
+	if err != nil {
+		return fmt.Errorf("failed to get mode flag: %w", err)
+	}
+	dryRun, err := cmd.Flags().GetBool("dry-run")
+	if err != nil {
+		return fmt.Errorf("failed to get dry-run flag: %w", err)
+	}
+	timeout, err := cmd.Flags().GetDuration("timeout")
+	if err != nil {
+		return fmt.Errorf("failed to get timeout flag: %w", err)
+	}
+	autoYes, err := cmd.Flags().GetBool("yes")
+	if err != nil {
+		return fmt.Errorf("failed to get yes flag: %w", err)
+	}
 
 	// Validate required flags
 	if user == "" {
@@ -132,10 +153,7 @@ func runConfigImport(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\nImporting configuration (mode: %s)...\n", mode)
 	}
 
-	summary, err := importConfig(ctx, importClient, cfg, mode, dryRun)
-	if err != nil {
-		return err
-	}
+	summary := importConfig(ctx, importClient, cfg, mode, dryRun)
 
 	// Print summary
 	printImportSummary(summary)
@@ -149,7 +167,7 @@ func runConfigImport(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func importConfig(ctx context.Context, apiClient *client.ImportClient, cfg *config.Config, mode client.ConflictMode, dryRun bool) (*client.ImportSummary, error) {
+func importConfig(ctx context.Context, apiClient *client.ImportClient, cfg *config.Config, mode client.ConflictMode, dryRun bool) *client.ImportSummary {
 	summary := &client.ImportSummary{
 		DryRun: dryRun,
 	}
@@ -184,7 +202,7 @@ func importConfig(ctx context.Context, apiClient *client.ImportClient, cfg *conf
 		summary.GlobalConfig = importGlobalConfig(ctx, apiClient, cfg, mode, dryRun)
 	}
 
-	return summary, nil
+	return summary
 }
 
 func importStorages(ctx context.Context, apiClient *client.ImportClient, storages map[string]*config.Storage, mode client.ConflictMode, dryRun bool) client.ResourceSummary {

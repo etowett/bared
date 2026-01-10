@@ -43,7 +43,7 @@ func (c *ImportClient) Ping(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("authentication failed: invalid username or password")
@@ -64,7 +64,7 @@ func (c *ImportClient) StorageExists(ctx context.Context, name string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode == http.StatusNotFound {
 		return false, nil
@@ -84,7 +84,7 @@ func (c *ImportClient) NotifierExists(ctx context.Context, name string) (bool, e
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if err := parseAPIError(resp); err != nil {
 		return false, err
@@ -110,7 +110,7 @@ func (c *ImportClient) TargetExists(ctx context.Context, name string) (bool, err
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if err := parseAPIError(resp); err != nil {
 		return false, err
@@ -136,7 +136,7 @@ func (c *ImportClient) RestoreTargetExists(ctx context.Context, name string) (bo
 	if err != nil {
 		return false, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if err := parseAPIError(resp); err != nil {
 		return false, err
@@ -165,7 +165,7 @@ func (c *ImportClient) CreateStorage(ctx context.Context, storage *config.Storag
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -177,7 +177,7 @@ func (c *ImportClient) CreateNotifier(ctx context.Context, name string, notifier
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -189,7 +189,7 @@ func (c *ImportClient) CreateTarget(ctx context.Context, target *config.Target) 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -201,7 +201,7 @@ func (c *ImportClient) CreateRestoreTarget(ctx context.Context, rt *config.Resto
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -215,7 +215,7 @@ func (c *ImportClient) UpdateStorage(ctx context.Context, name string, storage *
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -227,7 +227,7 @@ func (c *ImportClient) UpdateNotifier(ctx context.Context, name string, notifier
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -239,7 +239,7 @@ func (c *ImportClient) UpdateTarget(ctx context.Context, name string, target *co
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -251,7 +251,7 @@ func (c *ImportClient) UpdateRestoreTarget(ctx context.Context, name string, rt 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -265,7 +265,7 @@ func (c *ImportClient) SetGlobalConfig(ctx context.Context, key, value string) e
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	return parseAPIError(resp)
 }
@@ -276,7 +276,7 @@ func (c *ImportClient) GetGlobalConfig(ctx context.Context) (map[string]string, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if err := parseAPIError(resp); err != nil {
 		return nil, err
@@ -380,9 +380,9 @@ func parseAPIError(resp *http.Response) error {
 
 func storageToAPIRequest(storage *config.Storage) api.StorageRequest {
 	req := api.StorageRequest{
-		Name: storage.Name,
-		Type: storage.Type,
-		Keep: storage.Keep,
+		Name:   storage.Name,
+		Type:   storage.Type,
+		Keep:   storage.Keep,
 		Config: make(map[string]interface{}),
 	}
 

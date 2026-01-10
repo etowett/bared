@@ -77,7 +77,7 @@ export function cronToHuman(cronExpr: string): string {
 
     // Fallback to showing the cron expression
     return cronExpr
-  } catch (error) {
+  } catch {
     return cronExpr
   }
 }
@@ -143,7 +143,7 @@ export function formatNextRun(nextRun: string | Date | null | undefined): string
     const absolute = formatAbsoluteTime(date, now)
 
     return `${relative} (${absolute})`
-  } catch (error) {
+  } catch {
     return 'Invalid date'
   }
 }
