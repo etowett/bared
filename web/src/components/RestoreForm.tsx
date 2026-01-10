@@ -319,13 +319,15 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
               <AlertTriangle className="h-5 w-5" />
               Confirm Restore
             </DialogTitle>
-            <DialogDescription className="space-y-2 pt-4">
-              <p>
-                You are about to restore database <strong>{selectedTargetInfo?.database}</strong> on{' '}
-                <strong>{selectedTargetInfo?.host}</strong>.
-              </p>
-              <p className="font-semibold">This will overwrite the existing database!</p>
-              <p className="text-sm">Backup path: {backupPath}</p>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-4">
+                <div>
+                  You are about to restore database <strong>{selectedTargetInfo?.database}</strong>{' '}
+                  on <strong>{selectedTargetInfo?.host}</strong>.
+                </div>
+                <div className="font-semibold">This will overwrite the existing database!</div>
+                <div className="text-sm">Backup path: {backupPath}</div>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
