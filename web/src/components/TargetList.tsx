@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatDate } from '@/lib/utils'
+import { cronToHuman, formatNextRun } from '@/utils/cron'
 import { toast } from 'sonner'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTriggerBackup } from '../hooks/useJobs'
@@ -72,17 +73,24 @@ export function TargetList({ targets }: TargetListProps) {
                     {target.last_backup ? formatDate(target.last_backup) : 'Never'}
                   </span>
                 </div>
-                {target.schedule && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">Schedule:</span>
-                    <span className="text-foreground font-mono">{target.schedule}</span>
-                  </div>
-                )}
+                <div className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground font-medium">Schedule:</span>
+                  {target.schedule ? (
+                    <>
+                      <span className="text-foreground">{cronToHuman(target.schedule)}</span>
+                      <span className="text-muted-foreground text-xs font-mono">
+                        {target.schedule}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Manual only</span>
+                  )}
+                </div>
                 {target.next_scheduled && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex flex-col gap-1 text-sm">
                     <span className="text-muted-foreground font-medium">Next Run:</span>
-                    <span className="text-foreground font-mono">
-                      {formatDate(target.next_scheduled)}
+                    <span className="text-foreground text-sm">
+                      {formatNextRun(target.next_scheduled)}
                     </span>
                   </div>
                 )}

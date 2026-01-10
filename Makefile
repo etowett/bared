@@ -175,10 +175,9 @@ run-daemon: web-build web-sync-dist build
 		--http-pass changeme
 
 # Run the daemon without building web UI (faster for backend-only development)
-run-daemon-fast: CGO=1
-run-daemon-fast: build
-	@echo "Starting daemon in development mode (backend only, no web rebuild)..."
-	./${BIN_DIR}/${BINARY_NAME} daemon \
+run-daemon-fast:
+	@echo "Starting daemon in development mode (go run, no build)..."
+	CGO_ENABLED=1 go run ${LDFLAGS} ./cmd/brd daemon \
 		--http :8080 \
 		--http-user admin \
 		--http-pass changeme

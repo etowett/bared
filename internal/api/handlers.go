@@ -6,12 +6,54 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/robfig/cron/v3"
 
 	"bared/internal/app"
 	"bared/internal/jobs"
 	"bared/internal/util"
 	"bared/internal/version"
 )
+
+// calculateNextRun calculates the next execution time for a cron expression
+func calculateNextRun(cronExpr string) (*time.Time, error) {
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	schedule, err := parser.Parse(cronExpr)
+	if err != nil {
+		return nil, err
+	}
+
+	next := schedule.Next(time.Now())
+	return &next, nil
+}
+
+// jobToResponse converts a job to a response with schedule information
+func (s *Server) jobToResponse(job *jobs.Job) JobResponse {
+	resp := JobToResponse(job)
+
+	// Add schedule context if target exists in config
+	if s.cfg != nil {
+		for _, target := range s.cfg.Targets {
+			if target.Name == job.TargetName {
+				// Add target's schedule if available
+				if target.Schedule != "" {
+					resp.TargetSchedule = &target.Schedule
+				}
+
+				// Determine trigger type
+				triggeredBy := "manual"
+				if !job.Manual {
+					triggeredBy = "schedule"
+				}
+				resp.TriggeredBy = &triggeredBy
+				break
+			}
+		}
+	}
+
+	return resp
+}
 
 // handleHealth returns the API health status
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -35,8 +77,16 @@ func (s *Server) handleListTargets(w http.ResponseWriter, _ *http.Request) {
 			IsRunning: s.jobManager.IsTargetRunning(target.Name),
 		}
 
+		// Calculate next scheduled run if target has a schedule
+		if target.Schedule != "" {
+			nextRun, err := calculateNextRun(target.Schedule)
+			if err == nil && nextRun != nil {
+				nextRunStr := nextRun.Format(time.RFC3339)
+				summary.NextScheduled = &nextRunStr
+			}
+		}
+
 		// TODO: Add last backup time from storage
-		// TODO: Add next scheduled time from cron
 
 		summaries = append(summaries, summary)
 	}
@@ -174,7 +224,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	// Convert to response format
 	responses := make([]JobResponse, 0, len(paginatedJobs))
 	for _, job := range paginatedJobs {
-		responses = append(responses, JobToResponse(job))
+		responses = append(responses, s.jobToResponse(job))
 	}
 
 	// Calculate pagination metadata
@@ -213,7 +263,7 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, JobToResponse(job))
+	respondJSON(w, http.StatusOK, s.jobToResponse(job))
 }
 
 // handleTriggerBackup triggers a manual backup
