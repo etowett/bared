@@ -73,19 +73,15 @@ export function TargetList({ targets }: TargetListProps) {
                     {target.last_backup ? formatDate(target.last_backup) : 'Never'}
                   </span>
                 </div>
-                <div className="flex flex-col gap-1 text-sm">
-                  <span className="text-muted-foreground font-medium">Schedule:</span>
-                  {target.schedule ? (
-                    <>
-                      <span className="text-foreground">{cronToHuman(target.schedule)}</span>
-                      <span className="text-muted-foreground text-xs font-mono">
-                        {target.schedule}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">Manual only</span>
-                  )}
-                </div>
+                {target.schedule && (
+                  <div className="flex flex-col gap-1 text-sm">
+                    <span className="text-muted-foreground font-medium">Schedule:</span>
+                    <span className="text-foreground">{cronToHuman(target.schedule)}</span>
+                    <span className="text-muted-foreground text-xs font-mono">
+                      {target.schedule}
+                    </span>
+                  </div>
+                )}
                 {target.next_scheduled && (
                   <div className="flex flex-col gap-1 text-sm">
                     <span className="text-muted-foreground font-medium">Next Run:</span>

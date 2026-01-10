@@ -104,7 +104,7 @@ function weekdayToName(weekday: string): string | null {
     '4': 'Thursday',
     '5': 'Friday',
     '6': 'Saturday',
-    '7': 'Sunday'
+    '7': 'Sunday',
   }
   return days[weekday] || null
 }
@@ -182,7 +182,7 @@ function formatAbsoluteTime(date: Date, now: Date): string {
   const time = date.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
   })
 
   if (isToday) {
@@ -196,7 +196,7 @@ function formatAbsoluteTime(date: Date, now: Date): string {
   const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })
   const monthDay = date.toLocaleDateString('en-US', {
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   })
 
   return `${dayName}, ${monthDay} at ${time}`

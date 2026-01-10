@@ -169,8 +169,10 @@ export function RestoreTargetForm({
           <div className="space-y-2">
             <Label htmlFor="source_target">Source Target (optional)</Label>
             <Select
-              value={formData.source_target || "__none__"}
-              onValueChange={(value) => setFormData({ ...formData, source_target: value === "__none__" ? "" : value })}
+              value={formData.source_target || '__none__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, source_target: value === '__none__' ? '' : value })
+              }
             >
               <SelectTrigger id="source_target">
                 <SelectValue placeholder="Select source target" />
@@ -283,8 +285,10 @@ export function RestoreTargetForm({
           <div className="space-y-2">
             <Label htmlFor="storage_name">Storage Backend (optional)</Label>
             <Select
-              value={formData.storage_name || "__default__"}
-              onValueChange={(value) => setFormData({ ...formData, storage_name: value === "__default__" ? "" : value })}
+              value={formData.storage_name || '__default__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, storage_name: value === '__default__' ? '' : value })
+              }
             >
               <SelectTrigger id="storage_name">
                 <SelectValue placeholder="Use default storage" />
