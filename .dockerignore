@@ -49,6 +49,16 @@ web/node_modules
 web/dist
 web/.vite
 web/.eslintcache
+web/coverage
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
 
 # Go module cache
 vendor/

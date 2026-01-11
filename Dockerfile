@@ -12,16 +12,17 @@ RUN --mount=type=cache,target=/root/.npm \
 
 # Copy frontend source and build
 COPY web/ ./
-RUN npm run build
+RUN --mount=type=cache,target=/app/web/node_modules \
+    npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.25-alpine AS backend-builder
+FROM golang:1.25.5-alpine AS backend-builder
 
 # Install build dependencies
 # Note: under some buildx/QEMU setups, apk trigger scripts can fail with
 # "* execve: No such file or directory". Skipping scripts for build deps keeps
 # the builder working while still producing a correct Go binary.
-RUN apk add --no-cache --no-scripts git make gcc musl-dev
+RUN apk add --no-cache --no-scripts git make gcc musl-dev sqlite-dev
 
 WORKDIR /app
 
@@ -48,7 +49,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o brd ./cmd/brd
 
 # Stage 3: Runtime
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Install runtime dependencies (database clients + wget for health checks)
 # Note: mysql-client provides mysql/mysqldump commands compatible with both MySQL and MariaDB
@@ -93,4 +94,4 @@ VOLUME ["/backups", "/etc/bared"]
 
 # Default command
 ENTRYPOINT ["/usr/local/bin/brd"]
-CMD ["daemon", "--config", "/etc/bared/bared.yml"]
+CMD ["daemon"]
