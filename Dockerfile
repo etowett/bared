@@ -67,18 +67,18 @@ RUN addgroup -g 1000 -S bared && \
     adduser -u 1000 -S -G bared bared
 
 # Create directories
-RUN mkdir -p /backups /etc/bared /tmp && \
-    chown -R bared:bared /backups /etc/bared /tmp
+RUN mkdir -p /backups /bared /tmp && \
+    chown -R bared:bared /backups /bared /tmp
 
 # Copy binary from builder
 COPY --from=backend-builder /app/brd /usr/local/bin/brd
 RUN chmod +x /usr/local/bin/brd
 
 # Set working directory (before switching user)
-WORKDIR /etc/bared
+WORKDIR /bared
 
 # Ensure working directory is writable by bared user
-RUN chown -R bared:bared /etc/bared
+RUN chown -R bared:bared /bared
 
 # Switch to non-root user
 USER bared
@@ -91,7 +91,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/api/health || exit 1
 
 # Volumes
-VOLUME ["/backups", "/etc/bared"]
+VOLUME ["/backups", "/bared"]
 
 # Default command
 ENTRYPOINT ["/usr/local/bin/brd"]
