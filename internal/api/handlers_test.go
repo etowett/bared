@@ -34,7 +34,7 @@ func setupTestServer(_ *testing.T) *Server {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -99,7 +99,7 @@ func TestHandleListRestoreTargets(t *testing.T) {
 		RestoreTargets: []*config.RestoreTarget{restoreTarget},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,

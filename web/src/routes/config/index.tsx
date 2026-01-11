@@ -1,31 +1,31 @@
-import { useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { SourceBadge } from '@/components/config/SourceBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SourceBadge } from '@/components/config/SourceBadge'
 import { StatCard } from '@/components/ui/stat-card'
 import {
-  useStorages,
-  useNotifiers,
-  useTargetsConfig,
-  useRestoreTargetsConfig,
   useConfigSource,
   useMigrateConfig,
+  useNotifiers,
   useReloadConfig,
+  useRestoreTargetsConfig,
+  useStorages,
+  useTargetsConfig,
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
+import type { ConfigSource, MigrateConfigResult, ReloadConfigResult } from '@/types'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
-  HardDrive,
-  Bell,
-  Database,
+  AlertCircle,
   ArrowDownToLine,
   ArrowRight,
+  Bell,
+  CheckCircle,
+  Database,
+  HardDrive,
   RefreshCw,
   Upload,
-  CheckCircle,
-  AlertCircle,
 } from 'lucide-react'
-import type { ConfigSource, MigrateConfigResult, ReloadConfigResult } from '@/types'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/config/')({
   component: ConfigDashboardPage,

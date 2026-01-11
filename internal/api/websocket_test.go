@@ -21,7 +21,7 @@ func TestHandleStreamJobLogs_InvalidJobID(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -60,7 +60,7 @@ func TestHandleStreamJobLogs_JobNotFound(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -86,7 +86,7 @@ func TestHandleStreamJobLogs_WebSocketUpgrade(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -148,7 +148,7 @@ func TestHandleStreamJobLogs_StreamNewLogs(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -218,7 +218,7 @@ func TestHandleStreamJobLogs_ClientDisconnect(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -266,7 +266,7 @@ func TestHandleStreamJobLogs_ContextCancellation(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -386,7 +386,7 @@ func TestHandleStreamJobLogs_MultipleClients(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,
@@ -464,7 +464,7 @@ func TestHandleStreamJobLogs_EmptyLogs(t *testing.T) {
 		Targets: []*config.Target{target},
 	}
 
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := &Server{
 		jobManager: mgr,
 		cfg:        cfg,

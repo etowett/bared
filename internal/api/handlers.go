@@ -323,9 +323,21 @@ func (s *Server) handleTriggerBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find target
-	target, err := s.cfg.FindTarget(req.Target)
-	if err != nil {
+	// Find target - try database first, fall back to static config
+	var target *config.Target
+	var err error
+	if s.configService != nil {
+		target, err = s.configService.GetTarget(r.Context(), req.Target)
+		if err != nil {
+			// Fall back to static config if database read fails
+			target, err = s.cfg.FindTarget(req.Target)
+		}
+	} else {
+		// No configService, use static config
+		target, err = s.cfg.FindTarget(req.Target)
+	}
+
+	if err != nil || target == nil {
 		respondError(w, http.StatusNotFound, "Target not found")
 		return
 	}
@@ -371,9 +383,33 @@ func (s *Server) handleTriggerRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve target (regular or restore target)
-	target, _, _, err := s.cfg.ResolveRestoreTarget(req.Target)
-	if err != nil {
+	// Resolve target (regular or restore target) - try database first, fall back to static config
+	var target *config.Target
+	var err error
+	if s.configService != nil {
+		// Try restore target first
+		restoreTarget, rtErr := s.configService.GetRestoreTarget(r.Context(), req.Target)
+		if rtErr == nil {
+			// Convert RestoreTarget to Target for restore operations
+			target = &config.Target{
+				Name:    restoreTarget.Name,
+				Conn:    restoreTarget.Conn,
+				Storage: restoreTarget.Storage,
+			}
+		} else {
+			// Fall back to regular target
+			target, err = s.configService.GetTarget(r.Context(), req.Target)
+			if err != nil {
+				// Fall back to static config if database read fails
+				target, _, _, err = s.cfg.ResolveRestoreTarget(req.Target)
+			}
+		}
+	} else {
+		// No configService, use static config
+		target, _, _, err = s.cfg.ResolveRestoreTarget(req.Target)
+	}
+
+	if err != nil || target == nil {
 		respondError(w, http.StatusNotFound, "Target or restore target not found")
 		return
 	}

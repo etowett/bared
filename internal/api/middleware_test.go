@@ -17,7 +17,7 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "admin",
@@ -45,7 +45,7 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "admin",
@@ -98,7 +98,7 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "admin",
@@ -227,7 +227,7 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "",
@@ -297,7 +297,7 @@ func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "admin",
@@ -325,7 +325,7 @@ func TestMiddlewareChaining(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
-	mgr := jobs.NewManager(cfg, nil, 2, 10)
+	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
 	server := &Server{
 		authUser:   "admin",

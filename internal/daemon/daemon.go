@@ -167,7 +167,7 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 	}
 
 	// Create job manager
-	d.jobManager = jobs.NewManager(cfg, store, d.maxConcurrentJobs, d.jobHistorySize)
+	d.jobManager = jobs.NewManager(cfg, store, configSvc, d.maxConcurrentJobs, d.jobHistorySize)
 
 	// Initialize HTTP server if configured
 	if d.httpAddr != "" {

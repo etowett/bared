@@ -9,6 +9,7 @@ import (
 
 	"bared/internal/app"
 	"bared/internal/config"
+	"bared/internal/configservice"
 	"bared/internal/notify"
 	"bared/internal/util"
 )
@@ -24,12 +25,13 @@ type Manager struct {
 	wg            sync.WaitGroup
 	mu            sync.RWMutex
 
-	cfg   *config.Config
-	store JobStore
+	cfg           *config.Config
+	store         JobStore
+	configService *configservice.Service
 }
 
 // NewManager creates a new job manager
-func NewManager(cfg *config.Config, store JobStore, maxConcurrent, maxHistory int) *Manager {
+func NewManager(cfg *config.Config, store JobStore, configService *configservice.Service, maxConcurrent, maxHistory int) *Manager {
 	return &Manager{
 		jobs:          make(map[JobID]*Job),
 		runningJobs:   make(map[string]*Job),
@@ -39,6 +41,7 @@ func NewManager(cfg *config.Config, store JobStore, maxConcurrent, maxHistory in
 		shutdown:      make(chan struct{}),
 		cfg:           cfg,
 		store:         store,
+		configService: configService,
 	}
 }
 
@@ -203,8 +206,8 @@ func (m *Manager) executeJob(job *Job) {
 	})
 	defer util.SetLogHook(oldHook)
 
-	// Find target config (try restore target first, fall back to regular target)
-	target, _, _, err := m.cfg.ResolveRestoreTarget(job.TargetName)
+	// Find target config - try database first, fall back to static config
+	target, cfg, err := m.resolveTargetWithStorage(job.Context(), job.TargetName)
 	if err != nil {
 		targetErr := fmt.Errorf("target not found: %w", err)
 		job.MarkFailed(targetErr)
@@ -226,7 +229,7 @@ func (m *Manager) executeJob(job *Job) {
 	// Execute based on job type
 	switch job.Type {
 	case JobTypeBackup:
-		result, err := app.BackupTarget(job.Context(), m.cfg, target, job.Progress)
+		result, err := app.BackupTarget(job.Context(), cfg, target, job.Progress)
 		if err != nil {
 			logger := util.GetLogger()
 			// Check if cancelled
@@ -285,7 +288,7 @@ func (m *Manager) executeJob(job *Job) {
 		if options == nil {
 			options = &app.RestoreOptions{}
 		}
-		result, err := app.RestoreTargetWithOptions(job.Context(), m.cfg, target, job.BackupPath, options, job.Progress)
+		result, err := app.RestoreTargetWithOptions(job.Context(), cfg, target, job.BackupPath, options, job.Progress)
 		if err != nil {
 			logger := util.GetLogger()
 			if job.GetStatus() == JobStatusCancelling {
@@ -484,6 +487,125 @@ func (m *Manager) GetJob(jobID JobID) (*Job, error) {
 	}
 
 	return job, nil
+}
+
+// resolveTargetWithStorage resolves a target from DB or config and ensures its storage/notifier references are populated
+func (m *Manager) resolveTargetWithStorage(ctx context.Context, targetName string) (*config.Target, *config.Config, error) {
+	// Try to get target from configService first (database)
+	if m.configService != nil {
+		target, err := m.configService.GetTarget(ctx, targetName)
+		if err == nil {
+			// Target found in DB, now resolve storage reference
+			if target.Storage != nil && target.Storage.Enabled && target.Storage.Name != "" {
+				storage, err := m.configService.GetStorage(ctx, target.Storage.Name)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to resolve storage '%s' for target '%s': %w", target.Storage.Name, targetName, err)
+				}
+				// Replace storage reference with full storage config
+				target.Storage = &config.TargetStorage{
+					Enabled: true,
+					Name:    storage.Name,
+				}
+
+				// Create a temporary config with the resolved storage and notifiers
+				tempCfg := &config.Config{
+					Storages: map[string]*config.Storage{
+						storage.Name: storage,
+					},
+					Targets: []*config.Target{target},
+				}
+
+				// Get default storage if set
+				if defaultStorage, err := m.configService.GetGlobalConfig(ctx, "default_storage"); err == nil && defaultStorage != "" {
+					tempCfg.DefaultStorage = defaultStorage
+					// Ensure default storage is in the map
+					if _, exists := tempCfg.Storages[defaultStorage]; !exists {
+						if ds, err := m.configService.GetStorage(ctx, defaultStorage); err == nil {
+							tempCfg.Storages[defaultStorage] = ds
+						}
+					}
+				}
+
+				// Get notifiers
+				notifiers, err := m.configService.ListNotifiers(ctx)
+				if err == nil {
+					tempCfg.Notifiers = notifiers
+				}
+
+				return target, tempCfg, nil
+			}
+
+			// No storage reference, try to use default storage
+			defaultStorage, err := m.configService.GetGlobalConfig(ctx, "default_storage")
+			if err == nil && defaultStorage != "" {
+				storage, err := m.configService.GetStorage(ctx, defaultStorage)
+				if err == nil {
+					tempCfg := &config.Config{
+						DefaultStorage: defaultStorage,
+						Storages: map[string]*config.Storage{
+							storage.Name: storage,
+						},
+						Targets: []*config.Target{target},
+					}
+
+					// Get notifiers
+					notifiers, err := m.configService.ListNotifiers(ctx)
+					if err == nil {
+						tempCfg.Notifiers = notifiers
+					}
+
+					return target, tempCfg, nil
+				}
+			}
+
+			return target, m.cfg, nil
+		}
+
+		// Try restore target from DB
+		restoreTarget, err := m.configService.GetRestoreTarget(ctx, targetName)
+		if err == nil {
+			// Convert to regular target for restore operations
+			target := &config.Target{
+				Name:    restoreTarget.Name,
+				Conn:    restoreTarget.Conn,
+				Storage: restoreTarget.Storage,
+			}
+
+			// Resolve storage if present
+			if restoreTarget.Storage != nil && restoreTarget.Storage.Enabled && restoreTarget.Storage.Name != "" {
+				storage, err := m.configService.GetStorage(ctx, restoreTarget.Storage.Name)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to resolve storage '%s' for restore target '%s': %w", restoreTarget.Storage.Name, targetName, err)
+				}
+
+				tempCfg := &config.Config{
+					Storages: map[string]*config.Storage{
+						storage.Name: storage,
+					},
+					Targets:        []*config.Target{target},
+					RestoreTargets: []*config.RestoreTarget{restoreTarget},
+				}
+
+				// Get notifiers
+				notifiers, err := m.configService.ListNotifiers(ctx)
+				if err == nil {
+					tempCfg.Notifiers = notifiers
+				}
+
+				return target, tempCfg, nil
+			}
+
+			return target, m.cfg, nil
+		}
+	}
+
+	// Fall back to static config
+	target, _, _, err := m.cfg.ResolveRestoreTarget(targetName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("target not found: %w", err)
+	}
+
+	return target, m.cfg, nil
 }
 
 func jobMatchesFilter(job *Job, filter JobFilter) bool {
