@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/app/web/node_modules \
     npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.25.5-alpine AS backend-builder
+FROM golang:1.26.1-alpine AS backend-builder
 
 # Install build dependencies
 # Note: under some buildx/QEMU setups, apk trigger scripts can fail with

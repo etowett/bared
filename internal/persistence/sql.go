@@ -390,11 +390,13 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs
 		args = append(args, filter.Type)
 	}
 
-	query := `SELECT id, type, target_name, status, created_at, started_at, completed_at, result_json, error, manual FROM jobs`
+	var qb strings.Builder
+	qb.WriteString(`SELECT id, type, target_name, status, created_at, started_at, completed_at, result_json, error, manual FROM jobs`)
 	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		qb.WriteString(" WHERE ")
+		qb.WriteString(strings.Join(conditions, " AND "))
 	}
-	query += " ORDER BY created_at DESC"
+	qb.WriteString(" ORDER BY created_at DESC")
 
 	limit := filter.Limit
 	if limit <= 0 {
@@ -405,7 +407,8 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs
 		offset = 0
 	}
 
-	query += " LIMIT ? OFFSET ?"
+	qb.WriteString(" LIMIT ? OFFSET ?")
+	query := qb.String() /* #nosec G202 -- conditions are hardcoded column names with parameterized values */
 	args = append(args, limit, offset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
