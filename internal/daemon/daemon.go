@@ -455,16 +455,7 @@ func (d *Daemon) Stop() error {
 
 // Reload reloads the configuration and reschedules targets
 func (d *Daemon) Reload() error {
-	logger := util.GetLogger()
-	// TODO: Implement configuration reload
-	// This would involve:
-	// 1. Loading new configuration
-	// 2. Stopping scheduler
-	// 3. Rescheduling targets with new config
-	// 4. Starting scheduler
-	logger.InfoS("Configuration reload not yet fully implemented",
-		"component", "daemon")
-	return nil
+	return d.reloadConfiguration()
 }
 
 // scheduleTarget adds a target to the scheduler

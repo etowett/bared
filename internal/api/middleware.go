@@ -9,28 +9,28 @@ import (
 )
 
 // basicAuthMiddleware handles HTTP Basic Authentication
-func (s *Server) basicAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) basicAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if !ok || user != s.authUser || pass != s.authPass {
 			w.Header().Set("WWW-Authenticate", `Basic realm="BareD API"`)
 			respondError(w, http.StatusUnauthorized, "Authentication required")
 			return
 		}
-		next(w, r)
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // loggingMiddleware logs HTTP requests
-func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := util.GetLogger()
 		start := time.Now()
 
 		// Create a response writer wrapper to capture status code
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
-		next(wrapped, r)
+		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
 		logger.InfoS("HTTP request",
@@ -39,7 +39,7 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			"path", r.URL.Path,
 			"status", wrapped.statusCode,
 			"duration", duration)
-	}
+	})
 }
 
 // responseWriter wraps http.ResponseWriter to capture status code
@@ -54,10 +54,10 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 // corsMiddleware adds CORS headers for development
-func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		// Handle preflight requests
@@ -66,8 +66,8 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		next(w, r)
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // respondJSON writes a JSON response

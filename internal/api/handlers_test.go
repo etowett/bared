@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -142,44 +143,28 @@ func TestHandleListJobs_Empty(t *testing.T) {
 func TestHandleGetJob_NotFound(t *testing.T) {
 	server := setupTestServer(t)
 
+	// Use chi router to inject URL params
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}", server.handleGetJob)
+
 	req := httptest.NewRequest("GET", "/api/jobs/nonexistent-id", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleGetJob(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleGetJob_InvalidPath(t *testing.T) {
-	server := setupTestServer(t)
-
-	req := httptest.NewRequest("GET", "/api/jobs/", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleGetJob(rr, req)
-
-	// /api/jobs/ path results in 404 because split gives ["", "api", "jobs", ""]
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleTriggerBackup_MethodNotAllowed(t *testing.T) {
-	server := setupTestServer(t)
-
-	req := httptest.NewRequest("GET", "/api/jobs/backup", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTriggerBackup(rr, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }
 
 func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBufferString("invalid json"))
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+
+	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerBackup(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -187,13 +172,16 @@ func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
 func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
 	server := setupTestServer(t)
 
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+
 	reqBody := TriggerBackupRequest{Target: ""}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerBackup(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -201,13 +189,16 @@ func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
 func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 	server := setupTestServer(t)
 
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+
 	reqBody := TriggerBackupRequest{Target: "nonexistent-target"}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerBackup(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
@@ -215,10 +206,13 @@ func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBufferString("invalid json"))
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+
+	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerRestore(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -226,16 +220,19 @@ func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
 func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 	server := setupTestServer(t)
 
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+
 	reqBody := TriggerRestoreRequest{
 		Target:     "",
 		BackupPath: "backup.tar.gz",
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerRestore(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -243,16 +240,19 @@ func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 	server := setupTestServer(t)
 
+	r := chi.NewRouter()
+	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+
 	reqBody := TriggerRestoreRequest{
 		Target:     "test-target",
 		BackupPath: "",
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
-	server.handleTriggerRestore(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -260,44 +260,27 @@ func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 func TestHandleCancelJob_NotFound(t *testing.T) {
 	server := setupTestServer(t)
 
-	req := httptest.NewRequest("DELETE", "/api/jobs/nonexistent-id/cancel", nil)
+	r := chi.NewRouter()
+	r.Delete("/api/jobs/{id}", server.handleCancelJob)
+
+	req := httptest.NewRequest("DELETE", "/api/jobs/nonexistent-id", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleCancelJob(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleCancelJob_InvalidPath(t *testing.T) {
-	server := setupTestServer(t)
-
-	req := httptest.NewRequest("DELETE", "/api/jobs/cancel", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleCancelJob(rr, req)
-
-	// "cancel" becomes the job ID and is not found
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleCancelJob_MethodNotAllowed(t *testing.T) {
-	server := setupTestServer(t)
-
-	req := httptest.NewRequest("POST", "/api/jobs/someid/cancel", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleCancelJob(rr, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }
 
 func TestHandleGetJobLogs_NotFound(t *testing.T) {
 	server := setupTestServer(t)
 
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs", server.handleGetJobLogs)
+
 	req := httptest.NewRequest("GET", "/api/jobs/nonexistent-id/logs", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleGetJobLogs(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
@@ -367,7 +350,7 @@ func TestJobToResponse(t *testing.T) {
 	assert.Equal(t, "test-target", response.Target)
 	assert.Equal(t, "completed", response.Status)
 	assert.True(t, response.Manual)
-	assert.NotNil(t, response.CreatedAt)
+	assert.NotEmpty(t, response.CreatedAt)
 	assert.NotNil(t, response.StartedAt)
 	assert.NotNil(t, response.CompletedAt)
 }

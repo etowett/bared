@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"bared/internal/config"
 	"bared/internal/configservice"
 )
@@ -14,11 +16,6 @@ import (
 // Storage handlers
 
 func (s *Server) handleListStorages(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	ctx := r.Context()
 	storages, err := s.configService.ListStorages(ctx)
 	if err != nil {
@@ -43,12 +40,7 @@ func (s *Server) handleListStorages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetStorage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/storages/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Storage name is required")
 		return
@@ -68,11 +60,6 @@ func (s *Server) handleGetStorage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateStorage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var req StorageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
@@ -105,12 +92,7 @@ func (s *Server) handleCreateStorage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateStorage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/storages/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Storage name is required")
 		return
@@ -148,12 +130,7 @@ func (s *Server) handleUpdateStorage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteStorage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/storages/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Storage name is required")
 		return
@@ -177,11 +154,6 @@ func (s *Server) handleDeleteStorage(w http.ResponseWriter, r *http.Request) {
 // Notifier handlers
 
 func (s *Server) handleListNotifiers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	ctx := r.Context()
 	notifiers, err := s.configService.ListNotifiers(ctx)
 	if err != nil {
@@ -206,11 +178,6 @@ func (s *Server) handleListNotifiers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateNotifier(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var req NotifierRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
@@ -240,12 +207,7 @@ func (s *Server) handleCreateNotifier(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateNotifier(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/notifiers/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Notifier name is required")
 		return
@@ -281,12 +243,7 @@ func (s *Server) handleUpdateNotifier(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteNotifier(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/notifiers/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Notifier name is required")
 		return
@@ -310,11 +267,6 @@ func (s *Server) handleDeleteNotifier(w http.ResponseWriter, r *http.Request) {
 // Target handlers
 
 func (s *Server) handleListTargetsConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	ctx := r.Context()
 	targets, err := s.configService.ListTargets(ctx)
 	if err != nil {
@@ -337,11 +289,6 @@ func (s *Server) handleListTargetsConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleCreateTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var req TargetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
@@ -373,15 +320,7 @@ func (s *Server) handleCreateTarget(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/targets/")
-	// Remove /schedule suffix if present
-	name = strings.TrimSuffix(name, "/schedule")
-
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Target name is required")
 		return
@@ -418,19 +357,11 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateTargetSchedule(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	name := chi.URLParam(r, "name")
+	if name == "" {
+		respondError(w, http.StatusBadRequest, "Target name is required")
 		return
 	}
-
-	// Extract name from /api/config/targets/{name}/schedule
-	path := strings.TrimPrefix(r.URL.Path, "/api/config/targets/")
-	parts := strings.Split(path, "/")
-	if len(parts) != 2 || parts[1] != "schedule" {
-		respondError(w, http.StatusBadRequest, "Invalid path format")
-		return
-	}
-	name := parts[0]
 
 	var req UpdateScheduleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -447,6 +378,9 @@ func (s *Server) handleUpdateTargetSchedule(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Trigger hot reload so the scheduler picks up the new schedule
+	s.triggerReload()
+
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "Target schedule updated successfully",
 		"name":    name,
@@ -454,12 +388,7 @@ func (s *Server) handleUpdateTargetSchedule(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) handleDeleteTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/targets/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Target name is required")
 		return
@@ -483,11 +412,6 @@ func (s *Server) handleDeleteTarget(w http.ResponseWriter, r *http.Request) {
 // RestoreTarget handlers
 
 func (s *Server) handleListRestoreTargetsConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	ctx := r.Context()
 	restoreTargets, err := s.configService.ListRestoreTargets(ctx)
 	if err != nil {
@@ -510,11 +434,6 @@ func (s *Server) handleListRestoreTargetsConfig(w http.ResponseWriter, r *http.R
 }
 
 func (s *Server) handleCreateRestoreTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	var req RestoreTargetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
@@ -551,12 +470,7 @@ func (s *Server) handleCreateRestoreTarget(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) handleUpdateRestoreTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/restore-targets/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Restore target name is required")
 		return
@@ -599,12 +513,7 @@ func (s *Server) handleUpdateRestoreTarget(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) handleDeleteRestoreTarget(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	name := strings.TrimPrefix(r.URL.Path, "/api/config/restore-targets/")
+	name := chi.URLParam(r, "name")
 	if name == "" {
 		respondError(w, http.StatusBadRequest, "Restore target name is required")
 		return
@@ -628,11 +537,6 @@ func (s *Server) handleDeleteRestoreTarget(w http.ResponseWriter, r *http.Reques
 // Global config handlers
 
 func (s *Server) handleGetGlobalConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	ctx := r.Context()
 	configs, err := s.configService.ListGlobalConfig(ctx)
 	if err != nil {
@@ -651,12 +555,7 @@ func (s *Server) handleGetGlobalConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateGlobalConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	key := strings.TrimPrefix(r.URL.Path, "/api/config/global/")
+	key := chi.URLParam(r, "key")
 	if key == "" {
 		respondError(w, http.StatusBadRequest, "Config key is required")
 		return
@@ -683,11 +582,6 @@ func (s *Server) handleUpdateGlobalConfig(w http.ResponseWriter, r *http.Request
 // Utility handlers
 
 func (s *Server) handleMigrateConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	if s.cfg == nil {
 		respondError(w, http.StatusBadRequest, "No YAML configuration available to migrate")
 		return
@@ -707,11 +601,6 @@ func (s *Server) handleMigrateConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleReloadConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Trigger reload via channel (if daemon is set up to listen)
 	if s.reloadChan != nil {
 		select {
@@ -730,11 +619,6 @@ func (s *Server) handleReloadConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetConfigSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	source, err := s.configLoader.GetConfigSource(r.Context())
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to get config source: %v", err))
@@ -744,6 +628,17 @@ func (s *Server) handleGetConfigSource(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, ConfigSourceResponse{
 		Source: string(source),
 	})
+}
+
+// triggerReload sends a non-blocking reload signal to the daemon
+func (s *Server) triggerReload() {
+	if s.reloadChan != nil {
+		select {
+		case s.reloadChan <- struct{}{}:
+		default:
+			// Reload already pending
+		}
+	}
 }
 
 // Helper functions for converting between types
@@ -1112,131 +1007,4 @@ func (s *Server) requestToRestoreTarget(req *RestoreTargetRequest) *config.Resto
 	}
 
 	return rt
-}
-
-// Router functions for config endpoints
-
-func (s *Server) handleStoragesRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleListStorages(w, r)
-	case http.MethodPost:
-		s.handleCreateStorage(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleStoragesDetailRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleGetStorage(w, r)
-	case http.MethodPut:
-		s.handleUpdateStorage(w, r)
-	case http.MethodDelete:
-		s.handleDeleteStorage(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleNotifiersRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleListNotifiers(w, r)
-	case http.MethodPost:
-		s.handleCreateNotifier(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleNotifiersDetailRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		// Get single notifier would go here
-		respondError(w, http.StatusNotImplemented, "Get single notifier not implemented")
-	case http.MethodPut:
-		s.handleUpdateNotifier(w, r)
-	case http.MethodDelete:
-		s.handleDeleteNotifier(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleTargetsConfigRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleListTargetsConfig(w, r)
-	case http.MethodPost:
-		s.handleCreateTarget(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleTargetsConfigDetailRouter(w http.ResponseWriter, r *http.Request) {
-	// Check if path ends with /schedule
-	if strings.HasSuffix(r.URL.Path, "/schedule") {
-		if r.Method == http.MethodPatch {
-			s.handleUpdateTargetSchedule(w, r)
-		} else {
-			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		}
-		return
-	}
-
-	switch r.Method {
-	case http.MethodGet:
-		// Get single target would go here
-		respondError(w, http.StatusNotImplemented, "Get single target not implemented")
-	case http.MethodPut:
-		s.handleUpdateTarget(w, r)
-	case http.MethodDelete:
-		s.handleDeleteTarget(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleRestoreTargetsRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleListRestoreTargetsConfig(w, r)
-	case http.MethodPost:
-		s.handleCreateRestoreTarget(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleRestoreTargetsDetailRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		// Get single restore target would go here
-		respondError(w, http.StatusNotImplemented, "Get single restore target not implemented")
-	case http.MethodPut:
-		s.handleUpdateRestoreTarget(w, r)
-	case http.MethodDelete:
-		s.handleDeleteRestoreTarget(w, r)
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleGlobalConfigRouter(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		s.handleGetGlobalConfig(w, r)
-	} else {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-func (s *Server) handleGlobalConfigDetailRouter(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPut {
-		s.handleUpdateGlobalConfig(w, r)
-	} else {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
 }
