@@ -2,15 +2,15 @@ name: Web Frontend CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'web/**'
-      - '.github/workflows/web-ci.yml'
+      - "web/**"
+      - ".github/workflows/web-ci.yml"
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - 'web/**'
-      - '.github/workflows/web-ci.yml'
+      - "web/**"
+      - ".github/workflows/web-ci.yml"
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version-file: web/.nvmrc
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
@@ -74,12 +74,12 @@ jobs:
           echo "Build output verified successfully"
           ls -lh web/dist/
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v5
-        with:
-          name: web-dist
-          path: web/dist
-          retention-days: 7
+      # - name: Upload build artifacts
+      #   uses: actions/upload-artifact@v5
+      #   with:
+      #     name: web-dist
+      #     path: web/dist
+      #     retention-days: 7
 
       - name: Generate validation summary
         if: always()

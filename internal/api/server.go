@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"bared/internal/config"
 	"bared/internal/configservice"
@@ -45,11 +46,11 @@ func NewServer(addr, authUser, authPass string, jobManager *jobs.Manager, cfg *c
 // Start starts the HTTP server
 func (s *Server) Start() error {
 	logger := util.GetLogger()
-	mux := s.setupRoutes()
+	r := s.setupRoutes()
 
 	s.httpServer = &http.Server{
 		Addr:         s.addr,
-		Handler:      mux,
+		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -77,104 +78,77 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // setupRoutes configures all API routes
-func (s *Server) setupRoutes() *http.ServeMux {
-	mux := http.NewServeMux()
+func (s *Server) setupRoutes() chi.Router {
+	r := chi.NewRouter()
+
+	// Global middleware
+	r.Use(corsMiddleware)
 
 	// Health check (no auth required)
-	mux.HandleFunc("/api/health", corsMiddleware(s.handleHealth))
+	r.Get("/api/health", s.handleHealth)
 
-	// API routes (require authentication)
-	mux.HandleFunc("/api/dashboard", corsMiddleware(s.basicAuthMiddleware(s.handleDashboard)))
-	mux.HandleFunc("/api/targets", corsMiddleware(s.basicAuthMiddleware(s.handleListTargets)))
-	mux.HandleFunc("/api/restore-targets", corsMiddleware(s.basicAuthMiddleware(s.handleListRestoreTargets)))
-	mux.HandleFunc("/api/jobs", corsMiddleware(s.basicAuthMiddleware(s.handleJobsRouter)))
-	mux.HandleFunc("/api/jobs/", corsMiddleware(s.basicAuthMiddleware(s.handleJobsDetailRouter)))
+	// Authenticated routes
+	r.Group(func(r chi.Router) {
+		r.Use(s.basicAuthMiddleware)
 
-	// Config management routes (require authentication)
-	if s.configService != nil {
-		// Storages
-		mux.HandleFunc("/api/config/storages", corsMiddleware(s.basicAuthMiddleware(s.handleStoragesRouter)))
-		mux.HandleFunc("/api/config/storages/", corsMiddleware(s.basicAuthMiddleware(s.handleStoragesDetailRouter)))
+		r.Get("/api/dashboard", s.handleDashboard)
+		r.Get("/api/targets", s.handleListTargets)
+		r.Get("/api/restore-targets", s.handleListRestoreTargets)
 
-		// Notifiers
-		mux.HandleFunc("/api/config/notifiers", corsMiddleware(s.basicAuthMiddleware(s.handleNotifiersRouter)))
-		mux.HandleFunc("/api/config/notifiers/", corsMiddleware(s.basicAuthMiddleware(s.handleNotifiersDetailRouter)))
+		// Jobs
+		r.Get("/api/jobs", s.handleListJobs)
+		r.Route("/api/jobs/{id}", func(r chi.Router) {
+			r.Get("/", s.handleGetJob)
+			r.Delete("/", s.handleCancelJob)
+			r.Post("/backup", s.handleTriggerBackup)
+			r.Post("/restore", s.handleTriggerRestore)
+			r.Get("/logs", s.handleGetJobLogs)
+			r.Get("/logs/stream", s.handleStreamJobLogs)
+		})
 
-		// Targets
-		mux.HandleFunc("/api/config/targets", corsMiddleware(s.basicAuthMiddleware(s.handleTargetsConfigRouter)))
-		mux.HandleFunc("/api/config/targets/", corsMiddleware(s.basicAuthMiddleware(s.handleTargetsConfigDetailRouter)))
+		// Config management routes
+		if s.configService != nil {
+			r.Route("/api/config", func(r chi.Router) {
+				// Storages
+				r.Get("/storages", s.handleListStorages)
+				r.Post("/storages", s.handleCreateStorage)
+				r.Get("/storages/{name}", s.handleGetStorage)
+				r.Put("/storages/{name}", s.handleUpdateStorage)
+				r.Delete("/storages/{name}", s.handleDeleteStorage)
 
-		// Restore targets
-		mux.HandleFunc("/api/config/restore-targets", corsMiddleware(s.basicAuthMiddleware(s.handleRestoreTargetsRouter)))
-		mux.HandleFunc("/api/config/restore-targets/", corsMiddleware(s.basicAuthMiddleware(s.handleRestoreTargetsDetailRouter)))
+				// Notifiers
+				r.Get("/notifiers", s.handleListNotifiers)
+				r.Post("/notifiers", s.handleCreateNotifier)
+				r.Put("/notifiers/{name}", s.handleUpdateNotifier)
+				r.Delete("/notifiers/{name}", s.handleDeleteNotifier)
 
-		// Global config
-		mux.HandleFunc("/api/config/global", corsMiddleware(s.basicAuthMiddleware(s.handleGlobalConfigRouter)))
-		mux.HandleFunc("/api/config/global/", corsMiddleware(s.basicAuthMiddleware(s.handleGlobalConfigDetailRouter)))
+				// Targets
+				r.Get("/targets", s.handleListTargetsConfig)
+				r.Post("/targets", s.handleCreateTarget)
+				r.Put("/targets/{name}", s.handleUpdateTarget)
+				r.Patch("/targets/{name}/schedule", s.handleUpdateTargetSchedule)
+				r.Delete("/targets/{name}", s.handleDeleteTarget)
 
-		// Utility endpoints
-		mux.HandleFunc("/api/config/migrate", corsMiddleware(s.basicAuthMiddleware(s.handleMigrateConfig)))
-		mux.HandleFunc("/api/config/reload", corsMiddleware(s.basicAuthMiddleware(s.handleReloadConfig)))
-		mux.HandleFunc("/api/config/source", corsMiddleware(s.basicAuthMiddleware(s.handleGetConfigSource)))
-	}
+				// Restore targets
+				r.Get("/restore-targets", s.handleListRestoreTargetsConfig)
+				r.Post("/restore-targets", s.handleCreateRestoreTarget)
+				r.Put("/restore-targets/{name}", s.handleUpdateRestoreTarget)
+				r.Delete("/restore-targets/{name}", s.handleDeleteRestoreTarget)
+
+				// Global config
+				r.Get("/global", s.handleGetGlobalConfig)
+				r.Put("/global/{key}", s.handleUpdateGlobalConfig)
+
+				// Utility endpoints
+				r.Post("/migrate", s.handleMigrateConfig)
+				r.Post("/reload", s.handleReloadConfig)
+				r.Get("/source", s.handleGetConfigSource)
+			})
+		}
+	})
 
 	// Serve React SPA for all non-API routes
-	mux.Handle("/", web.GetHandler())
+	r.NotFound(web.GetHandler().ServeHTTP)
 
-	return mux
-}
-
-// handleJobsRouter routes /api/jobs requests
-func (s *Server) handleJobsRouter(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.handleListJobs(w, r)
-	case http.MethodPost:
-		// Check sub-path for backup or restore
-		// This is handled by specific routes in production
-		respondError(w, http.StatusBadRequest, "Use /api/jobs/backup or /api/jobs/restore")
-	default:
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-	}
-}
-
-// handleJobsDetailRouter routes /api/jobs/{id}/* requests
-func (s *Server) handleJobsDetailRouter(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-
-	// Handle backup/restore triggers
-	if strings.HasSuffix(path, "/backup") {
-		s.handleTriggerBackup(w, r)
-		return
-	}
-	if strings.HasSuffix(path, "/restore") {
-		s.handleTriggerRestore(w, r)
-		return
-	}
-
-	// Handle job-specific routes
-	if strings.Contains(path, "/logs/stream") {
-		s.handleStreamJobLogs(w, r)
-		return
-	}
-	if strings.HasSuffix(path, "/logs") {
-		s.handleGetJobLogs(w, r)
-		return
-	}
-
-	// Get single job
-	parts := strings.Split(path, "/")
-	if len(parts) >= 4 && parts[3] != "" {
-		switch r.Method {
-		case http.MethodGet:
-			s.handleGetJob(w, r)
-		case http.MethodDelete:
-			s.handleCancelJob(w, r)
-		default:
-			respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		}
-		return
-	}
-
-	respondError(w, http.StatusNotFound, "Not found")
+	return r
 }

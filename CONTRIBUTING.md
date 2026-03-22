@@ -6,7 +6,7 @@ Thank you for your interest in contributing to BareD! This document provides gui
 
 ### Prerequisites
 
-- Go 1.25.5
+- Go 1.26.1
 - Make (optional but recommended)
 - Docker and Docker Compose (for testing)
 - golangci-lint (for code quality checks)
@@ -18,7 +18,7 @@ Thank you for your interest in contributing to BareD! This document provides gui
 ```bash
 git clone <repository-url>
 cd bared
-```
+```s
 
 2. Set up the development environment:
 

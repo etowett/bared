@@ -26,16 +26,16 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
-	})
+	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:secret")))
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "success", rr.Body.String())
@@ -78,15 +78,15 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+			handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
-			})
+			}))
 
 			req := httptest.NewRequest("GET", "/api/test", nil)
 			req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(tt.username+":"+tt.password)))
 			rr := httptest.NewRecorder()
 
-			handler(rr, req)
+			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, http.StatusUnauthorized, rr.Code)
 			assert.Equal(t, `Basic realm="BareD API"`, rr.Header().Get("WWW-Authenticate"))
@@ -107,29 +107,29 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 	assert.Equal(t, `Basic realm="BareD API"`, rr.Header().Get("WWW-Authenticate"))
 }
 
 func TestLoggingMiddleware(t *testing.T) {
-	handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := loggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test response"))
-	})
+	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "test response", rr.Body.String())
@@ -147,14 +147,14 @@ func TestLoggingMiddleware_CapturesStatusCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+			handler := loggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.statusCode)
-			})
+			}))
 
 			req := httptest.NewRequest("GET", "/api/test", nil)
 			rr := httptest.NewRecorder()
 
-			handler(rr, req)
+			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.statusCode, rr.Code)
 		})
@@ -162,32 +162,32 @@ func TestLoggingMiddleware_CapturesStatusCode(t *testing.T) {
 }
 
 func TestCorsMiddleware(t *testing.T) {
-	handler := corsMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("cors enabled"))
-	})
+	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
-	assert.Equal(t, "GET, POST, DELETE, OPTIONS", rr.Header().Get("Access-Control-Allow-Methods"))
+	assert.Equal(t, "GET, POST, PUT, PATCH, DELETE, OPTIONS", rr.Header().Get("Access-Control-Allow-Methods"))
 	assert.Equal(t, "Content-Type, Authorization", rr.Header().Get("Access-Control-Allow-Headers"))
 	assert.Equal(t, "cors enabled", rr.Body.String())
 }
 
 func TestCorsMiddleware_PreflightRequest(t *testing.T) {
-	handler := corsMiddleware(func(_ http.ResponseWriter, _ *http.Request) {
+	handler := corsMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatal("Handler should not be called for OPTIONS request")
-	})
+	}))
 
 	req := httptest.NewRequest("OPTIONS", "/api/test", nil)
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
@@ -236,15 +236,15 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(":")))
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -254,14 +254,14 @@ func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
 
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
-			handler := loggingMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+			handler := loggingMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
-			})
+			}))
 
 			req := httptest.NewRequest(method, "/api/test", nil)
 			rr := httptest.NewRecorder()
 
-			handler(rr, req)
+			handler.ServeHTTP(rr, req)
 
 			assert.Equal(t, http.StatusOK, rr.Code)
 		})
@@ -269,9 +269,9 @@ func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
 }
 
 func TestCorsMiddleware_DifferentOrigins(t *testing.T) {
-	handler := corsMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 
 	origins := []string{
 		"http://localhost:3000",
@@ -285,7 +285,7 @@ func TestCorsMiddleware_DifferentOrigins(t *testing.T) {
 			req.Header.Set("Origin", origin)
 			rr := httptest.NewRecorder()
 
-			handler(rr, req)
+			handler.ServeHTTP(rr, req)
 
 			// Should allow all origins (*)
 			assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
@@ -306,16 +306,16 @@ func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	})
+	}))
 
 	// Try uppercase username
 	req := httptest.NewRequest("GET", "/api/test", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("ADMIN:secret")))
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	// Should fail (case-sensitive)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
@@ -335,10 +335,10 @@ func TestMiddlewareChaining(t *testing.T) {
 	}
 
 	// Chain multiple middlewares
-	finalHandler := func(w http.ResponseWriter, _ *http.Request) {
+	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
-	}
+	})
 
 	// Apply middlewares in order: cors -> logging -> auth -> handler
 	handler := corsMiddleware(
@@ -351,7 +351,7 @@ func TestMiddlewareChaining(t *testing.T) {
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:secret")))
 	rr := httptest.NewRecorder()
 
-	handler(rr, req)
+	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "success", rr.Body.String())

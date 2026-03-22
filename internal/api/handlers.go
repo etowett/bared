@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 
 	"bared/internal/app"
@@ -19,7 +20,7 @@ import (
 
 // calculateNextRun calculates the next execution time for a cron expression
 func calculateNextRun(cronExpr string) (*time.Time, error) {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 	schedule, err := parser.Parse(cronExpr)
 	if err != nil {
 		return nil, err
@@ -279,16 +280,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 
 // handleGetJob returns a specific job
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
-	// Extract job ID from URL path
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
-		respondError(w, http.StatusBadRequest, "Invalid job ID")
-		return
-	}
-	jobIDStr := parts[3] // /api/jobs/{id}
-
-	jobID := jobs.JobID(jobIDStr)
+	jobID := jobs.JobID(chi.URLParam(r, "id"))
 
 	job, err := s.jobManager.GetJob(jobID)
 	if err != nil {
@@ -301,11 +293,6 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 
 // handleTriggerBackup triggers a manual backup
 func (s *Server) handleTriggerBackup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Parse request body
 	var req TriggerBackupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -361,11 +348,6 @@ func (s *Server) handleTriggerBackup(w http.ResponseWriter, r *http.Request) {
 
 // handleTriggerRestore triggers a manual restore
 func (s *Server) handleTriggerRestore(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Parse request body
 	var req TriggerRestoreRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -441,21 +423,7 @@ func (s *Server) handleTriggerRestore(w http.ResponseWriter, r *http.Request) {
 
 // handleCancelJob cancels a running job
 func (s *Server) handleCancelJob(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	// Extract job ID from URL path
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
-		respondError(w, http.StatusBadRequest, "Invalid job ID")
-		return
-	}
-	jobIDStr := parts[3] // /api/jobs/{id}
-
-	jobID := jobs.JobID(jobIDStr)
+	jobID := jobs.JobID(chi.URLParam(r, "id"))
 
 	err := s.jobManager.CancelJob(jobID)
 	if err != nil {
@@ -472,16 +440,7 @@ func (s *Server) handleCancelJob(w http.ResponseWriter, r *http.Request) {
 
 // handleGetJobLogs returns logs for a specific job
 func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
-	// Extract job ID from URL path
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
-		respondError(w, http.StatusBadRequest, "Invalid job ID")
-		return
-	}
-	jobIDStr := parts[3] // /api/jobs/{id}/logs
-
-	jobID := jobs.JobID(jobIDStr)
+	jobID := jobs.JobID(chi.URLParam(r, "id"))
 
 	job, err := s.jobManager.GetJob(jobID)
 	if err != nil {

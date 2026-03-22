@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,45 +17,6 @@ import (
 	"bared/internal/jobs"
 	"bared/internal/testutil/fixtures"
 )
-
-func TestHandleStreamJobLogs_InvalidJobID(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := &Server{
-		jobManager: mgr,
-		cfg:        cfg,
-	}
-
-	tests := []struct {
-		name         string
-		path         string
-		expectedCode int
-	}{
-		{
-			name:         "too few path parts",
-			path:         "/api/jobs",
-			expectedCode: http.StatusBadRequest,
-		},
-		{
-			name:         "missing job id",
-			path:         "/api/jobs//logs/stream",
-			expectedCode: http.StatusNotFound, // Router returns 404 for empty ID
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
-			rr := httptest.NewRecorder()
-
-			server.handleStreamJobLogs(rr, req)
-
-			assert.Equal(t, tt.expectedCode, rr.Code)
-		})
-	}
-}
 
 func TestHandleStreamJobLogs_JobNotFound(t *testing.T) {
 	cfg := &config.Config{
@@ -66,10 +28,13 @@ func TestHandleStreamJobLogs_JobNotFound(t *testing.T) {
 		cfg:        cfg,
 	}
 
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
 	req := httptest.NewRequest("GET", "/api/jobs/nonexistent-id/logs/stream", nil)
 	rr := httptest.NewRecorder()
 
-	server.handleStreamJobLogs(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
@@ -106,10 +71,11 @@ func TestHandleStreamJobLogs_WebSocketUpgrade(t *testing.T) {
 	job.Logs.Write("INFO", "Test log message 1")
 	job.Logs.Write("INFO", "Test log message 2")
 
-	// Create test server
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.handleStreamJobLogs(w, r)
-	}))
+	// Create test server using chi router for URL param extraction
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://
@@ -164,10 +130,11 @@ func TestHandleStreamJobLogs_StreamNewLogs(t *testing.T) {
 	job, err := mgr.GetJob(jobID)
 	require.NoError(t, err)
 
-	// Create test server
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.handleStreamJobLogs(w, r)
-	}))
+	// Create test server using chi router
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://
@@ -234,10 +201,11 @@ func TestHandleStreamJobLogs_ClientDisconnect(t *testing.T) {
 	job, err := mgr.GetJob(jobID)
 	require.NoError(t, err)
 
-	// Create test server
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.handleStreamJobLogs(w, r)
-	}))
+	// Create test server using chi router
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://
@@ -282,15 +250,17 @@ func TestHandleStreamJobLogs_ContextCancellation(t *testing.T) {
 	job, err := mgr.GetJob(jobID)
 	require.NoError(t, err)
 
-	// Create context that will be cancelled
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create test server with cancellable context using chi router
+	var cancel context.CancelFunc
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", func(w http.ResponseWriter, req *http.Request) {
+		// Derive cancellable context from the request context (preserves chi route params)
+		var cancelCtx context.Context
+		cancelCtx, cancel = context.WithCancel(req.Context())
+		server.handleStreamJobLogs(w, req.WithContext(cancelCtx))
+	})
 
-	// Create test server with cancellable context
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r = r.WithContext(ctx)
-		server.handleStreamJobLogs(w, r)
-	}))
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://
@@ -301,10 +271,12 @@ func TestHandleStreamJobLogs_ContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 	defer ws.Close()
 
-	// Cancel context after connection
+	// Cancel context after connection (cancel is set by the handler above)
 	go func() {
 		time.Sleep(50 * time.Millisecond)
-		cancel()
+		if cancel != nil {
+			cancel()
+		}
 	}()
 
 	// Try to read - should fail due to context cancellation
@@ -405,10 +377,11 @@ func TestHandleStreamJobLogs_MultipleClients(t *testing.T) {
 	// Write initial log
 	job.Logs.Write("INFO", "Initial log")
 
-	// Create test server
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.handleStreamJobLogs(w, r)
-	}))
+	// Create test server using chi router
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://
@@ -478,10 +451,11 @@ func TestHandleStreamJobLogs_EmptyLogs(t *testing.T) {
 	// Give job time to be registered
 	time.Sleep(10 * time.Millisecond)
 
-	// Create test server
-	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.handleStreamJobLogs(w, r)
-	}))
+	// Create test server using chi router
+	r := chi.NewRouter()
+	r.Get("/api/jobs/{id}/logs/stream", server.handleStreamJobLogs)
+
+	testServer := httptest.NewServer(r)
 	defer testServer.Close()
 
 	// Convert http:// to ws://

@@ -52,9 +52,9 @@ func TestSetupRoutes(t *testing.T) {
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 
-	require.NotNil(t, mux)
+	require.NotNil(t, r)
 
 	// Test that routes are registered by making requests
 	tests := []struct {
@@ -106,7 +106,7 @@ func TestSetupRoutes(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			rr := httptest.NewRecorder()
 
-			mux.ServeHTTP(rr, req)
+			r.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 		})
@@ -120,7 +120,7 @@ func TestSetupRoutes_WithAuth(t *testing.T) {
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 
 	tests := []struct {
 		name           string
@@ -160,191 +160,83 @@ func TestSetupRoutes_WithAuth(t *testing.T) {
 			req.SetBasicAuth("admin", "secret")
 			rr := httptest.NewRecorder()
 
-			mux.ServeHTTP(rr, req)
+			r.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 		})
 	}
 }
 
-func TestHandleJobsRouter(t *testing.T) {
+func TestRouting_Jobs(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+
+	r := server.setupRoutes()
 
 	tests := []struct {
 		name           string
 		method         string
+		path           string
 		expectedStatus int
 	}{
 		{
-			name:           "GET returns jobs list",
+			name:           "GET jobs list",
 			method:         http.MethodGet,
+			path:           "/api/jobs",
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "POST returns bad request",
+			name:           "GET nonexistent job",
+			method:         http.MethodGet,
+			path:           "/api/jobs/someid",
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "DELETE nonexistent job",
+			method:         http.MethodDelete,
+			path:           "/api/jobs/someid",
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "GET job logs",
+			method:         http.MethodGet,
+			path:           "/api/jobs/someid/logs",
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "POST backup no body",
 			method:         http.MethodPost,
+			path:           "/api/jobs/backup/backup",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "PUT not allowed",
-			method:         http.MethodPut,
-			expectedStatus: http.StatusMethodNotAllowed,
+			name:           "POST restore no body",
+			method:         http.MethodPost,
+			path:           "/api/jobs/restore/restore",
+			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "DELETE not allowed",
-			method:         http.MethodDelete,
+			name:           "PUT not allowed on jobs list",
+			method:         http.MethodPut,
+			path:           "/api/jobs",
 			expectedStatus: http.StatusMethodNotAllowed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, "/api/jobs", nil)
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req.SetBasicAuth("admin", "secret")
 			rr := httptest.NewRecorder()
 
-			server.handleJobsRouter(rr, req)
+			r.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 		})
 	}
-}
-
-func TestHandleJobsDetailRouter_BackupTrigger(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	req := httptest.NewRequest("POST", "/api/jobs/backup", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	// Should route to handleTriggerBackup
-	// Expecting bad request because no body
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-}
-
-func TestHandleJobsDetailRouter_RestoreTrigger(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	req := httptest.NewRequest("POST", "/api/jobs/restore", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	// Should route to handleTriggerRestore
-	// Expecting bad request because no body
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-}
-
-func TestHandleJobsDetailRouter_GetJob(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	req := httptest.NewRequest("GET", "/api/jobs/someid", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	// Should route to handleGetJob
-	// Expecting 404 because job doesn't exist
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleJobsDetailRouter_CancelJob(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	req := httptest.NewRequest("DELETE", "/api/jobs/someid", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	// Should route to handleCancelJob
-	// Expecting 404 because job doesn't exist
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleJobsDetailRouter_GetLogs(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	req := httptest.NewRequest("GET", "/api/jobs/someid/logs", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	// Should route to handleGetJobLogs
-	// Expecting 404 because job doesn't exist
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-}
-
-func TestHandleJobsDetailRouter_NotFound(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	tests := []struct {
-		name string
-		path string
-	}{
-		{
-			name: "empty job id",
-			path: "/api/jobs/",
-		},
-		{
-			name: "invalid path",
-			path: "/api/jobs//something",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", tt.path, nil)
-			rr := httptest.NewRecorder()
-
-			server.handleJobsDetailRouter(rr, req)
-
-			assert.Equal(t, http.StatusNotFound, rr.Code)
-		})
-	}
-}
-
-func TestHandleJobsDetailRouter_MethodNotAllowed(t *testing.T) {
-	cfg := &config.Config{
-		Targets: []*config.Target{fixtures.MySQLTarget()},
-	}
-	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
-
-	// PUT not allowed on job detail
-	req := httptest.NewRequest("PUT", "/api/jobs/someid", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleJobsDetailRouter(rr, req)
-
-	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }
 
 func TestShutdown_NoServer(t *testing.T) {
@@ -369,10 +261,10 @@ func TestShutdown_WithServer(t *testing.T) {
 	server := NewServer("localhost:0", "admin", "secret", mgr, cfg, nil, nil, nil) // Use port 0 for any available port
 
 	// Create httpServer without actually listening
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 	server.httpServer = &http.Server{
 		Addr:         server.addr,
-		Handler:      mux,
+		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -404,7 +296,7 @@ func TestServer_RoutingIntegration(t *testing.T) {
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 
 	tests := []struct {
 		name           string
@@ -458,7 +350,7 @@ func TestServer_RoutingIntegration(t *testing.T) {
 			}
 			rr := httptest.NewRecorder()
 
-			mux.ServeHTTP(rr, req)
+			r.ServeHTTP(rr, req)
 
 			assert.Equal(t, tt.expectedStatus, rr.Code)
 		})
@@ -472,13 +364,13 @@ func TestServer_CORSHeaders(t *testing.T) {
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 
 	// Test CORS headers are set on API routes
 	req := httptest.NewRequest("GET", "/api/health", nil)
 	rr := httptest.NewRecorder()
 
-	mux.ServeHTTP(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
 	assert.Contains(t, rr.Header().Get("Access-Control-Allow-Methods"), "GET")
@@ -491,13 +383,13 @@ func TestServer_OptionsRequest(t *testing.T) {
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
 
-	mux := server.setupRoutes()
+	r := server.setupRoutes()
 
 	// Test OPTIONS (preflight) request
 	req := httptest.NewRequest("OPTIONS", "/api/dashboard", nil)
 	rr := httptest.NewRecorder()
 
-	mux.ServeHTTP(rr, req)
+	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))

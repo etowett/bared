@@ -2,9 +2,9 @@ package api
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 
 	"bared/internal/jobs"
@@ -24,16 +24,7 @@ var upgrader = websocket.Upgrader{
 func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 	logger := util.GetLogger()
 
-	// Extract job ID from URL path
-	path := r.URL.Path
-	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
-		respondError(w, http.StatusBadRequest, "Invalid job ID")
-		return
-	}
-	jobIDStr := parts[3] // /api/jobs/{id}/logs/stream
-
-	jobID := jobs.JobID(jobIDStr)
+	jobID := jobs.JobID(chi.URLParam(r, "id"))
 
 	// Get job
 	job, err := s.jobManager.GetJob(jobID)
