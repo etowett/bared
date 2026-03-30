@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - '.github/release-labels.yml'
-      - '.github/workflows/sync-labels.yml'
+      - ".github/release-labels.yml"
+      - ".github/workflows/sync-labels.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ permissions:
 jobs:
   sync:
     name: Sync Release Labels
-    runs-on: [self-hosted, bared]
+    runs-on: [ubuntu-latest]
 
     steps:
       - name: Checkout code

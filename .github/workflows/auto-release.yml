@@ -11,7 +11,7 @@ permissions:
 jobs:
   create-release:
     name: Create Release Tag
-    runs-on: [self-hosted, bared]
+    runs-on: [ubuntu-latest]
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
 
     steps:
@@ -19,7 +19,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Ensure GitHub CLI (gh) is installed
         run: |
