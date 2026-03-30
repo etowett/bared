@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,166 +13,166 @@ permissions:
 jobs:
   test:
     name: Test
-    runs-on: [self-hosted, bared]
+    runs-on: [ubuntu-latest]
     needs: [web]
     strategy:
       matrix:
-        go-version: ['1.26.1']
+        go-version: ["1.26.1"]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Install database tools (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        set -euo pipefail
-        if command -v apt-get >/dev/null 2>&1; then
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            libsqlite3-dev \
-            default-mysql-client \
-            postgresql-client \
-            redis-tools
-        elif command -v apk >/dev/null 2>&1; then
-          sudo apk add --no-cache \
-            build-base \
-            sqlite-dev \
-            mysql-client \
-            postgresql-client \
-            redis
-        elif command -v yum >/dev/null 2>&1; then
-          sudo yum install -y \
-            gcc \
-            gcc-c++ \
-            make \
-            sqlite-devel \
-            mysql \
-            postgresql \
-            redis
-        else
-          echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
-          exit 1
-        fi
+      - name: Install database tools (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends \
+              build-essential \
+              libsqlite3-dev \
+              default-mysql-client \
+              postgresql-client \
+              redis-tools
+          elif command -v apk >/dev/null 2>&1; then
+            sudo apk add --no-cache \
+              build-base \
+              sqlite-dev \
+              mysql-client \
+              postgresql-client \
+              redis
+          elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y \
+              gcc \
+              gcc-c++ \
+              make \
+              sqlite-devel \
+              mysql \
+              postgresql \
+              redis
+          else
+            echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
+            exit 1
+          fi
 
-    - name: Install database tools (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew update
-        brew install mysql-client postgresql redis
-        # mysql-client is keg-only, so its binaries (e.g. mysqldump) are not on PATH by default.
-        echo "$(brew --prefix mysql-client)/bin" >> "$GITHUB_PATH"
-        # Ensure common DB tool bins are on PATH regardless of Homebrew prefix.
-        if brew --prefix postgresql@14 >/dev/null 2>&1; then
-          echo "$(brew --prefix postgresql@14)/bin" >> "$GITHUB_PATH"
-        else
-          echo "$(brew --prefix postgresql)/bin" >> "$GITHUB_PATH"
-        fi
-        echo "$(brew --prefix redis)/bin" >> "$GITHUB_PATH"
+      - name: Install database tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install mysql-client postgresql redis
+          # mysql-client is keg-only, so its binaries (e.g. mysqldump) are not on PATH by default.
+          echo "$(brew --prefix mysql-client)/bin" >> "$GITHUB_PATH"
+          # Ensure common DB tool bins are on PATH regardless of Homebrew prefix.
+          if brew --prefix postgresql@14 >/dev/null 2>&1; then
+            echo "$(brew --prefix postgresql@14)/bin" >> "$GITHUB_PATH"
+          else
+            echo "$(brew --prefix postgresql)/bin" >> "$GITHUB_PATH"
+          fi
+          echo "$(brew --prefix redis)/bin" >> "$GITHUB_PATH"
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-    - name: Download dependencies
-      run: go mod download
+      - name: Download dependencies
+        run: go mod download
 
-    - name: Download web artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: web-dist
-        path: internal/web/dist
-      continue-on-error: true
+      - name: Download web artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: internal/web/dist
+        continue-on-error: true
 
-    - name: Create placeholder dist if needed
-      run: |
-        if [ ! -d "internal/web/dist" ]; then
-          mkdir -p internal/web/dist
-          echo "placeholder" > internal/web/dist/.placeholder
-        fi
+      - name: Create placeholder dist if needed
+        run: |
+          if [ ! -d "internal/web/dist" ]; then
+            mkdir -p internal/web/dist
+            echo "placeholder" > internal/web/dist/.placeholder
+          fi
 
-    - name: Run tests
-      env:
-        CGO_ENABLED: "1"
-      run: go test -v -race -coverprofile=coverage.out ./...
+      - name: Run tests
+        env:
+          CGO_ENABLED: "1"
+        run: go test -v -race -coverprofile=coverage.out ./...
 
-    - name: Upload coverage
-      if: startsWith(matrix.go-version, '1.25')
-      uses: codecov/codecov-action@v4
-      continue-on-error: true
-      with:
-        files: ./coverage.out
-        flags: unittests
+      - name: Upload coverage
+        if: startsWith(matrix.go-version, '1.25')
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: ./coverage.out
+          flags: unittests
 
   lint:
     name: Lint
     runs-on: [self-hosted, bared]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: '1.26.1'
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
 
-    - name: Create placeholder dist directory
-      run: |
-        mkdir -p internal/web/dist
-        echo "placeholder" > internal/web/dist/.placeholder
+      - name: Create placeholder dist directory
+        run: |
+          mkdir -p internal/web/dist
+          echo "placeholder" > internal/web/dist/.placeholder
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v9
-      with:
-        version: latest
-        args: --timeout=5m
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
 
   web:
     name: Web Frontend
     runs-on: self-hosted
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version-file: web/.nvmrc
-        cache: 'npm'
-        cache-dependency-path: web/package-lock.json
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: web/.nvmrc
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
 
-    - name: Install dependencies
-      working-directory: web
-      run: npm ci
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
 
-    - name: Validate web frontend
-      working-directory: web
-      run: npm run validate
+      - name: Validate web frontend
+        working-directory: web
+        run: npm run validate
 
-    - name: Build web frontend
-      working-directory: web
-      run: npm run build
+      - name: Build web frontend
+        working-directory: web
+        run: npm run build
 
-    - name: Upload web artifacts
-      uses: actions/upload-artifact@v5
-      with:
-        name: web-dist
-        path: web/dist
-        retention-days: 7
+      - name: Upload web artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
 
   build:
     name: Build
@@ -180,59 +180,59 @@ jobs:
     needs: [test, lint, web]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: '1.26.1'
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
 
-    - name: Install build prerequisites (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        set -euo pipefail
-        if command -v apt-get >/dev/null 2>&1; then
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            libsqlite3-dev
-        elif command -v apk >/dev/null 2>&1; then
-          sudo apk add --no-cache \
-            build-base \
-            sqlite-dev
-        elif command -v yum >/dev/null 2>&1; then
-          sudo yum install -y \
-            gcc \
-            gcc-c++ \
-            make \
-            sqlite-devel
-        else
-          echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
-          exit 1
-        fi
+      - name: Install build prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends \
+              build-essential \
+              libsqlite3-dev
+          elif command -v apk >/dev/null 2>&1; then
+            sudo apk add --no-cache \
+              build-base \
+              sqlite-dev
+          elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y \
+              gcc \
+              gcc-c++ \
+              make \
+              sqlite-devel
+          else
+            echo "No supported package manager found (apt-get/apk/yum). Install a C toolchain + sqlite dev headers manually for CGO."
+            exit 1
+          fi
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version-file: web/.nvmrc
-        cache: 'npm'
-        cache-dependency-path: web/package-lock.json
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: web/.nvmrc
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
 
-    - name: Download web artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: web-dist
-        path: internal/web/dist
+      - name: Download web artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: internal/web/dist
 
-    - name: Build binary with embedded web
-      run: make build CGO=1
+      - name: Build binary with embedded web
+        run: make build CGO=1
 
-    - name: Validate example config
-      run: make validate CGO=1
+      - name: Validate example config
+        run: make validate CGO=1
 
-    - name: Upload binary
-      uses: actions/upload-artifact@v5
-      with:
-        name: brd
-        path: bin/brd
+      - name: Upload binary
+        uses: actions/upload-artifact@v5
+        with:
+          name: brd
+          path: bin/brd

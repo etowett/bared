@@ -2,12 +2,12 @@ name: Web Frontend CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "web/**"
       - ".github/workflows/web-ci.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - "web/**"
       - ".github/workflows/web-ci.yml"
@@ -19,7 +19,7 @@ permissions:
 jobs:
   validate:
     name: Validate Frontend
-    runs-on: [self-hosted, bared]
+    runs-on: [ubuntu-latest]
 
     steps:
       - name: Checkout code
