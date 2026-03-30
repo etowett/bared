@@ -19,7 +19,7 @@ permissions:
 jobs:
   validate:
     name: Validate Frontend
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -36,26 +36,9 @@ jobs:
         working-directory: web
         run: npm ci
 
-      - name: Type check
+      - name: Validate
         working-directory: web
-        run: npm run type-check
-
-      - name: Lint
-        working-directory: web
-        run: npm run lint
-
-      - name: Format check
-        working-directory: web
-        run: npm run format:check
-
-      - name: Run tests
-        working-directory: web
-        run: npm run test:run
-
-      - name: Generate coverage report
-        working-directory: web
-        run: npm run test:coverage
-        if: always()
+        run: npm run validate
 
       - name: Build
         working-directory: web
@@ -63,46 +46,7 @@ jobs:
 
       - name: Check build output
         run: |
-          if [ ! -d "web/dist" ]; then
-            echo "Error: Build output directory 'web/dist' not found"
-            exit 1
-          fi
           if [ ! -f "web/dist/index.html" ]; then
             echo "Error: index.html not found in build output"
             exit 1
           fi
-          echo "Build output verified successfully"
-          ls -lh web/dist/
-
-      # - name: Upload build artifacts
-      #   uses: actions/upload-artifact@v5
-      #   with:
-      #     name: web-dist
-      #     path: web/dist
-      #     retention-days: 7
-
-      - name: Generate validation summary
-        if: always()
-        run: |
-          echo "## Web Frontend Validation Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Type Check**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Lint**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Format**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Tests**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Build**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Statistics" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          if [ -d "web/dist" ]; then
-            du -sh web/dist/ >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            if [ -d "web/dist/assets" ]; then
-              find web/dist/assets -type f \( -name "*.js" -o -name "*.css" \) 2>/dev/null | xargs ls -lh >> $GITHUB_STEP_SUMMARY || echo "No assets found" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "No assets directory found" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "Build output directory not found" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
