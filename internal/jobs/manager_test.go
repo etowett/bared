@@ -90,15 +90,14 @@ func TestManager_ShutdownTimeout(t *testing.T) {
 	mgr := NewManager(cfg, nil, nil, 1, 100)
 	mgr.Start()
 
-	// Give workers time to start
-	time.Sleep(50 * time.Millisecond)
+	// Simulate a long-running job by adding to the WaitGroup.
+	// Workers will exit when shutdown is signaled, but this extra
+	// count keeps wg.Wait() blocking so the timeout fires reliably.
+	mgr.wg.Add(1)
+	defer mgr.wg.Done()
 
-	// Create a context that times out immediately
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-
-	// Wait for context to expire
-	time.Sleep(10 * time.Millisecond)
 
 	err := mgr.Shutdown(ctx)
 	require.Error(t, err)
