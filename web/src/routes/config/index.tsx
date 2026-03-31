@@ -297,6 +297,26 @@ function ConfigDashboardPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Import Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-500 mb-4">
+              Import configuration from YAML — paste content, validate, and import
+            </p>
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/config/import">
+                Import YAML
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {source === 'database' && (

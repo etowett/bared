@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
       '/config/notifiers',
       '/config/targets',
       '/config/restore-targets',
+      '/config/import',
     ],
   },
 ]

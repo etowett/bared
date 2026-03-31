@@ -5,6 +5,7 @@ import type {
   NotifierRequest,
   TargetConfigRequest,
   RestoreTargetConfigRequest,
+  ConfigImportRequest,
 } from '../types'
 
 // Storages
@@ -234,6 +235,19 @@ export function useReloadConfig() {
     mutationFn: () => apiClient.reloadConfig(),
     onSuccess: () => {
       // Invalidate all config and runtime data queries
+      queryClient.invalidateQueries({ queryKey: ['config'] })
+      queryClient.invalidateQueries({ queryKey: ['targets'] })
+      queryClient.invalidateQueries({ queryKey: ['restore-targets'] })
+    },
+  })
+}
+
+// Config Import
+export function useImportConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: ConfigImportRequest) => apiClient.importConfig(request),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config'] })
       queryClient.invalidateQueries({ queryKey: ['targets'] })
       queryClient.invalidateQueries({ queryKey: ['restore-targets'] })

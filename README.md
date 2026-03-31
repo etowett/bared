@@ -179,7 +179,7 @@ targets:
       database: myapp
       host: localhost
       port: 3306
-    schedule: "0 2 * * *"  # Daily at 2 AM
+    schedule: "0 2 * * *" # Daily at 2 AM
 ```
 
 #### 2. Database-Backed Configuration (Dynamic)

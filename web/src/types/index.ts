@@ -230,3 +230,48 @@ export interface ReloadConfigResult {
   restore_targets_count?: number
   schedules_updated?: boolean
 }
+
+// Config Import Types
+
+export interface ConfigImportRequest {
+  yaml_content: string
+  conflict_mode: 'override' | 'skip'
+  dry_run: boolean
+}
+
+export interface FailedImportResource {
+  name: string
+  error: string
+}
+
+export interface FailedImportConfig {
+  key: string
+  error: string
+}
+
+export interface ResourceImportSummary {
+  created: string[]
+  updated: string[]
+  skipped: string[]
+  failed: FailedImportResource[]
+}
+
+export interface GlobalConfigImportSummary {
+  updated: string[]
+  skipped: string[]
+  failed: FailedImportConfig[]
+}
+
+export interface ConfigImportResponse {
+  storages: ResourceImportSummary
+  notifiers: ResourceImportSummary
+  targets: ResourceImportSummary
+  restore_targets: ResourceImportSummary
+  global_config: GlobalConfigImportSummary
+  dry_run: boolean
+  total_created: number
+  total_updated: number
+  total_skipped: number
+  total_failed: number
+  has_errors: boolean
+}

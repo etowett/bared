@@ -630,6 +630,227 @@ func (s *Server) handleGetConfigSource(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
+	// Limit body size to 1MB
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	var req ConfigImportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err.Error() == "http: request body too large" {
+			respondError(w, http.StatusRequestEntityTooLarge, "Request body too large (max 1MB)")
+			return
+		}
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
+		return
+	}
+
+	if strings.TrimSpace(req.YAMLContent) == "" {
+		respondError(w, http.StatusBadRequest, "YAML content is required")
+		return
+	}
+
+	if req.ConflictMode != "override" && req.ConflictMode != "skip" {
+		respondError(w, http.StatusBadRequest, "conflict_mode must be 'override' or 'skip'")
+		return
+	}
+
+	// Parse YAML
+	cfg, err := config.ParseFromString(req.YAMLContent)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse YAML: %v", err))
+		return
+	}
+
+	ctx := r.Context()
+	resp := ConfigImportResponse{
+		DryRun: req.DryRun,
+		Storages: ResourceImportSummary{
+			Created: []string{}, Updated: []string{}, Skipped: []string{}, Failed: []FailedImportResource{},
+		},
+		Notifiers: ResourceImportSummary{
+			Created: []string{}, Updated: []string{}, Skipped: []string{}, Failed: []FailedImportResource{},
+		},
+		Targets: ResourceImportSummary{
+			Created: []string{}, Updated: []string{}, Skipped: []string{}, Failed: []FailedImportResource{},
+		},
+		RestoreTargets: ResourceImportSummary{
+			Created: []string{}, Updated: []string{}, Skipped: []string{}, Failed: []FailedImportResource{},
+		},
+		GlobalConfig: GlobalConfigImportSummary{
+			Updated: []string{}, Skipped: []string{}, Failed: []FailedImportConfig{},
+		},
+	}
+
+	// Import storages
+	for name, storage := range cfg.Storages {
+		storage.Name = name
+		if err := configservice.ValidateStorage(storage); err != nil {
+			resp.Storages.Failed = append(resp.Storages.Failed, FailedImportResource{Name: name, Error: fmt.Sprintf("validation failed: %v", err)})
+			continue
+		}
+		existing, getErr := s.configService.GetStorage(ctx, name)
+		if getErr == nil && existing != nil {
+			if req.ConflictMode == "skip" {
+				resp.Storages.Skipped = append(resp.Storages.Skipped, name)
+			} else {
+				if !req.DryRun {
+					if err := s.configService.UpdateStorage(ctx, name, storage); err != nil {
+						resp.Storages.Failed = append(resp.Storages.Failed, FailedImportResource{Name: name, Error: err.Error()})
+						continue
+					}
+				}
+				resp.Storages.Updated = append(resp.Storages.Updated, name)
+			}
+		} else {
+			if !req.DryRun {
+				if err := s.configService.CreateStorage(ctx, storage); err != nil {
+					resp.Storages.Failed = append(resp.Storages.Failed, FailedImportResource{Name: name, Error: err.Error()})
+					continue
+				}
+			}
+			resp.Storages.Created = append(resp.Storages.Created, name)
+		}
+	}
+
+	// Import notifiers
+	for name, notifier := range cfg.Notifiers {
+		if err := configservice.ValidateNotifier(notifier); err != nil {
+			resp.Notifiers.Failed = append(resp.Notifiers.Failed, FailedImportResource{Name: name, Error: fmt.Sprintf("validation failed: %v", err)})
+			continue
+		}
+		existing, getErr := s.configService.GetNotifier(ctx, name)
+		if getErr == nil && existing != nil {
+			if req.ConflictMode == "skip" {
+				resp.Notifiers.Skipped = append(resp.Notifiers.Skipped, name)
+			} else {
+				if !req.DryRun {
+					if err := s.configService.UpdateNotifier(ctx, name, notifier); err != nil {
+						resp.Notifiers.Failed = append(resp.Notifiers.Failed, FailedImportResource{Name: name, Error: err.Error()})
+						continue
+					}
+				}
+				resp.Notifiers.Updated = append(resp.Notifiers.Updated, name)
+			}
+		} else {
+			if !req.DryRun {
+				if err := s.configService.CreateNotifier(ctx, name, notifier); err != nil {
+					resp.Notifiers.Failed = append(resp.Notifiers.Failed, FailedImportResource{Name: name, Error: err.Error()})
+					continue
+				}
+			}
+			resp.Notifiers.Created = append(resp.Notifiers.Created, name)
+		}
+	}
+
+	// Import targets (validate against storages from both YAML and existing DB)
+	dbStorages, _ := s.configService.ListStorages(ctx) //nolint:errcheck // validation will catch missing storage
+	// Merge YAML storages with DB storages for validation
+	mergedStorages := make(map[string]*config.Storage)
+	for k, v := range dbStorages {
+		mergedStorages[k] = v
+	}
+	for k, v := range cfg.Storages {
+		v.Name = k
+		mergedStorages[k] = v
+	}
+
+	for _, target := range cfg.Targets {
+		if err := configservice.ValidateTarget(target, mergedStorages); err != nil {
+			resp.Targets.Failed = append(resp.Targets.Failed, FailedImportResource{Name: target.Name, Error: fmt.Sprintf("validation failed: %v", err)})
+			continue
+		}
+		existing, getErr := s.configService.GetTarget(ctx, target.Name)
+		if getErr == nil && existing != nil {
+			if req.ConflictMode == "skip" {
+				resp.Targets.Skipped = append(resp.Targets.Skipped, target.Name)
+			} else {
+				if !req.DryRun {
+					if err := s.configService.UpdateTarget(ctx, target.Name, target); err != nil {
+						resp.Targets.Failed = append(resp.Targets.Failed, FailedImportResource{Name: target.Name, Error: err.Error()})
+						continue
+					}
+				}
+				resp.Targets.Updated = append(resp.Targets.Updated, target.Name)
+			}
+		} else {
+			if !req.DryRun {
+				if err := s.configService.CreateTarget(ctx, target); err != nil {
+					resp.Targets.Failed = append(resp.Targets.Failed, FailedImportResource{Name: target.Name, Error: err.Error()})
+					continue
+				}
+			}
+			resp.Targets.Created = append(resp.Targets.Created, target.Name)
+		}
+	}
+
+	// Import restore targets
+	dbTargets, _ := s.configService.ListTargets(ctx) //nolint:errcheck // validation will catch missing target
+	targetsMap := make(map[string]*config.Target)
+	for _, t := range dbTargets {
+		targetsMap[t.Name] = t
+	}
+	for _, t := range cfg.Targets {
+		targetsMap[t.Name] = t
+	}
+
+	for _, rt := range cfg.RestoreTargets {
+		if err := configservice.ValidateRestoreTarget(rt, mergedStorages, targetsMap); err != nil {
+			resp.RestoreTargets.Failed = append(resp.RestoreTargets.Failed, FailedImportResource{Name: rt.Name, Error: fmt.Sprintf("validation failed: %v", err)})
+			continue
+		}
+		existing, getErr := s.configService.GetRestoreTarget(ctx, rt.Name)
+		if getErr == nil && existing != nil {
+			if req.ConflictMode == "skip" {
+				resp.RestoreTargets.Skipped = append(resp.RestoreTargets.Skipped, rt.Name)
+			} else {
+				if !req.DryRun {
+					if err := s.configService.UpdateRestoreTarget(ctx, rt.Name, rt); err != nil {
+						resp.RestoreTargets.Failed = append(resp.RestoreTargets.Failed, FailedImportResource{Name: rt.Name, Error: err.Error()})
+						continue
+					}
+				}
+				resp.RestoreTargets.Updated = append(resp.RestoreTargets.Updated, rt.Name)
+			}
+		} else {
+			if !req.DryRun {
+				if err := s.configService.CreateRestoreTarget(ctx, rt); err != nil {
+					resp.RestoreTargets.Failed = append(resp.RestoreTargets.Failed, FailedImportResource{Name: rt.Name, Error: err.Error()})
+					continue
+				}
+			}
+			resp.RestoreTargets.Created = append(resp.RestoreTargets.Created, rt.Name)
+		}
+	}
+
+	// Import global config
+	globalKeys := map[string]string{
+		"default_storage": cfg.DefaultStorage,
+		"log_level":       cfg.LogLevel,
+		"log_format":      cfg.LogFormat,
+	}
+	for key, value := range globalKeys {
+		if value == "" {
+			continue
+		}
+		if !req.DryRun {
+			if err := s.configService.SetGlobalConfig(ctx, key, value); err != nil {
+				resp.GlobalConfig.Failed = append(resp.GlobalConfig.Failed, FailedImportConfig{Key: key, Error: err.Error()})
+				continue
+			}
+		}
+		resp.GlobalConfig.Updated = append(resp.GlobalConfig.Updated, key)
+	}
+
+	// Compute totals
+	resp.TotalCreated = len(resp.Storages.Created) + len(resp.Notifiers.Created) + len(resp.Targets.Created) + len(resp.RestoreTargets.Created)
+	resp.TotalUpdated = len(resp.Storages.Updated) + len(resp.Notifiers.Updated) + len(resp.Targets.Updated) + len(resp.RestoreTargets.Updated) + len(resp.GlobalConfig.Updated)
+	resp.TotalSkipped = len(resp.Storages.Skipped) + len(resp.Notifiers.Skipped) + len(resp.Targets.Skipped) + len(resp.RestoreTargets.Skipped) + len(resp.GlobalConfig.Skipped)
+	resp.TotalFailed = len(resp.Storages.Failed) + len(resp.Notifiers.Failed) + len(resp.Targets.Failed) + len(resp.RestoreTargets.Failed) + len(resp.GlobalConfig.Failed)
+	resp.HasErrors = resp.TotalFailed > 0
+
+	respondJSON(w, http.StatusOK, resp)
+}
+
 // triggerReload sends a non-blocking reload signal to the daemon
 func (s *Server) triggerReload() {
 	if s.reloadChan != nil {

@@ -173,3 +173,52 @@ type ConfigSourceResponse struct {
 type UpdateScheduleRequest struct {
 	Schedule string `json:"schedule"`
 }
+
+// ConfigImportRequest represents a request to import YAML configuration
+type ConfigImportRequest struct {
+	YAMLContent  string `json:"yaml_content"`
+	ConflictMode string `json:"conflict_mode"` // "override" or "skip"
+	DryRun       bool   `json:"dry_run"`
+}
+
+// ConfigImportResponse represents the result of a config import
+type ConfigImportResponse struct {
+	Storages       ResourceImportSummary     `json:"storages"`
+	Notifiers      ResourceImportSummary     `json:"notifiers"`
+	Targets        ResourceImportSummary     `json:"targets"`
+	RestoreTargets ResourceImportSummary     `json:"restore_targets"`
+	GlobalConfig   GlobalConfigImportSummary `json:"global_config"`
+	DryRun         bool                      `json:"dry_run"`
+	TotalCreated   int                       `json:"total_created"`
+	TotalUpdated   int                       `json:"total_updated"`
+	TotalSkipped   int                       `json:"total_skipped"`
+	TotalFailed    int                       `json:"total_failed"`
+	HasErrors      bool                      `json:"has_errors"`
+}
+
+// ResourceImportSummary tracks the outcome for a resource type during import
+type ResourceImportSummary struct {
+	Created []string               `json:"created"`
+	Updated []string               `json:"updated"`
+	Skipped []string               `json:"skipped"`
+	Failed  []FailedImportResource `json:"failed"`
+}
+
+// FailedImportResource represents a resource that failed to import
+type FailedImportResource struct {
+	Name  string `json:"name"`
+	Error string `json:"error"`
+}
+
+// GlobalConfigImportSummary tracks global config updates during import
+type GlobalConfigImportSummary struct {
+	Updated []string             `json:"updated"`
+	Skipped []string             `json:"skipped"`
+	Failed  []FailedImportConfig `json:"failed"`
+}
+
+// FailedImportConfig represents a global config key that failed to update
+type FailedImportConfig struct {
+	Key   string `json:"key"`
+	Error string `json:"error"`
+}

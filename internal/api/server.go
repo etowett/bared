@@ -97,11 +97,11 @@ func (s *Server) setupRoutes() chi.Router {
 
 		// Jobs
 		r.Get("/api/jobs", s.handleListJobs)
+		r.Post("/api/jobs/backup", s.handleTriggerBackup)
+		r.Post("/api/jobs/restore", s.handleTriggerRestore)
 		r.Route("/api/jobs/{id}", func(r chi.Router) {
 			r.Get("/", s.handleGetJob)
 			r.Delete("/", s.handleCancelJob)
-			r.Post("/backup", s.handleTriggerBackup)
-			r.Post("/restore", s.handleTriggerRestore)
 			r.Get("/logs", s.handleGetJobLogs)
 			r.Get("/logs/stream", s.handleStreamJobLogs)
 		})
@@ -142,6 +142,7 @@ func (s *Server) setupRoutes() chi.Router {
 				// Utility endpoints
 				r.Post("/migrate", s.handleMigrateConfig)
 				r.Post("/reload", s.handleReloadConfig)
+				r.Post("/import", s.handleImportConfig)
 				r.Get("/source", s.handleGetConfigSource)
 			})
 		}
