@@ -209,13 +209,13 @@ func TestRouting_Jobs(t *testing.T) {
 		{
 			name:           "POST backup no body",
 			method:         http.MethodPost,
-			path:           "/api/jobs/backup/backup",
+			path:           "/api/jobs/backup",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "POST restore no body",
 			method:         http.MethodPost,
-			path:           "/api/jobs/restore/restore",
+			path:           "/api/jobs/restore",
 			expectedStatus: http.StatusBadRequest,
 		},
 		{

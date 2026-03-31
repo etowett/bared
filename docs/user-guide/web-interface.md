@@ -264,6 +264,7 @@ When using YAML configuration, edit/delete buttons are disabled with helpful too
 Navigate to **Configuration → Storages** to manage storage backends.
 
 **Features**:
+
 - List all configured storages with type, path/bucket info, and retention settings
 - Create new storage backends
 - Edit existing storage configurations
@@ -293,6 +294,7 @@ Navigate to **Configuration → Storages** to manage storage backends.
    - Keep - Number of backups to retain
 
 **Secret Fields**:
+
 - Passwords and keys are masked with `***REDACTED***` in API responses
 - When editing, leave secret fields blank to keep existing values
 - Enter new values only when changing secrets
@@ -303,6 +305,7 @@ Navigate to **Configuration → Storages** to manage storage backends.
 Navigate to **Configuration → Notifiers** to manage notification channels.
 
 **Features**:
+
 - List all notifiers with type badges and configuration details
 - Create new notification channels
 - Edit existing notifiers
@@ -336,6 +339,7 @@ Navigate to **Configuration → Notifiers** to manage notification channels.
 Navigate to **Configuration → Targets** to manage backup targets.
 
 **Features**:
+
 - List all backup targets with connection info, storage, and schedule
 - Create new backup targets
 - Edit existing target configurations
@@ -369,6 +373,7 @@ Navigate to **Configuration → Targets** to manage backup targets.
    - DB - Redis database number (optional)
 
 **Backup Settings**:
+
 - **Schedule** - Cron expression (e.g., `0 2 * * *` for daily at 2 AM)
   - Use visual cron builder or enter expression manually
   - Leave blank for manual-only backups
@@ -380,6 +385,7 @@ Navigate to **Configuration → Targets** to manage backup targets.
 - **Enabled** - Enable/disable target
 
 **Cron Schedule Builder**:
+
 - Simple mode with dropdowns for common schedules
 - Advanced mode for custom cron expressions
 - Validation with human-readable description
@@ -390,6 +396,7 @@ Navigate to **Configuration → Targets** to manage backup targets.
 Navigate to **Configuration → Restore Targets** to manage restore destinations.
 
 **Features**:
+
 - List all restore targets with source target linkage
 - Create new restore destinations
 - Edit existing restore targets
@@ -397,6 +404,7 @@ Navigate to **Configuration → Restore Targets** to manage restore destinations
 - Link to specific source backup target
 
 **Restore Target Configuration**:
+
 - **Connection Settings** - Same as backup targets (host, port, user, password, database)
 - **Source Target** - Link to backup target (optional, for filtering backups)
 - **Storage** - Storage backend to retrieve backups from
@@ -419,6 +427,7 @@ If you're currently using YAML configuration and want to switch to database-back
 7. Configuration becomes editable via UI
 
 **Migration Details**:
+
 - Imports: storages, notifiers, targets, restore targets, global settings
 - Encrypts: all passwords, keys, tokens, SMTP credentials
 - Validates: all configs before importing
@@ -426,6 +435,7 @@ If you're currently using YAML configuration and want to switch to database-back
 - Non-destructive: YAML file remains unchanged
 
 **Post-Migration**:
+
 - Daemon automatically uses database config on next reload
 - YAML file is no longer read (database takes precedence)
 - Use "Reload Configuration" to apply changes without restart
@@ -435,6 +445,7 @@ If you're currently using YAML configuration and want to switch to database-back
 After making configuration changes via the web UI, click **"Reload Configuration"** to apply changes immediately without restarting the daemon.
 
 **What Gets Reloaded**:
+
 - Storage backends
 - Notification channels
 - Backup targets (new/updated/deleted)
@@ -442,6 +453,7 @@ After making configuration changes via the web UI, click **"Reload Configuration
 - Cron schedules (jobs are automatically rescheduled)
 
 **Reload Process**:
+
 1. Click "Reload" button in header or config dashboard
 2. Daemon validates new configuration
 3. If valid, applies changes and reschedules jobs
@@ -449,6 +461,7 @@ After making configuration changes via the web UI, click **"Reload Configuration
 5. Success/error notification appears
 
 **Use Cases**:
+
 - Change backup schedule without downtime
 - Add new storage backend and start using immediately
 - Update database credentials without restart
@@ -457,16 +470,35 @@ After making configuration changes via the web UI, click **"Reload Configuration
 ### Encryption & Security
 
 **Encryption**:
+
 - All secrets are encrypted using AES-256-GCM
 - Encryption key from `BARED_ENCRYPTION_KEY` environment variable (recommended)
 - Or auto-generated and stored in database (development only)
 
 **Secret Handling**:
+
 - Secrets never appear in API responses (shown as `***REDACTED***`)
 - Secrets are decrypted only when needed for backup/restore operations
 - Leave secret fields blank when editing to preserve existing values
 
 **Best Practices**:
+
+### Encryption & Security
+
+**Encryption**:
+
+- All secrets are encrypted using AES-256-GCM
+- Encryption key from `BARED_ENCRYPTION_KEY` environment variable (recommended)
+- Or auto-generated and stored in database (development only)
+
+**Secret Handling**:
+
+- Secrets never appear in API responses (shown as `***REDACTED***`)
+- Secrets are decrypted only when needed for backup/restore operations
+- Leave secret fields blank when editing to preserve existing values
+
+**Best Practices**:
+
 - Set `BARED_ENCRYPTION_KEY` environment variable in production
 - Use 32-byte base64-encoded key: `openssl rand -base64 32`
 - Rotate encryption keys periodically (requires re-encrypting secrets)

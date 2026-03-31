@@ -10,6 +10,17 @@ import (
 
 var envVarRegex = regexp.MustCompile(`\$\{([^}]+)\}`)
 
+// ParseFromString parses YAML configuration from a string.
+// Unlike Load, this does not expand environment variables since the content
+// comes from user input (e.g. pasted in a web UI) rather than a server-side file.
+func ParseFromString(content string) (*Config, error) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(content), &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+	return &cfg, nil
+}
+
 // Load reads and parses the configuration file
 func Load(path string) (*Config, error) {
 	//#nosec G304 -- path is from user-provided config file argument

@@ -159,9 +159,9 @@ func TestHandleTriggerBackup_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+	r.Post("/api/jobs/backup", server.handleTriggerBackup)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBufferString("invalid json"))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
@@ -173,12 +173,12 @@ func TestHandleTriggerBackup_MissingTarget(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+	r.Post("/api/jobs/backup", server.handleTriggerBackup)
 
 	reqBody := TriggerBackupRequest{Target: ""}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
@@ -190,12 +190,12 @@ func TestHandleTriggerBackup_TargetNotFound(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/backup", server.handleTriggerBackup)
+	r.Post("/api/jobs/backup", server.handleTriggerBackup)
 
 	reqBody := TriggerBackupRequest{Target: "nonexistent-target"}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/backup/backup", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/backup", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
@@ -207,9 +207,9 @@ func TestHandleTriggerRestore_InvalidJSON(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+	r.Post("/api/jobs/restore", server.handleTriggerRestore)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBufferString("invalid json"))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBufferString("invalid json"))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
@@ -221,7 +221,7 @@ func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+	r.Post("/api/jobs/restore", server.handleTriggerRestore)
 
 	reqBody := TriggerRestoreRequest{
 		Target:     "",
@@ -229,7 +229,7 @@ func TestHandleTriggerRestore_MissingTarget(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
@@ -241,7 +241,7 @@ func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 	server := setupTestServer(t)
 
 	r := chi.NewRouter()
-	r.Post("/api/jobs/{id}/restore", server.handleTriggerRestore)
+	r.Post("/api/jobs/restore", server.handleTriggerRestore)
 
 	reqBody := TriggerRestoreRequest{
 		Target:     "test-target",
@@ -249,7 +249,7 @@ func TestHandleTriggerRestore_MissingBackupPath(t *testing.T) {
 	}
 	body, _ := json.Marshal(reqBody)
 
-	req := httptest.NewRequest("POST", "/api/jobs/restore/restore", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/api/jobs/restore", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)

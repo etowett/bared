@@ -21,6 +21,7 @@ import { Route as ConfigTargetsRouteImport } from './routes/config/targets'
 import { Route as ConfigStoragesRouteImport } from './routes/config/storages'
 import { Route as ConfigRestoreTargetsRouteImport } from './routes/config/restore-targets'
 import { Route as ConfigNotifiersRouteImport } from './routes/config/notifiers'
+import { Route as ConfigImportRouteImport } from './routes/config/import'
 import { Route as BackupJobsRouteImport } from './routes/backup/jobs'
 
 const RestoreRoute = RestoreRouteImport.update({
@@ -83,6 +84,11 @@ const ConfigNotifiersRoute = ConfigNotifiersRouteImport.update({
   path: '/config/notifiers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigImportRoute = ConfigImportRouteImport.update({
+  id: '/config/import',
+  path: '/config/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BackupJobsRoute = BackupJobsRouteImport.update({
   id: '/jobs',
   path: '/jobs',
@@ -95,14 +101,15 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/restore': typeof RestoreRouteWithChildren
   '/backup/jobs': typeof BackupJobsRoute
+  '/config/import': typeof ConfigImportRoute
   '/config/notifiers': typeof ConfigNotifiersRoute
   '/config/restore-targets': typeof ConfigRestoreTargetsRoute
   '/config/storages': typeof ConfigStoragesRoute
   '/config/targets': typeof ConfigTargetsRoute
   '/jobs/$id': typeof JobsIdRoute
   '/restore/jobs': typeof RestoreJobsRoute
-  '/config': typeof ConfigIndexRoute
-  '/jobs': typeof JobsIndexRoute
+  '/config/': typeof ConfigIndexRoute
+  '/jobs/': typeof JobsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/restore': typeof RestoreRouteWithChildren
   '/backup/jobs': typeof BackupJobsRoute
+  '/config/import': typeof ConfigImportRoute
   '/config/notifiers': typeof ConfigNotifiersRoute
   '/config/restore-targets': typeof ConfigRestoreTargetsRoute
   '/config/storages': typeof ConfigStoragesRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/restore': typeof RestoreRouteWithChildren
   '/backup/jobs': typeof BackupJobsRoute
+  '/config/import': typeof ConfigImportRoute
   '/config/notifiers': typeof ConfigNotifiersRoute
   '/config/restore-targets': typeof ConfigRestoreTargetsRoute
   '/config/storages': typeof ConfigStoragesRoute
@@ -143,14 +152,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/restore'
     | '/backup/jobs'
+    | '/config/import'
     | '/config/notifiers'
     | '/config/restore-targets'
     | '/config/storages'
     | '/config/targets'
     | '/jobs/$id'
     | '/restore/jobs'
-    | '/config'
-    | '/jobs'
+    | '/config/'
+    | '/jobs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/restore'
     | '/backup/jobs'
+    | '/config/import'
     | '/config/notifiers'
     | '/config/restore-targets'
     | '/config/storages'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/restore'
     | '/backup/jobs'
+    | '/config/import'
     | '/config/notifiers'
     | '/config/restore-targets'
     | '/config/storages'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   BackupRoute: typeof BackupRouteWithChildren
   LoginRoute: typeof LoginRoute
   RestoreRoute: typeof RestoreRouteWithChildren
+  ConfigImportRoute: typeof ConfigImportRoute
   ConfigNotifiersRoute: typeof ConfigNotifiersRoute
   ConfigRestoreTargetsRoute: typeof ConfigRestoreTargetsRoute
   ConfigStoragesRoute: typeof ConfigStoragesRoute
@@ -230,14 +243,14 @@ declare module '@tanstack/react-router' {
     '/jobs/': {
       id: '/jobs/'
       path: '/jobs'
-      fullPath: '/jobs'
+      fullPath: '/jobs/'
       preLoaderRoute: typeof JobsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/config/': {
       id: '/config/'
       path: '/config'
-      fullPath: '/config'
+      fullPath: '/config/'
       preLoaderRoute: typeof ConfigIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfigNotifiersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/config/import': {
+      id: '/config/import'
+      path: '/config/import'
+      fullPath: '/config/import'
+      preLoaderRoute: typeof ConfigImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/backup/jobs': {
       id: '/backup/jobs'
       path: '/jobs'
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   BackupRoute: BackupRouteWithChildren,
   LoginRoute: LoginRoute,
   RestoreRoute: RestoreRouteWithChildren,
+  ConfigImportRoute: ConfigImportRoute,
   ConfigNotifiersRoute: ConfigNotifiersRoute,
   ConfigRestoreTargetsRoute: ConfigRestoreTargetsRoute,
   ConfigStoragesRoute: ConfigStoragesRoute,

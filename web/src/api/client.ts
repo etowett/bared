@@ -15,6 +15,8 @@ import type {
   RestoreTargetConfigRequest,
   GlobalConfig,
   ConfigSourceResponse,
+  ConfigImportRequest,
+  ConfigImportResponse,
 } from '../types'
 
 // Get auth from sessionStorage (set on login)
@@ -312,6 +314,14 @@ export const apiClient = {
   async reloadConfig(): Promise<{ message: string; source: string }> {
     return apiFetch('/api/config/reload', {
       method: 'POST',
+    })
+  },
+
+  // Config Management - Import
+  async importConfig(request: ConfigImportRequest): Promise<ConfigImportResponse> {
+    return apiFetch('/api/config/import', {
+      method: 'POST',
+      body: JSON.stringify(request),
     })
   },
 }
