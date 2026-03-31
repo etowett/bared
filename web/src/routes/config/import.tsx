@@ -79,53 +79,51 @@ function ConfigImportPage() {
 
   return (
     <>
-    {ConfirmDialog}
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/config">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-2xl font-semibold">Import Configuration</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Paste YAML configuration to import storages, notifiers, targets, and restore targets
-          </p>
+      {ConfirmDialog}
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/config">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-2xl font-semibold">Import Configuration</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Paste YAML configuration to import storages, notifiers, targets, and restore targets
+            </p>
+          </div>
         </div>
-      </div>
 
-      {error && (
-        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/10">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <h3 className="font-medium text-red-900 dark:text-red-100">Error</h3>
-                <p className="text-sm text-red-700 dark:text-red-300 mt-1 whitespace-pre-wrap">
-                  {error}
-                </p>
+        {error && (
+          <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/10">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-medium text-red-900 dark:text-red-100">Error</h3>
+                  <p className="text-sm text-red-700 dark:text-red-300 mt-1 whitespace-pre-wrap">
+                    {error}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>YAML Configuration</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="yaml-content">
-              Paste your YAML configuration below
-            </Label>
-            <Textarea
-              id="yaml-content"
-              value={yamlContent}
-              onChange={(e) => setYamlContent(e.target.value)}
-              placeholder={`# Example configuration
+        <Card>
+          <CardHeader>
+            <CardTitle>YAML Configuration</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="yaml-content">Paste your YAML configuration below</Label>
+              <Textarea
+                id="yaml-content"
+                value={yamlContent}
+                onChange={(e) => setYamlContent(e.target.value)}
+                placeholder={`# Example configuration
 storages:
   local-backup:
     type: local
@@ -145,76 +143,74 @@ targets:
       enabled: true
       name: local-backup
     schedule: "0 2 * * *"`}
-              className="font-mono text-sm min-h-[400px] resize-y"
-              disabled={importMutation.isPending}
-            />
-            <p className="text-xs text-muted-foreground">
-              Environment variables (<code className="text-xs">{'${VAR}'}</code>) will not be
-              expanded. Replace them with actual values before importing.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-            <div className="space-y-2 w-full sm:w-48">
-              <Label htmlFor="conflict-mode">Conflict Mode</Label>
-              <Select
-                value={conflictMode}
-                onValueChange={(v) => setConflictMode(v as 'override' | 'skip')}
+                className="font-mono text-sm min-h-[400px] resize-y"
                 disabled={importMutation.isPending}
-              >
-                <SelectTrigger id="conflict-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="skip">Skip existing</SelectItem>
-                  <SelectItem value="override">Override existing</SelectItem>
-                </SelectContent>
-              </Select>
+              />
               <p className="text-xs text-muted-foreground">
-                {conflictMode === 'skip'
-                  ? 'Existing resources will be kept unchanged'
-                  : 'Existing resources will be updated'}
+                Environment variables (<code className="text-xs">{'${VAR}'}</code>) will not be
+                expanded. Replace them with actual values before importing.
               </p>
             </div>
 
-            <div className="flex gap-2 ml-auto">
-              <Button
-                variant="outline"
-                onClick={handleValidate}
-                disabled={!hasContent || importMutation.isPending}
-              >
-                {importMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Eye className="mr-2 h-4 w-4" />
-                )}
-                Validate (Dry Run)
-              </Button>
-              <Button
-                onClick={handleImport}
-                disabled={!hasContent || importMutation.isPending}
-              >
-                {importMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="mr-2 h-4 w-4" />
-                )}
-                Import
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+              <div className="space-y-2 w-full sm:w-48">
+                <Label htmlFor="conflict-mode">Conflict Mode</Label>
+                <Select
+                  value={conflictMode}
+                  onValueChange={(v) => setConflictMode(v as 'override' | 'skip')}
+                  disabled={importMutation.isPending}
+                >
+                  <SelectTrigger id="conflict-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="skip">Skip existing</SelectItem>
+                    <SelectItem value="override">Override existing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {conflictMode === 'skip'
+                    ? 'Existing resources will be kept unchanged'
+                    : 'Existing resources will be updated'}
+                </p>
+              </div>
 
-      {result && <ImportResults result={result} />}
-    </div>
+              <div className="flex gap-2 ml-auto">
+                <Button
+                  variant="outline"
+                  onClick={handleValidate}
+                  disabled={!hasContent || importMutation.isPending}
+                >
+                  {importMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eye className="mr-2 h-4 w-4" />
+                  )}
+                  Validate (Dry Run)
+                </Button>
+                <Button onClick={handleImport} disabled={!hasContent || importMutation.isPending}>
+                  {importMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  Import
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {result && <ImportResults result={result} />}
+      </div>
     </>
   )
 }
 
 function ImportResults({ result }: { result: ConfigImportResponse }) {
   const isDryRun = result.dry_run
-  const totalProcessed = result.total_created + result.total_updated + result.total_skipped + result.total_failed
+  const totalProcessed =
+    result.total_created + result.total_updated + result.total_skipped + result.total_failed
 
   const bannerType = result.has_errors
     ? totalProcessed === result.total_failed
@@ -234,7 +230,9 @@ function ImportResults({ result }: { result: ConfigImportResponse }) {
     warning: {
       border: 'border-amber-200 dark:border-amber-800',
       bg: 'bg-amber-50 dark:bg-amber-900/10',
-      icon: <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />,
+      icon: (
+        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+      ),
       titleColor: 'text-amber-900 dark:text-amber-100',
       textColor: 'text-amber-700 dark:text-amber-300',
       title: isDryRun ? 'Dry Run Complete (with errors)' : 'Import Completed with Errors',
@@ -259,19 +257,25 @@ function ImportResults({ result }: { result: ConfigImportResponse }) {
             {bannerConfig.icon}
             <div>
               <h3 className={`font-medium ${bannerConfig.titleColor}`}>{bannerConfig.title}</h3>
-              <div className={`text-sm ${bannerConfig.textColor} mt-2 flex flex-wrap gap-x-6 gap-y-1`}>
+              <div
+                className={`text-sm ${bannerConfig.textColor} mt-2 flex flex-wrap gap-x-6 gap-y-1`}
+              >
                 {result.total_created > 0 && (
-                  <span>{verb ? `${verb} created` : 'Created'}: {result.total_created}</span>
+                  <span>
+                    {verb ? `${verb} created` : 'Created'}: {result.total_created}
+                  </span>
                 )}
                 {result.total_updated > 0 && (
-                  <span>{verb ? `${verb} updated` : 'Updated'}: {result.total_updated}</span>
+                  <span>
+                    {verb ? `${verb} updated` : 'Updated'}: {result.total_updated}
+                  </span>
                 )}
                 {result.total_skipped > 0 && (
-                  <span>{verb ? `${verb} skipped` : 'Skipped'}: {result.total_skipped}</span>
+                  <span>
+                    {verb ? `${verb} skipped` : 'Skipped'}: {result.total_skipped}
+                  </span>
                 )}
-                {result.total_failed > 0 && (
-                  <span>Failed: {result.total_failed}</span>
-                )}
+                {result.total_failed > 0 && <span>Failed: {result.total_failed}</span>}
                 {totalProcessed === 0 && <span>No resources found in the YAML configuration.</span>}
               </div>
             </div>
@@ -280,21 +284,9 @@ function ImportResults({ result }: { result: ConfigImportResponse }) {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ResourceSectionCard
-          title="Storages"
-          summary={result.storages}
-          isDryRun={isDryRun}
-        />
-        <ResourceSectionCard
-          title="Notifiers"
-          summary={result.notifiers}
-          isDryRun={isDryRun}
-        />
-        <ResourceSectionCard
-          title="Targets"
-          summary={result.targets}
-          isDryRun={isDryRun}
-        />
+        <ResourceSectionCard title="Storages" summary={result.storages} isDryRun={isDryRun} />
+        <ResourceSectionCard title="Notifiers" summary={result.notifiers} isDryRun={isDryRun} />
+        <ResourceSectionCard title="Targets" summary={result.targets} isDryRun={isDryRun} />
         <ResourceSectionCard
           title="Restore Targets"
           summary={result.restore_targets}
@@ -302,8 +294,7 @@ function ImportResults({ result }: { result: ConfigImportResponse }) {
         />
       </div>
 
-      {(result.global_config.updated.length > 0 ||
-        result.global_config.failed.length > 0) && (
+      {(result.global_config.updated.length > 0 || result.global_config.failed.length > 0) && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Global Config</CardTitle>
@@ -345,7 +336,8 @@ function ResourceSectionCard({
   summary: ResourceImportSummary
   isDryRun: boolean
 }) {
-  const total = summary.created.length + summary.updated.length + summary.skipped.length + summary.failed.length
+  const total =
+    summary.created.length + summary.updated.length + summary.skipped.length + summary.failed.length
   if (total === 0) return null
 
   return (

@@ -688,8 +688,8 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			resp.Storages.Failed = append(resp.Storages.Failed, FailedImportResource{Name: name, Error: fmt.Sprintf("validation failed: %v", err)})
 			continue
 		}
-		existing, _ := s.configService.GetStorage(ctx, name)
-		if existing != nil {
+		existing, getErr := s.configService.GetStorage(ctx, name)
+		if getErr == nil && existing != nil {
 			if req.ConflictMode == "skip" {
 				resp.Storages.Skipped = append(resp.Storages.Skipped, name)
 			} else {
@@ -718,8 +718,8 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			resp.Notifiers.Failed = append(resp.Notifiers.Failed, FailedImportResource{Name: name, Error: fmt.Sprintf("validation failed: %v", err)})
 			continue
 		}
-		existing, _ := s.configService.GetNotifier(ctx, name)
-		if existing != nil {
+		existing, getErr := s.configService.GetNotifier(ctx, name)
+		if getErr == nil && existing != nil {
 			if req.ConflictMode == "skip" {
 				resp.Notifiers.Skipped = append(resp.Notifiers.Skipped, name)
 			} else {
@@ -759,8 +759,8 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			resp.Targets.Failed = append(resp.Targets.Failed, FailedImportResource{Name: target.Name, Error: fmt.Sprintf("validation failed: %v", err)})
 			continue
 		}
-		existing, _ := s.configService.GetTarget(ctx, target.Name)
-		if existing != nil {
+		existing, getErr := s.configService.GetTarget(ctx, target.Name)
+		if getErr == nil && existing != nil {
 			if req.ConflictMode == "skip" {
 				resp.Targets.Skipped = append(resp.Targets.Skipped, target.Name)
 			} else {
@@ -798,8 +798,8 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 			resp.RestoreTargets.Failed = append(resp.RestoreTargets.Failed, FailedImportResource{Name: rt.Name, Error: fmt.Sprintf("validation failed: %v", err)})
 			continue
 		}
-		existing, _ := s.configService.GetRestoreTarget(ctx, rt.Name)
-		if existing != nil {
+		existing, getErr := s.configService.GetRestoreTarget(ctx, rt.Name)
+		if getErr == nil && existing != nil {
 			if req.ConflictMode == "skip" {
 				resp.RestoreTargets.Skipped = append(resp.RestoreTargets.Skipped, rt.Name)
 			} else {
