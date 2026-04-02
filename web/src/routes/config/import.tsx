@@ -15,11 +15,11 @@ import type { ConfigImportResponse, ResourceImportSummary } from '@/types'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowLeft,
   CheckCircle,
-  AlertTriangle,
-  Loader2,
   Eye,
+  Loader2,
   Upload,
   XCircle,
 } from 'lucide-react'
@@ -31,7 +31,7 @@ export const Route = createFileRoute('/config/import')({
 
 function ConfigImportPage() {
   const [yamlContent, setYamlContent] = useState('')
-  const [conflictMode, setConflictMode] = useState<'override' | 'skip'>('skip')
+  const [conflictMode, setConflictMode] = useState<'override' | 'skip'>('override')
   const [result, setResult] = useState<ConfigImportResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -164,14 +164,13 @@ targets:
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="skip">Skip existing</SelectItem>
                     <SelectItem value="override">Override existing</SelectItem>
+                    <SelectItem value="skip">Skip existing</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  {conflictMode === 'skip'
-                    ? 'Existing resources will be kept unchanged'
-                    : 'Existing resources will be updated'}
+                  Existing resources will be{' '}
+                  {conflictMode === 'override' ? 'updated' : 'kept unchanged'}.
                 </p>
               </div>
 

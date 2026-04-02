@@ -61,7 +61,7 @@ function saveBackupPath(path: string) {
 export function RestoreForm({ onSuccess }: RestoreFormProps) {
   const [selectedTarget, setSelectedTarget] = useState<string>('')
   const [backupPath, setBackupPath] = useState<string>('')
-  const [dryRun, setDryRun] = useState<boolean>(true)
+  const [dryRun, setDryRun] = useState<boolean>(false)
   const [showConfirm, setShowConfirm] = useState<boolean>(false)
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -178,7 +178,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
       saveBackupPath(backupPath)
 
       setBackupPath('')
-      setDryRun(true)
+      setDryRun(false)
       setShowConfirm(false)
       setShowSuggestions(false)
 
@@ -252,7 +252,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
                   setShowSuggestions(true)
                 }
               }}
-              placeholder="e.g., et-backups/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
+              placeholder="e.g., backupd/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
               required
               autoComplete="off"
             />
