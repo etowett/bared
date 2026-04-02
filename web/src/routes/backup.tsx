@@ -25,10 +25,32 @@ function BackupPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
+  const [targetSearch, setTargetSearch] = useState<string>('')
+  const [typeFilter, setTypeFilter] = useState<string>('all')
 
   const { data: jobsData, isLoading } = useJobs(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   )
+
+  const targets = dashboard?.targets || []
+
+  // Derive unique db types for filter dropdown
+  const dbTypes = useMemo(() => {
+    const types = new Set(targets.map((t) => t.type))
+    return Array.from(types).sort()
+  }, [targets])
+
+  // Filter targets by search and type
+  const filteredTargets = useMemo(() => {
+    let result = targets
+    if (targetSearch) {
+      result = result.filter((t) => t.name.toLowerCase().includes(targetSearch.toLowerCase()))
+    }
+    if (typeFilter !== 'all') {
+      result = result.filter((t) => t.type === typeFilter)
+    }
+    return result
+  }, [targets, targetSearch, typeFilter])
 
   // Filter for backup jobs only and by target name
   const backupJobs = useMemo(() => {
@@ -48,11 +70,34 @@ function BackupPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Backup Targets</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardTitle>
+            Backup Targets ({filteredTargets.length})
+          </CardTitle>
+          <div className="flex gap-3">
+            <Input
+              placeholder="Search targets..."
+              value={targetSearch}
+              onChange={(e) => setTargetSearch(e.target.value)}
+              className="w-[200px]"
+            />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {dbTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          <TargetList targets={dashboard?.targets || []} />
+          <TargetList targets={filteredTargets} />
         </CardContent>
       </Card>
 

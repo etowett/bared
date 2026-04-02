@@ -1,8 +1,16 @@
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/ui/status-badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { formatDate } from '@/lib/utils'
-import { cronToHuman, formatNextRun } from '@/utils/cron'
+import { cronToHuman } from '@/utils/cron'
 import { toast } from 'sonner'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTriggerBackup } from '../hooks/useJobs'
@@ -16,7 +24,8 @@ export function TargetList({ targets }: TargetListProps) {
   const triggerBackup = useTriggerBackup()
   const { confirm, ConfirmDialog } = useConfirm()
 
-  const handleBackup = async (targetName: string) => {
+  const handleBackup = async (e: React.MouseEvent, targetName: string) => {
+    e.stopPropagation()
     const confirmed = await confirm({
       title: 'Start Backup',
       description: `Are you sure you want to start a backup for ${targetName}?`,
@@ -38,70 +47,55 @@ export function TargetList({ targets }: TargetListProps) {
   }
 
   if (targets.length === 0) {
-    return <div className="text-center py-12 text-muted-foreground">No targets configured</div>
+    return <div className="text-center py-12 text-muted-foreground">No targets found</div>
   }
 
   return (
     <>
       {ConfirmDialog}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {targets.map((target) => (
-          <Card
-            key={target.name}
-            className="border-border/50 hover:border-border transition-colors"
-          >
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-xl">{target.name}</CardTitle>
-                <StatusBadge status={target.is_running ? 'running' : 'idle'} />
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Type:</span>
-                  <span className="text-foreground">{target.type}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Database:</span>
-                  <span className="text-foreground font-mono">{target.database}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Last Backup:</span>
-                  <span className="text-foreground font-mono">
-                    {target.last_backup ? formatDate(target.last_backup) : 'Never'}
-                  </span>
-                </div>
-                {target.schedule && (
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span className="text-muted-foreground font-medium">Schedule:</span>
-                    <span className="text-foreground">{cronToHuman(target.schedule)}</span>
-                    <span className="text-muted-foreground text-xs font-mono">
-                      {target.schedule}
-                    </span>
-                  </div>
-                )}
-                {target.next_scheduled && (
-                  <div className="flex flex-col gap-1 text-sm">
-                    <span className="text-muted-foreground font-medium">Next Run:</span>
-                    <span className="text-foreground text-sm">
-                      {formatNextRun(target.next_scheduled)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <Button
-                onClick={() => handleBackup(target.name)}
-                disabled={target.is_running || triggerBackup.isPending}
-                className="w-full"
-              >
-                {target.is_running ? 'Backup Running...' : 'Backup Now'}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Database</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Schedule</TableHead>
+              <TableHead>Last Backup</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {targets.map((target) => (
+              <TableRow key={target.name}>
+                <TableCell className="font-medium">{target.name}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{target.type}</Badge>
+                </TableCell>
+                <TableCell className="font-mono text-sm">{target.database}</TableCell>
+                <TableCell>
+                  <StatusBadge status={target.is_running ? 'running' : 'idle'} />
+                </TableCell>
+                <TableCell className="text-sm">
+                  {target.schedule ? cronToHuman(target.schedule) : '—'}
+                </TableCell>
+                <TableCell className="font-mono text-sm">
+                  {target.last_backup ? formatDate(target.last_backup) : 'Never'}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    onClick={(e) => handleBackup(e, target.name)}
+                    disabled={target.is_running || triggerBackup.isPending}
+                    size="sm"
+                  >
+                    {target.is_running ? 'Running...' : 'Backup Now'}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </>
   )
