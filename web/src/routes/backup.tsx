@@ -32,7 +32,7 @@ function BackupPage() {
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   )
 
-  const targets = dashboard?.targets || []
+  const targets = useMemo(() => dashboard?.targets || [], [dashboard?.targets])
 
   // Derive unique db types for filter dropdown
   const dbTypes = useMemo(() => {
@@ -71,9 +71,7 @@ function BackupPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle>
-            Backup Targets ({filteredTargets.length})
-          </CardTitle>
+          <CardTitle>Backup Targets ({filteredTargets.length})</CardTitle>
           <div className="flex gap-3">
             <Input
               placeholder="Search targets..."
