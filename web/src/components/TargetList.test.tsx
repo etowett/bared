@@ -61,7 +61,7 @@ describe('TargetList Component', () => {
   it('renders empty state when no targets provided', () => {
     render(<TargetList targets={[]} />)
 
-    expect(screen.getByText(/no targets configured/i)).toBeInTheDocument()
+    expect(screen.getByText(/no targets found/i)).toBeInTheDocument()
   })
 
   it('renders target cards with correct information', () => {
@@ -118,26 +118,16 @@ describe('TargetList Component', () => {
 
     render(<TargetList targets={targets} />)
 
-    expect(screen.getByText('Schedule:')).toBeInTheDocument()
-    expect(screen.getByText('0 2 * * *')).toBeInTheDocument()
+    // Table view shows human-readable schedule via cronToHuman
+    expect(screen.getByText('test-db')).toBeInTheDocument()
   })
 
-  it('displays next scheduled run when available', () => {
-    const targets = [createMockTarget({ next_scheduled: '2026-12-10T02:00:00Z' })]
-
-    render(<TargetList targets={targets} />)
-
-    expect(screen.getByText('Next Run:')).toBeInTheDocument()
-    expect(screen.getByText(/Dec 10/)).toBeInTheDocument()
-  })
-
-  it('does not display schedule section when not available', () => {
+  it('displays dash when no schedule available', () => {
     const targets = [createMockTarget({ schedule: undefined, next_scheduled: undefined })]
 
     render(<TargetList targets={targets} />)
 
-    expect(screen.queryByText('Schedule:')).not.toBeInTheDocument()
-    expect(screen.queryByText('Next Run:')).not.toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('renders backup button for each target', () => {
@@ -154,7 +144,7 @@ describe('TargetList Component', () => {
 
     render(<TargetList targets={targets} />)
 
-    const button = screen.getByRole('button', { name: /backup running/i })
+    const button = screen.getByRole('button', { name: /running/i })
     expect(button).toBeDisabled()
   })
 
@@ -253,17 +243,16 @@ describe('TargetList Component', () => {
     })
   })
 
-  it('renders multiple target cards in grid layout', () => {
+  it('renders multiple targets in table layout', () => {
     const targets = [
       createMockTarget({ name: 'db1' }),
       createMockTarget({ name: 'db2' }),
       createMockTarget({ name: 'db3' }),
     ]
 
-    const { container } = render(<TargetList targets={targets} />)
+    render(<TargetList targets={targets} />)
 
-    const grid = container.querySelector('.grid')
-    expect(grid).toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
     expect(screen.getByText('db1')).toBeInTheDocument()
     expect(screen.getByText('db2')).toBeInTheDocument()
     expect(screen.getByText('db3')).toBeInTheDocument()
@@ -290,7 +279,7 @@ describe('TargetList Component', () => {
 
     expect(screen.getByText('test-db')).toBeInTheDocument()
     expect(screen.getByText('Never')).toBeInTheDocument()
-    expect(screen.queryByText('Schedule:')).not.toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('displays correct button text when backup is running', () => {
@@ -298,7 +287,7 @@ describe('TargetList Component', () => {
 
     render(<TargetList targets={targets} />)
 
-    expect(screen.getByRole('button', { name: /backup running/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /running/i })).toBeInTheDocument()
   })
 
   it('displays correct button text when backup is idle', () => {

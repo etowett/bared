@@ -84,7 +84,7 @@ describe('RestoreForm Component', () => {
     expect(screen.getByLabelText(/restore target/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/backup path/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/dry-run/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /validate restore/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /execute restore/i })).toBeInTheDocument()
   })
 
   it('populates restore target dropdown with targets', async () => {
@@ -136,7 +136,7 @@ describe('RestoreForm Component', () => {
   it('validates required fields on submit', () => {
     render(<RestoreForm />)
 
-    const submitButton = screen.getByRole('button', { name: /validate restore/i })
+    const submitButton = screen.getByRole('button', { name: /execute restore/i })
 
     // Button should be disabled when required fields are empty
     expect(submitButton).toBeDisabled()
@@ -160,7 +160,10 @@ describe('RestoreForm Component', () => {
     // Enter backup path
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
 
-    // Dry-run is checked by default, submit
+    // Enable dry-run (defaults to off)
+    await user.click(screen.getByLabelText(/dry-run/i))
+
+    // Submit
     await user.click(screen.getByRole('button', { name: /validate restore/i }))
 
     await waitFor(() => {
@@ -188,10 +191,7 @@ describe('RestoreForm Component', () => {
     // Enter backup path
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
 
-    // Uncheck dry-run
-    await user.click(screen.getByLabelText(/dry-run/i))
-
-    // Submit
+    // Dry-run is off by default, submit directly
     await user.click(screen.getByRole('button', { name: /execute restore/i }))
 
     await waitFor(() => {
@@ -219,10 +219,7 @@ describe('RestoreForm Component', () => {
     // Enter backup path
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
 
-    // Uncheck dry-run
-    await user.click(screen.getByLabelText(/dry-run/i))
-
-    // Submit
+    // Dry-run is off by default, submit
     await user.click(screen.getByRole('button', { name: /execute restore/i }))
 
     // Confirm
@@ -254,8 +251,7 @@ describe('RestoreForm Component', () => {
     await user.click(screen.getByRole('option', { name: /restore-db1/i }))
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
 
-    // Uncheck dry-run and submit
-    await user.click(screen.getByLabelText(/dry-run/i))
+    // Dry-run is off by default, submit
     await user.click(screen.getByRole('button', { name: /execute restore/i }))
 
     // Cancel
@@ -286,7 +282,8 @@ describe('RestoreForm Component', () => {
     await user.click(screen.getByRole('option', { name: /restore-db1/i }))
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
 
-    // Submit dry-run
+    // Enable dry-run and submit
+    await user.click(screen.getByLabelText(/dry-run/i))
     await user.click(screen.getByRole('button', { name: /validate restore/i }))
 
     await waitFor(() => {
@@ -313,17 +310,18 @@ describe('RestoreForm Component', () => {
     const backupPathInput = screen.getByLabelText(/backup path/i)
     await user.type(backupPathInput, '/backups/test.sql')
 
-    // Submit
+    // Enable dry-run and submit
+    await user.click(screen.getByLabelText(/dry-run/i))
     await user.click(screen.getByRole('button', { name: /validate restore/i }))
 
     await waitFor(() => {
       expect(mockTriggerRestore.mutateAsync).toHaveBeenCalled()
     })
 
-    // Form should reset
+    // Form should reset (dry-run resets to default unchecked)
     await waitFor(() => {
       expect(backupPathInput).toHaveValue('')
-      expect(screen.getByLabelText(/dry-run/i)).toBeChecked()
+      expect(screen.getByLabelText(/dry-run/i)).not.toBeChecked()
     })
   })
 
@@ -341,6 +339,9 @@ describe('RestoreForm Component', () => {
     })
     await user.click(screen.getByRole('option', { name: /restore-db1/i }))
     await user.type(screen.getByLabelText(/backup path/i), '/backups/new-path.sql')
+
+    // Enable dry-run and submit
+    await user.click(screen.getByLabelText(/dry-run/i))
     await user.click(screen.getByRole('button', { name: /validate restore/i }))
 
     await waitFor(() => {
@@ -455,7 +456,7 @@ describe('RestoreForm Component', () => {
   it('disables submit button when form is incomplete', () => {
     render(<RestoreForm />)
 
-    const submitButton = screen.getByRole('button', { name: /validate restore/i })
+    const submitButton = screen.getByRole('button', { name: /execute restore/i })
     expect(submitButton).toBeDisabled()
   })
 
@@ -493,6 +494,9 @@ describe('RestoreForm Component', () => {
     })
     await user.click(screen.getByRole('option', { name: /restore-db1/i }))
     await user.type(screen.getByLabelText(/backup path/i), '/backups/test.sql')
+
+    // Enable dry-run and submit
+    await user.click(screen.getByLabelText(/dry-run/i))
     await user.click(screen.getByRole('button', { name: /validate restore/i }))
 
     await waitFor(() => {
@@ -504,12 +508,12 @@ describe('RestoreForm Component', () => {
     const user = userEvent.setup()
     render(<RestoreForm />)
 
-    // Initially dry-run is checked
-    expect(screen.getByRole('button', { name: /validate restore/i })).toBeInTheDocument()
+    // Initially dry-run is unchecked, button says Execute Restore
+    expect(screen.getByRole('button', { name: /execute restore/i })).toBeInTheDocument()
 
-    // Uncheck dry-run
+    // Check dry-run
     await user.click(screen.getByLabelText(/dry-run/i))
 
-    expect(screen.getByRole('button', { name: /execute restore/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /validate restore/i })).toBeInTheDocument()
   })
 })

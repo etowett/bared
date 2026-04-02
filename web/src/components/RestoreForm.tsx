@@ -178,7 +178,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
       saveBackupPath(backupPath)
 
       setBackupPath('')
-      setDryRun(true)
+      setDryRun(false)
       setShowConfirm(false)
       setShowSuggestions(false)
 
