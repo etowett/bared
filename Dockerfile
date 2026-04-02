@@ -5,15 +5,10 @@ FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/web
 
-# Copy frontend package files
-COPY web/package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/app/web/node_modules \
-    npm ci --no-audit --fund=false
-
-# Copy frontend source and build
+# Copy frontend files and build
 COPY web/ ./
-RUN --mount=type=cache,target=/app/web/node_modules \
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --fund=false && \
     npm run build
 
 # Stage 2: Build Go backend
