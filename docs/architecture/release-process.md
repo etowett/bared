@@ -51,7 +51,7 @@ BareD uses a fully automated release system that:
 │  Trigger: Tag push (v*.*.*)                                  │
 │  Actions:                                                    │
 │    1. Checkout with full history                             │
-│    2. Setup Go 1.26.1 & Node.js                              │
+│    2. Setup Go 1.26.4 & Node.js                              │
 │    3. Build web frontend (npm ci && npm run build)           │
 │    4. Copy web/dist to internal/web/dist                     │
 │    5. Run GoReleaser:                                        │
