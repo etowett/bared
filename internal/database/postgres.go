@@ -166,6 +166,7 @@ func (p *Postgres) buildDumpArgs() []string {
 		fmt.Sprintf("--username=%s", p.conn.User),
 		"--no-password", // Use PGPASSWORD env var instead
 		"--no-owner",    // Omit ownership commands for cross-user restores
+		"--no-acl",      // Omit GRANT/REVOKE/ALTER DEFAULT PRIVILEGES (limited target roles can't apply them)
 	}
 
 	// Add exclude tables

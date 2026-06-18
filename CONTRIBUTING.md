@@ -6,7 +6,7 @@ Thank you for your interest in contributing to BareD! This document provides gui
 
 ### Prerequisites
 
-- Go 1.26.1
+- Go 1.26.4
 - Make (optional but recommended)
 - Docker and Docker Compose (for testing)
 - golangci-lint (for code quality checks)
