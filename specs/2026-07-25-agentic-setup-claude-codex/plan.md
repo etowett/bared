@@ -40,7 +40,7 @@ Three tiers, in order of preference:
 | `.github/workflows/ci.yml` | edit — an `agent-config` job |
 | `.gitignore` | edit — ignore `.codex/*`, re-include the shared files |
 | `.golangci.yml` | edit — exclude `node_modules` so `make lint` passes |
-| `AGENTS.md`, `CONTRIBUTING.md`, `internal/AGENTS.md`, `specs/TEMPLATE/plan.md` | edit — fix the verify-gate error, document the new tooling |
+| `AGENTS.md`, `CONTRIBUTING.md`, `apps/api/internal/AGENTS.md`, `specs/TEMPLATE/plan.md` | edit — fix the verify-gate error, document the new tooling |
 
 ## Interfaces affected
 

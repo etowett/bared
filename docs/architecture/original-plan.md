@@ -28,10 +28,10 @@ BareD is a production-ready backup/restore daemon to be built from scratch in Go
 
 ```
 bared/
-├── cmd/brd/
+├── apps/api/cmd/brd/
 │   └── main.go                    # CLI entry point
 │
-├── internal/
+├── apps/api/internal/
 │   ├── app/
 │   │   ├── backup.go              # Backup workflow orchestration
 │   │   ├── restore.go             # Restore workflow orchestration
@@ -146,7 +146,7 @@ Maximize stdlib where possible:
 **Database Interface:**
 
 ```go
-// internal/database/database.go
+// apps/api/internal/database/database.go
 type Dumper interface {
     Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
     Name() string
@@ -162,7 +162,7 @@ type Restorer interface {
 **Storage Interface:**
 
 ```go
-// internal/storage/storage.go
+// apps/api/internal/storage/storage.go
 type Storage interface {
     Store(ctx context.Context, path string, r io.Reader, size int64) error
     Retrieve(ctx context.Context, path string, w io.Writer) error
@@ -176,7 +176,7 @@ type Storage interface {
 **Compressor Interface:**
 
 ```go
-// internal/compress/compress.go
+// apps/api/internal/compress/compress.go
 type Compressor interface {
     Compress(ctx context.Context, r io.Reader, w io.Writer) error
     Decompress(ctx context.Context, r io.Reader, w io.Writer) error
@@ -187,7 +187,7 @@ type Compressor interface {
 **Notifier Interface:**
 
 ```go
-// internal/notify/notifier.go
+// apps/api/internal/notify/notifier.go
 type Notifier interface {
     NotifySuccess(ctx context.Context, msg *Message) error
     NotifyFailure(ctx context.Context, msg *Message) error
@@ -362,10 +362,10 @@ brd verify --config config.yml --target athena --backup latest
 
 **Critical Files:**
 
-- `cmd/brd/main.go` - CLI entry point with Cobra setup
-- `internal/config/config.go` - Configuration structs (with `targets` as array)
-- `internal/config/parser.go` - YAML parsing with env var expansion
-- `internal/config/validator.go` - Validation logic
+- `apps/api/cmd/brd/main.go` - CLI entry point with Cobra setup
+- `apps/api/internal/config/config.go` - Configuration structs (with `targets` as array)
+- `apps/api/internal/config/parser.go` - YAML parsing with env var expansion
+- `apps/api/internal/config/validator.go` - Validation logic
 - `examples/config.example.yml` - Example configuration
 
 **Deliverable**: Can parse and validate YAML config, CLI responds to commands
@@ -388,12 +388,12 @@ brd verify --config config.yml --target athena --backup latest
 
 **Critical Files:**
 
-- `internal/database/database.go` - Interfaces and shared types
-- `internal/database/mysql.go` - MySQL implementation
-- `internal/database/postgres.go` - PostgreSQL implementation
-- `internal/database/redis.go` - Redis implementation (RDB snapshot)
-- `internal/database/factory.go` - Factory function
-- `internal/util/shell.go` - Command execution helpers
+- `apps/api/internal/database/database.go` - Interfaces and shared types
+- `apps/api/internal/database/mysql.go` - MySQL implementation
+- `apps/api/internal/database/postgres.go` - PostgreSQL implementation
+- `apps/api/internal/database/redis.go` - Redis implementation (RDB snapshot)
+- `apps/api/internal/database/factory.go` - Factory function
+- `apps/api/internal/util/shell.go` - Command execution helpers
 
 **Deliverable**: Can execute dumps for all three databases, stream to io.Writer
 
@@ -419,9 +419,9 @@ brd verify --config config.yml --target athena --backup latest
 
 **Critical Files:**
 
-- `internal/compress/compress.go` - Interface definition
-- `internal/compress/tgz.go` - tar.gz implementation
-- `internal/compress/factory.go` - Factory function
+- `apps/api/internal/compress/compress.go` - Interface definition
+- `apps/api/internal/compress/tgz.go` - tar.gz implementation
+- `apps/api/internal/compress/factory.go` - Factory function
 
 **Deliverable**: Streaming pipeline works (dump → compress)
 
@@ -444,12 +444,12 @@ brd verify --config config.yml --target athena --backup latest
 
 **Critical Files:**
 
-- `internal/storage/storage.go` - Interface and shared types
-- `internal/storage/local.go` - Local filesystem implementation
-- `internal/storage/s3.go` - S3 implementation (handles S3-compatible too)
-- `internal/storage/sftp.go` - SFTP implementation
-- `internal/storage/factory.go` - Factory function
-- `internal/util/retry.go` - Retry logic
+- `apps/api/internal/storage/storage.go` - Interface and shared types
+- `apps/api/internal/storage/local.go` - Local filesystem implementation
+- `apps/api/internal/storage/s3.go` - S3 implementation (handles S3-compatible too)
+- `apps/api/internal/storage/sftp.go` - SFTP implementation
+- `apps/api/internal/storage/factory.go` - Factory function
+- `apps/api/internal/util/retry.go` - Retry logic
 
 **Deliverable**: Can upload to all storage types with retry logic
 
@@ -471,10 +471,10 @@ brd verify --config config.yml --target athena --backup latest
 
 **Critical Files:**
 
-- `internal/app/pipeline.go` - Pipeline coordination
-- `internal/app/backup.go` - Backup workflow
-- `internal/util/paths.go` - Path generation
-- `cmd/brd/backup.go` - Backup command
+- `apps/api/internal/app/pipeline.go` - Pipeline coordination
+- `apps/api/internal/app/backup.go` - Backup workflow
+- `apps/api/internal/util/paths.go` - Path generation
+- `apps/api/cmd/brd/backup.go` - Backup command
 
 **Path Format:**
 
@@ -502,10 +502,10 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 
 **Critical Files:**
 
-- `internal/app/restore.go` - Restore workflow
-- `internal/app/list.go` - List backups logic
-- `cmd/brd/restore.go` - Restore command
-- `cmd/brd/list.go` - List command
+- `apps/api/internal/app/restore.go` - Restore workflow
+- `apps/api/internal/app/list.go` - List backups logic
+- `apps/api/cmd/brd/restore.go` - Restore command
+- `apps/api/cmd/brd/list.go` - List command
 
 **Deliverable**: Can restore latest or specific backup, list shows available backups
 
@@ -526,9 +526,9 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 
 **Critical Files:**
 
-- `internal/daemon/daemon.go` - Daemon mode logic
-- `internal/daemon/scheduler.go` - Cron integration
-- `cmd/brd/daemon.go` - Daemon command
+- `apps/api/internal/daemon/daemon.go` - Daemon mode logic
+- `apps/api/internal/daemon/scheduler.go` - Cron integration
+- `apps/api/cmd/brd/daemon.go` - Daemon command
 - `examples/bared.service` - systemd service file
 
 **Deliverable**: `brd daemon` runs scheduled backups, handles signals gracefully
@@ -550,11 +550,11 @@ Example: athena/mysql/2025-12-02T15-04-05Z/mydb.sql.tar.gz
 
 **Critical Files:**
 
-- `internal/retention/tracker.go` - Backup tracking with JSON
-- `internal/retention/cleaner.go` - Cleanup logic
-- `internal/notify/notifier.go` - Interface definition
-- `internal/notify/slack.go` - Slack implementation
-- `internal/notify/factory.go` - Factory function
+- `apps/api/internal/retention/tracker.go` - Backup tracking with JSON
+- `apps/api/internal/retention/cleaner.go` - Cleanup logic
+- `apps/api/internal/notify/notifier.go` - Interface definition
+- `apps/api/internal/notify/slack.go` - Slack implementation
+- `apps/api/internal/notify/factory.go` - Factory function
 
 **Tracker Format (JSON):**
 

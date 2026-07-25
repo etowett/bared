@@ -1,6 +1,6 @@
 # Storage Subsystem — Agent Guide
 
-> Scope: storage backends (Local filesystem, S3 / S3-compatible, SFTP) with retry logic in `internal/storage/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) and the backend guide [`internal/AGENTS.md`](../AGENTS.md). **The innermost guide wins** when instructions conflict.
+> Scope: storage backends (Local filesystem, S3 / S3-compatible, SFTP) with retry logic in `apps/api/internal/storage/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../../../AGENTS.md) and the backend guide [`apps/api/internal/AGENTS.md`](../AGENTS.md). **The innermost guide wins** when instructions conflict.
 
 Every backend implements the `Storage` interface in `storage.go` — `Store`, `Retrieve`, `List`, `Delete`, `Name`, `Validate`, `Exists`, and `GetInfo` — returning `*BackupInfo` metadata where applicable. Network-facing backends (S3, SFTP) wrap their operations in `util.Retry(ctx, util.DefaultRetryConfig(), fn)` so transient failures back off and retry automatically, while the local filesystem backend runs without retries. Backends are constructed through the factory `New(cfg *config.Storage)` in `factory.go`, which dispatches on `cfg.Type` (`local`, `s3`, `sftp`) to the matching `NewLocal`/`NewS3`/`NewSFTP` constructor.
 
@@ -8,7 +8,7 @@ Every backend implements the `Storage` interface in `storage.go` — `Store`, `R
 
 **Example**: Adding Azure Blob Storage
 
-1. **Create implementation** (`internal/storage/azure.go`):
+1. **Create implementation** (`apps/api/internal/storage/azure.go`):
 
 ```go
 package storage
@@ -70,7 +70,7 @@ func (a *AzureStorage) Retrieve(ctx context.Context, path string, w io.Writer) e
 // Implement remaining Storage interface methods...
 ```
 
-2. **Update config** (`internal/config/config.go`):
+2. **Update config** (`apps/api/internal/config/config.go`):
 
 ```go
 type Storage struct {
@@ -84,7 +84,7 @@ type Storage struct {
 }
 ```
 
-3. **Register in factory** (`internal/storage/factory.go`):
+3. **Register in factory** (`apps/api/internal/storage/factory.go`):
 
 ```go
 func New(cfg *config.Storage) (Storage, error) {
@@ -105,7 +105,7 @@ func New(cfg *config.Storage) (Storage, error) {
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — backend (`internal/`) guide
-- [`../../AGENTS.md`](../../AGENTS.md) — root BareD agent guide
+- [`../AGENTS.md`](../AGENTS.md) — backend (`apps/api/internal/`) guide
+- [`../../AGENTS.md`](../../../../AGENTS.md) — root BareD agent guide
 - [`../database/AGENTS.md`](../database/AGENTS.md) — database subsystem guide
 - [`../notify/AGENTS.md`](../notify/AGENTS.md) — notification subsystem guide

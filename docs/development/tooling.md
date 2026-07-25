@@ -283,7 +283,7 @@ Safe to commit:
 
 - Example configs (`examples/*.yml`)
 - VS Code settings (`.vscode/`)
-- Source code (`cmd/`, `internal/`)
+- Source code (`apps/api/cmd/`, `apps/api/internal/`)
 
 ## 🏗️ Project Scaffolding
 
@@ -295,13 +295,13 @@ The repository structure follows Go best practices:
 
 ```bash
 # 1. Create implementation
-touch internal/database/mongodb.go
+touch apps/api/internal/database/mongodb.go
 
 # 2. Update factory
-vim internal/database/factory.go
+vim apps/api/internal/database/factory.go
 
 # 3. Add tests
-touch internal/database/mongodb_test.go
+touch apps/api/internal/database/mongodb_test.go
 
 # 4. Update example
 vim examples/config.example.yml
@@ -310,16 +310,16 @@ vim examples/config.example.yml
 **Add a new storage backend:**
 
 ```bash
-touch internal/storage/gcs.go
-vim internal/storage/factory.go
-touch internal/storage/gcs_test.go
+touch apps/api/internal/storage/gcs.go
+vim apps/api/internal/storage/factory.go
+touch apps/api/internal/storage/gcs_test.go
 ```
 
 **Add a new notifier:**
 
 ```bash
-touch internal/notify/discord.go
-vim internal/notify/factory.go
+touch apps/api/internal/notify/discord.go
+vim apps/api/internal/notify/factory.go
 ```
 
 ## 📦 Dependency Management
@@ -404,7 +404,7 @@ make build
 make test
 
 # Work on feature
-vim internal/database/mongodb.go
+vim apps/api/internal/database/mongodb.go
 make fmt
 make test
 

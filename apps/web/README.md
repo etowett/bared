@@ -37,7 +37,7 @@ The dev server will proxy API requests to the Go backend at `http://localhost:80
 
 ```bash
 # From project root
-go run cmd/brd/main.go daemon --config examples/config.example.yml --http :8080 --http-user admin --http-pass changeme
+go run apps/api/cmd/brd/main.go daemon --config examples/config.example.yml --http :8080 --http-user admin --http-pass changeme
 ```
 
 ### Production Build
@@ -61,7 +61,7 @@ npm run preview
 ## Project Structure
 
 ```tree
-web/
+apps/web/
 ├── src/
 │   ├── api/
 │   │   └── client.ts          # API client with auth
@@ -174,7 +174,7 @@ Adjust in `src/hooks/*.ts` files.
 The frontend build is embedded into the Go binary:
 
 1. **Build frontend**: `npm run build`
-2. **Build Go binary**: `go build -o brd cmd/brd/main.go`
+2. **Build Go binary**: `go build -o brd apps/api/cmd/brd/main.go`
 3. **Deploy single binary**: Contains both backend and frontend
 
 The Go binary serves the React SPA for all non-API routes via `embed.FS`.
@@ -190,9 +190,9 @@ The Dockerfile uses multi-stage builds:
 ```dockerfile
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/web
-COPY web/package*.json ./
+COPY apps/web/package*.json ./
 RUN npm ci
-COPY web/ ./
+COPY apps/web/ ./
 RUN npm run build
 
 FROM golang:1.25-alpine AS backend-builder

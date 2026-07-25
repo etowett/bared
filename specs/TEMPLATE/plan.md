@@ -8,8 +8,8 @@
 ## Files to create / edit
 | File | Change |
 |------|--------|
-| `internal/…` | <create/edit — what> |
-| `web/src/…`  | <create/edit — what> |
+| `apps/api/internal/…` | <create/edit — what> |
+| `apps/web/src/…`  | <create/edit — what> |
 
 ## Interfaces affected
 - <Which interface(s) — `Dumper`/`Restorer`/`Storage`/`Notifier`/API — and how. If none, say so.>

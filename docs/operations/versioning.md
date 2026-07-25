@@ -104,7 +104,7 @@ services:
 
 ## Version Package
 
-Version information is stored in `internal/version/version.go`:
+Version information is stored in `apps/api/internal/version/version.go`:
 
 ```go
 package version
@@ -318,9 +318,9 @@ if currentVersion.LessThan(minVersion) {
 
 ## Related Files
 
-- `internal/version/version.go` - Version package
-- `cmd/brd/main.go` - CLI version display
-- `internal/api/handlers.go` - API health endpoint
+- `apps/api/internal/version/version.go` - Version package
+- `apps/api/cmd/brd/main.go` - CLI version display
+- `apps/api/internal/api/handlers.go` - API health endpoint
 - `Makefile` - Build with version injection
 - `Dockerfile` - Docker build with version args
 

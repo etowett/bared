@@ -386,7 +386,7 @@ See [examples/](../examples/) directory for:
 - `README.md` - Main entry point (industry standard)
 - `CONTRIBUTING.md` - Contribution guidelines (GitHub standard)
 - `LICENSE` - License file (standard)
-- Source code directories (`cmd/`, `internal/`, etc.)
+- Source code directories (`apps/api/cmd/`, `apps/api/internal/`, etc.)
 
 ### What Moves to docs/
 

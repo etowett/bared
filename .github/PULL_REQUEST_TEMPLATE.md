@@ -42,7 +42,7 @@ If no label is added, the default will be a patch release.
 - [ ] Unit tests pass (`make test-unit`)
 - [ ] Integration tests pass (if applicable)
 - [ ] Manual testing completed
-- [ ] Web UI tests pass (if applicable: `cd web && npm run test:run`)
+- [ ] Web UI tests pass (if applicable: `cd apps/web && npm run test:run`)
 
 ## Checklist
 

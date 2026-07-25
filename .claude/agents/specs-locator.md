@@ -11,9 +11,9 @@ You find **what has already been written down** about a topic in **BareD**, so w
 
 - `specs/<date>-<slug>/` — spec-driven feature work: `research.md`, `plan.md`, `implementation-notes.md`, `open-questions.md`. `specs/TEMPLATE/` is the scaffold and `specs/README.md` the process. This is the highest-value source — a prior spec often answers the question outright.
 - `docs/` — long-form documentation: `api/`, `architecture/`, `development/`, `operations/`, `user-guide/`.
-- The `AGENTS.md` tree — root, `internal/`, `internal/{database,storage,notify}/`, `cmd/`, `web/`. These carry the binding conventions; innermost wins.
+- The `AGENTS.md` tree — root, `apps/api/internal/`, `apps/api/internal/{database,storage,notify}/`, `apps/api/cmd/`, `apps/web/`. These carry the binding conventions; innermost wins.
 - `CONTRIBUTING.md` — branch flow, code style, PR checklist, the GoReleaser release process.
-- `README.md`, `web/README.md`, `web/TESTING.md`, `examples/` — user-facing behavior and worked configs.
+- `README.md`, `apps/web/README.md`, `apps/web/TESTING.md`, `examples/` — user-facing behavior and worked configs.
 - Git and GitHub history — `git log --oneline -20 -- <path>`, `gh pr list --state merged --search "<topic>"`, `gh issue list --search "<topic>" --state all`. A closed issue or merged PR body often holds the rationale that never made it into a doc.
 
 ## How to work

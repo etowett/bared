@@ -1,14 +1,14 @@
 # Database Subsystem — Agent Guide
 
-> Scope: dumpers & restorers for each database engine (MySQL/MariaDB, PostgreSQL, Redis) in `internal/database/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) and the backend guide [`internal/AGENTS.md`](../AGENTS.md) for project-wide workflow and Go conventions. **The innermost guide wins** when instructions conflict.
+> Scope: dumpers & restorers for each database engine (MySQL/MariaDB, PostgreSQL, Redis) in `apps/api/internal/database/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../../../AGENTS.md) and the backend guide [`apps/api/internal/AGENTS.md`](../AGENTS.md) for project-wide workflow and Go conventions. **The innermost guide wins** when instructions conflict.
 
-This package abstracts each supported database engine behind two small interfaces in `database.go`: a `Dumper` (`Dump(ctx, w)` plus `Name()` and `Validate()`) for producing a backup stream, and a `Restorer` (`Restore(ctx, r)` plus `Name()` and `ValidateConnection()`) for consuming one. Concrete types — `MySQL`, `Postgres`, and `Redis` — implement both interfaces and wrap the engine's CLI tools (`mysqldump`/`mysql`, `pg_dump`/`psql`, `redis-cli`) via the `internal/util` command executors, streaming data to/from `io.Writer`/`io.Reader` rather than buffering whole dumps. A factory (`factory.go`) dispatches on `target.Conn.Type` through `NewDumper` and `NewRestorer`, so adding an engine means implementing the interfaces once and registering the new type in the factory switch.
+This package abstracts each supported database engine behind two small interfaces in `database.go`: a `Dumper` (`Dump(ctx, w)` plus `Name()` and `Validate()`) for producing a backup stream, and a `Restorer` (`Restore(ctx, r)` plus `Name()` and `ValidateConnection()`) for consuming one. Concrete types — `MySQL`, `Postgres`, and `Redis` — implement both interfaces and wrap the engine's CLI tools (`mysqldump`/`mysql`, `pg_dump`/`psql`, `redis-cli`) via the `apps/api/internal/util` command executors, streaming data to/from `io.Writer`/`io.Reader` rather than buffering whole dumps. A factory (`factory.go`) dispatches on `target.Conn.Type` through `NewDumper` and `NewRestorer`, so adding an engine means implementing the interfaces once and registering the new type in the factory switch.
 
 ## Adding a New Database Type
 
 **Example**: Adding MongoDB support
 
-1. **Create implementation** (`internal/database/mongodb.go`):
+1. **Create implementation** (`apps/api/internal/database/mongodb.go`):
 
 ```go
 package database
@@ -104,7 +104,7 @@ func (m *MongoDB) ValidateConnection(ctx context.Context) error {
 }
 ```
 
-2. **Register in factory** (`internal/database/factory.go`):
+2. **Register in factory** (`apps/api/internal/database/factory.go`):
 
 ```go
 func New(target *config.Target) (Dumper, error) {
@@ -140,7 +140,7 @@ func NewRestorer(target *config.Target) (Restorer, error) {
 
 > Note: the live factory in `factory.go` names the dumper constructor `NewDumper` (not `New`), and the existing `NewMySQL`/`NewPostgres` constructors also take `target.ExcludeTables` and `target.AdditionalArgs`. Match the signatures of the current code when you register a new engine; the snippet above shows the dispatch shape.
 
-3. **Update validator** (`internal/config/validator.go`):
+3. **Update validator** (`apps/api/internal/config/validator.go`):
 
 ```go
 func (v *Validator) validateConnection(conn *Connection, fieldPath string) error {
@@ -156,7 +156,7 @@ func (v *Validator) validateConnection(conn *Connection, fieldPath string) error
 }
 ```
 
-4. **Add tests** (`internal/database/mongodb_test.go`):
+4. **Add tests** (`apps/api/internal/database/mongodb_test.go`):
 
 ```go
 package database
@@ -203,7 +203,7 @@ func TestMongoDBDump(t *testing.T) {
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — backend guide (`internal/`), Go conventions and workflow
-- [`../../AGENTS.md`](../../AGENTS.md) — root BareD agent guide
+- [`../AGENTS.md`](../AGENTS.md) — backend guide (`apps/api/internal/`), Go conventions and workflow
+- [`../../AGENTS.md`](../../../../AGENTS.md) — root BareD agent guide
 - [`../storage/AGENTS.md`](../storage/AGENTS.md) — storage backend extension guide (sibling subsystem)
 - [`../notify/AGENTS.md`](../notify/AGENTS.md) — notification extension guide (sibling subsystem)

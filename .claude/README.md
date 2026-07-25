@@ -15,17 +15,18 @@ it, and `make agents-doctor` fails when they drift.
 Area-specific guidance lives in nested `AGENTS.md` files. **The innermost guide wins** on conflict.
 
 ```
-AGENTS.md                          ← root: map, workflow, conventions
-├─ internal/AGENTS.md              Go backend deep-dive (architecture, API, testing, recipes)
-│  ├─ internal/database/AGENTS.md  add/change a database engine (Dumper/Restorer)
-│  ├─ internal/storage/AGENTS.md   add/change a storage backend (Local/S3/SFTP)
-│  └─ internal/notify/AGENTS.md    add/change a notification channel
-├─ cmd/AGENTS.md                   CLI (`brd`): Cobra commands, config import, build & run
-└─ web/AGENTS.md                   React 19 + TS dashboard (state, websocket, components, testing)
+AGENTS.md                                 ← root: map, workflow, conventions
+├─ apps/api/                              Go backend — module root (go.mod lives here)
+│  ├─ internal/AGENTS.md                  backend deep-dive (architecture, API, testing, recipes)
+│  │  ├─ internal/database/AGENTS.md      add/change a database engine (Dumper/Restorer)
+│  │  ├─ internal/storage/AGENTS.md       add/change a storage backend (Local/S3/SFTP)
+│  │  └─ internal/notify/AGENTS.md        add/change a notification channel
+│  └─ cmd/AGENTS.md                       CLI (`brd`): Cobra commands, config import, build & run
+└─ apps/web/AGENTS.md                     React 19 + TS dashboard (state, websocket, components, testing)
 ```
 
 `CLAUDE.md` is a **symlink to the root `AGENTS.md`** — one source of truth for every client.
-Touching `internal/storage/` → read `internal/storage/AGENTS.md` **and** `internal/AGENTS.md`; a
+Touching `apps/api/internal/storage/` → read `apps/api/internal/storage/AGENTS.md` **and** `apps/api/internal/AGENTS.md`; a
 full-stack change → read both backend and frontend guides.
 
 ## Skills (`skills/<name>/SKILL.md`)
@@ -81,7 +82,7 @@ shared, not duplicated. Tested by `scripts/test-agent-hooks.sh`, which CI runs.
 | `session-start.sh` | SessionStart | branch, dirty count, and a warning if the toolchain the gate needs is missing |
 | `guard-secrets.sh` | PreToolUse (Bash, Edit/Write) | **blocks** writing, reading, staging, or uploading `config.yml`, `bared.yml`, `*.local.yml`, `.env*`, `*.db` |
 | `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit`/`git push` on `main` (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`) |
-| `format-on-save.sh` | PostToolUse (Edit/Write) | gofmt + goimports on Go, prettier on `web/` |
+| `format-on-save.sh` | PostToolUse (Edit/Write) | gofmt + goimports on Go, prettier on `apps/web/` |
 | `ensure-newline.sh` | PostToolUse (Edit/Write) | appends a missing trailing newline |
 | `lint-on-stop.sh` | Stop | advisory `gofmt -l` + `go vet` + golangci-lint + eslint over the diff |
 | `typecheck-on-stop.sh` | Stop | advisory `tsc --noEmit` when web TS changed |
@@ -109,6 +110,6 @@ checks the example config and is *not* the gate. Run the relevant reviewer subag
 with the right `release:*` label, which drives the automated release.
 
 > **Known gap:** the final step of `make pre-commit`, `coverage-check`, fails today — ~27% against a
-> 75% threshold, with `cmd/brd`, `internal/client`, and `internal/configservice` untested. Treat
+> 75% threshold, with `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` untested. Treat
 > `fmt` → `vet` → `lint` → `test-unit` as the bar your change must clear, and don't chase the
 > coverage number in an unrelated PR. Raising it is tracked separately.

@@ -53,7 +53,7 @@ Historical implementation plans for major features:
      │                  │              │           │
      ▼                  ▼              ▼           ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Application Layer (internal/app/)          │
+│              Application Layer (apps/api/internal/app/)          │
 │  - Backup Orchestration      - Restore Orchestration    │
 │  - Progress Tracking         - Result Aggregation       │
 └────┬────────────────────────────────────────────┬───────┘
@@ -61,7 +61,7 @@ Historical implementation plans for major features:
      ▼                                             ▼
 ┌───────────────────────┐              ┌──────────────────┐
 │   Database Layer      │              │  Storage Layer   │
-│  (internal/database/) │              │ (internal/       │
+│  (apps/api/internal/database/) │              │ (apps/api/internal/       │
 │  - MySQL              │              │  storage/)       │
 │  - PostgreSQL         │              │  - Local FS      │
 │  - Redis              │              │  - S3            │
@@ -71,7 +71,7 @@ Historical implementation plans for major features:
             ▼                                    ▼
 ┌───────────────────────┐              ┌──────────────────┐
 │ Compression Layer     │              │ Notification     │
-│ (internal/compress/)  │              │ (internal/       │
+│ (apps/api/internal/compress/)  │              │ (apps/api/internal/       │
 │  - tar.gz             │              │  notify/)        │
 │  - Streaming          │              │  - Slack         │
 └───────────────────────┘              │  - Email         │
@@ -81,42 +81,42 @@ Historical implementation plans for major features:
 
 ### Core Components
 
-**Application Layer** (`internal/app/`):
+**Application Layer** (`apps/api/internal/app/`):
 
 - High-level orchestration of backup/restore operations
 - Pipeline coordination
 - Result aggregation and reporting
 
-**Database Layer** (`internal/database/`):
+**Database Layer** (`apps/api/internal/database/`):
 
 - Database-specific dump and restore implementations
 - Unified interface for all database types
 - Streaming output/input
 
-**Storage Layer** (`internal/storage/`):
+**Storage Layer** (`apps/api/internal/storage/`):
 
 - Storage backend abstractions
 - Retry logic for network operations
 - Metadata management
 
-**Compression Layer** (`internal/compress/`):
+**Compression Layer** (`apps/api/internal/compress/`):
 
 - Streaming compression using tar + gzip
 - No temporary files
 
-**Notification Layer** (`internal/notify/`):
+**Notification Layer** (`apps/api/internal/notify/`):
 
 - Multi-channel notifications
 - Rich message formatting
 - Delivery tracking
 
-**Job Management** (`internal/jobs/`):
+**Job Management** (`apps/api/internal/jobs/`):
 
 - Job lifecycle management
 - Progress tracking
 - Log aggregation
 
-**Persistence** (`internal/persistence/`):
+**Persistence** (`apps/api/internal/persistence/`):
 
 - Job history storage
 - Log persistence

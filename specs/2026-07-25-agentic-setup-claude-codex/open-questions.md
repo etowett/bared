@@ -24,6 +24,6 @@
       start mattering.
 
 - [ ] **Should `web-ci.yml` also run `make agents-doctor`?**
-      Today only `ci.yml` does, so a PR that only touches `web/` skips the mirror check. Low risk
-      (agent config and `web/` rarely change together) but cheap to add.
+      Today only `ci.yml` does, so a PR that only touches `apps/web/` skips the mirror check. Low risk
+      (agent config and `apps/web/` rarely change together) but cheap to add.
       → **Answer:** <deferred — see follow-ups in implementation-notes.md>

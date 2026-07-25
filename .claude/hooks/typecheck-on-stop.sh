@@ -14,12 +14,12 @@ cd "$(hook_repo_root)" 2>/dev/null || exit 0
 
 changed="$(git status --porcelain 2>/dev/null | sed 's/^...//')"
 [ -n "$changed" ] || exit 0
-printf '%s\n' "$changed" | grep -qE '^web/.*\.(ts|tsx)$' || exit 0
+printf '%s\n' "$changed" | grep -qE '^apps/web/.*\.(ts|tsx)$' || exit 0
 
-tsc="web/node_modules/.bin/tsc"
+tsc="apps/web/node_modules/.bin/tsc"
 [ -x "$tsc" ] || exit 0
 
-out="$( (cd web && ./node_modules/.bin/tsc --noEmit) 2>&1 || true )"
+out="$( (cd apps/web && ./node_modules/.bin/tsc --noEmit) 2>&1 || true )"
 [ -n "$out" ] || exit 0
 
 printf '\n── BareD typecheck-on-stop (advisory) ─────────────────\n'

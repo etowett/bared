@@ -92,8 +92,8 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 # Build the binary
 make build
 
-# Or manually with Go
-go build -o bin/brd ./cmd/brd
+# Or manually with Go (the module lives in apps/api)
+go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 ```
 
 ### Configuration
@@ -349,8 +349,8 @@ Run both scheduled backups AND provide HTTP API access:
 
 ```
 bared/
-├── cmd/brd/              # CLI entry point
-├── internal/
+├── apps/api/cmd/brd/              # CLI entry point
+├── apps/api/internal/
 │   ├── app/              # High-level orchestration
 │   ├── config/           # Configuration parsing & validation
 │   ├── database/         # Database dumpers (MySQL, Postgres, Redis)
@@ -393,8 +393,8 @@ See `docs/` for complete documentation including user guides, operations, and ar
 # Using Makefile (outputs to bin/brd)
 make build
 
-# Or manually with Go
-go build -o bin/brd ./cmd/brd
+# Or manually with Go (the module lives in apps/api)
+go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 
 # Cross-platform builds (outputs to dist/)
 make build-all
@@ -403,7 +403,7 @@ make build-all
 ### Testing (Coming in Phase 9)
 
 ```bash
-go test ./...
+go -C apps/api test ./...
 ```
 
 ## License

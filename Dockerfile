@@ -6,7 +6,7 @@ FROM node:24-alpine AS frontend-builder
 WORKDIR /app/web
 
 # Copy frontend files and build
-COPY web/ ./
+COPY apps/web/ ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --fund=false && \
     npm run build
@@ -22,13 +22,13 @@ RUN apk add --no-cache --no-scripts git make gcc musl-dev sqlite-dev
 
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files (the Go module is rooted at apps/api)
+COPY apps/api/go.mod apps/api/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-# Copy source code
-COPY . .
+# Copy the Go application source
+COPY apps/api/ ./
 
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/web/dist ./internal/web/dist
