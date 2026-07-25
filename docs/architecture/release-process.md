@@ -27,7 +27,7 @@ BareD uses a fully automated release system that:
                   │
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│         Workflow 1: Auto Release (.github/workflows/        │
+│         Workflow 1: Auto Release (.github/workflows/         │
 │                     auto-release.yml)                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Trigger: Push to main                                       │
@@ -45,15 +45,15 @@ BareD uses a fully automated release system that:
                   │ (tag push triggers)
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│      Workflow 2: Binary Release (.github/workflows/         │
+│      Workflow 2: Binary Release (.github/workflows/          │
 │                   release.yml)                               │
 ├─────────────────────────────────────────────────────────────┤
 │  Trigger: Tag push (v*.*.*)                                  │
 │  Actions:                                                    │
 │    1. Checkout with full history                             │
-│    2. Setup Go 1.26.4 & Node.js                              │
-│    3. Build web frontend (npm ci && npm run build)           │
-│    4. Copy apps/web/dist to apps/api/internal/web/dist                     │
+│    2. Setup Go 1.26.5 & Bun                                  │
+│    3. Build web frontend (bun install && bun run build)      │
+│    4. Copy apps/web/dist to apps/api/internal/web/dist       │
 │    5. Run GoReleaser:                                        │
 │       - Cross-compile for 5 platforms                        │
 │       - Create archives (tar.gz, zip)                        │
@@ -67,7 +67,7 @@ BareD uses a fully automated release system that:
                   │ (on success triggers)
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│       Workflow 3: Docker Release (.github/workflows/        │
+│       Workflow 3: Docker Release (.github/workflows/         │
 │                    docker.yml)                               │
 ├─────────────────────────────────────────────────────────────┤
 │  Trigger: Release workflow completion (workflow_run)         │
@@ -139,7 +139,7 @@ Key sections:
    ```yaml
    before:
      hooks:
-       - sh -c "cd apps/web && npm ci && npm run build"
+       - sh -c "cd apps/web && bun install --frozen-lockfile && bun run build"
        - sh -c "mkdir -p apps/api/internal/web && cp -r apps/web/dist apps/api/internal/web/dist"
        - go mod tidy
    ```
@@ -363,7 +363,7 @@ git push origin v1.5.3
 
 1. Check release workflow logs
 2. Common causes:
-   - Web build failed: Missing node_modules, npm errors
+   - Web build failed: Missing node_modules, Bun install errors
    - Go build failed: Dependency issues, syntax errors
    - GoReleaser error: Config validation, platform issues
    - Permission denied: GitHub token insufficient
@@ -372,9 +372,9 @@ git push origin v1.5.3
 
 If web build failed:
 ```bash
-cd web
-npm ci
-npm run build
+cd apps/web
+bun install --frozen-lockfile
+bun run build
 # Fix any errors, commit, create new release
 ```
 

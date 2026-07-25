@@ -6,7 +6,8 @@ Thank you for your interest in contributing to BareD! This document provides gui
 
 ### Prerequisites
 
-- Go 1.26.4
+- Go 1.26.5
+- Bun 1.3.5 (for the web dashboard — the version is pinned in `apps/web/.bun-version`)
 - Make (optional but recommended)
 - Docker and Docker Compose (for testing)
 - golangci-lint (for code quality checks)
@@ -66,7 +67,7 @@ bared/
 
 > **Where to run commands.** The `Makefile` at the repo root drives everything and already
 > knows where each app lives — prefer it. If you invoke Go directly, run it from `apps/api/`
-> (or use `go -C apps/api …`), and npm from `apps/web/`. The Go module is still named `bared`,
+> (or use `go -C apps/api …`), and Bun from `apps/web/`. The Go module is still named `bared`,
 > so import paths are unchanged: `bared/internal/storage`, `bared/cmd/brd`.
 
 ## Development Workflow
@@ -345,7 +346,7 @@ If a release fails:
 
 1. **Check workflow logs:** GitHub Actions → Failed workflow → View logs
 2. **Common issues:**
-   - Web build failed: Check `apps/web/` directory, run `npm run build` locally
+   - Web build failed: Check `apps/web/` directory, run `bun run build` locally
    - Binary build failed: Check Go version, dependencies
    - Docker push failed: Check Docker Hub credentials
 3. **Recovery:**
@@ -441,15 +442,36 @@ Enable verbose logging:
 Use Go's race detector:
 
 ```bash
-go test -race ./...
+go -C apps/api test -race ./...
 ```
 
 Profile the application:
 
 ```bash
-go test -cpuprofile=cpu.prof -memprofile=mem.prof -bench=.
+go -C apps/api test -cpuprofile=cpu.prof -memprofile=mem.prof -bench=.
 go tool pprof cpu.prof
 ```
+
+### Troubleshooting the Verify Gate
+
+**`make lint` reports dozens of errors on lines that already have `//nolint`.**
+
+Look at the paths in the output. If they read `../../internal/...` rather than
+`apps/api/internal/...`, and the log is peppered with `no such file or directory`, you are
+looking at a stale golangci-lint cache left over from before the module moved under `apps/`.
+The findings are not real. Clear the cache:
+
+```bash
+golangci-lint cache clean
+make lint
+```
+
+**`make pre-commit` fails at the end, on `coverage-check`.**
+
+Expected, and not caused by your change. The repo sits at ~27% coverage against a 75%
+threshold; `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice`
+have no tests at all. Raising it is tracked separately. Everything *before* that step
+(`fmt` → `vet` → `lint` → `test-unit`) must pass.
 
 ## Getting Help
 

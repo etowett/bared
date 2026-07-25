@@ -188,7 +188,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | Integration tests | `make test-integration` (needs `make setup-test-env`) |
 | Coverage | `make coverage` |
 | **Backend verify gate** (fmt+vet+lint+test+coverage) | **`make pre-commit`** |
-| Frontend dev server | `make web-dev` (or `npm --prefix apps/web run dev`) |
+| Frontend dev server | `make web-dev` (or `cd apps/web && bun run dev`) |
 | Frontend lint | `make web-lint` |
 | **Frontend verify gate** (types+lint+fmt+tests) | **`make web-validate`** |
 | Frontend build | `make web-build` |
