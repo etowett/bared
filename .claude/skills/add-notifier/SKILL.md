@@ -1,6 +1,6 @@
 ---
 name: add-notifier
-description: Scaffold a new notification channel implementing the Notifier interface in BareD, following the Slack/Email/Webhook pattern. Use when the user wants backup success/failure alerts sent somewhere new (e.g. "add Discord notifications", "support Telegram alerts", "add a PagerDuty/Opsgenie notifier", "send backup results to Microsoft Teams", "implement a new Notifier", "register a new notifier.type").
+description: Scaffold a new notification channel (Notifier) in BareD, following the Slack/Email/Webhook pattern. Use for "add Discord notifications", "support Telegram alerts", "add a PagerDuty notifier", "send backup results to Teams", "register a new notifier.type".
 ---
 
 # Add a Notifier
@@ -30,5 +30,5 @@ Scaffold a new notification channel that implements the `Notifier` interface, mi
 - `make test` — unit tests pass
 - `make build` — backend compiles
 - `make web-validate` and `make build-with-web` — if you touched the React UI
-- `make validate` — run before finishing
+- `make pre-commit` — the full backend gate; run before finishing
 - If you changed the `Notifier` interface, update `internal/notify/AGENTS.md` and `docs/` accordingly.

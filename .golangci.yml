@@ -22,6 +22,10 @@ linters:
     paths:
       - vendor
       - examples
+      # npm packages occasionally ship Go sources (e.g. flatted/golang). They are
+      # third-party and not part of the build, but golangci-lint walks into them
+      # and fails `make lint` on any machine that has run `npm ci`.
+      - node_modules
     rules:
       # Exclude some linters from running on tests
       - path: _test\.go

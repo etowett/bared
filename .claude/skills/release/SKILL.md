@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a BareD release — tag a new version so GitHub Actions runs GoReleaser to publish a GitHub release (binaries + checksums) and Docker images. Use when the user wants to "cut a release", "publish a new version", "tag a release", "ship vX.Y.Z", "do a release", or asks how releases work / how to release manually.
+description: Cut a BareD release — tag a version so GitHub Actions runs GoReleaser to publish the GitHub release (binaries + checksums) and Docker images. Use for "cut a release", "publish a new version", "ship vX.Y.Z", or questions about how releasing works.
 ---
 
 # Cut a BareD release

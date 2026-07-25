@@ -1,0 +1,84 @@
+# Codex CLI — project-scoped configuration for BareD.
+#
+# This file MIRRORS the canonical Claude Code setup. See .claude/AGENTS.md for the
+# sync map; `make agents-doctor` fails the build when it drifts.
+#
+#   .mcp.json                            -> [mcp_servers.*] below
+#   .claude/settings.json permissions    -> .codex/rules/allowlist.rules
+#   .claude/settings.json hooks          -> [hooks] below
+#   .claude/agents/*.md                  -> .codex/agents/*.toml
+#   .claude/skills/                      -> .agents/skills symlink (automatic)
+#
+# Project-scoped config only loads once you trust the project — run `codex` in the
+# repo and accept the trust prompt, or `codex --cd .` once.
+# Docs: https://learn.chatgpt.com/docs/config-file/config-reference
+
+# Codex may edit the workspace without prompting; anything outside the allowlist
+# in rules/allowlist.rules asks first.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+# `go mod download`, `npm ci`, and the Context7 MCP server all need the network.
+network_access = true
+exclude_slash_tmp = false
+exclude_tmpdir_env_var = false
+writable_roots = []
+
+# --- MCP servers — mirrors .mcp.json -----------------------------------------
+# Context7: up-to-date library documentation lookup.
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp@latest"]
+
+# --- Hooks — mirrors .claude/settings.json "hooks" ---------------------------
+# The scripts themselves are NOT duplicated: these point straight at
+# .claude/hooks/*.sh, which read their payload from stdin and detect the repo
+# root from either client. The `bash -c "$(git rev-parse --show-toplevel)/..."`
+# wrapper keeps the paths repo-relative — an absolute path here would break for
+# every other contributor and in every git worktree.
+
+[[hooks.SessionStart]]
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/session-start.sh\"'"
+timeout = 15
+
+[[hooks.PreToolUse]]
+matcher = "Bash"
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/guard-secrets.sh\"'"
+timeout = 10
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/guard-main-branch.sh\"'"
+timeout = 10
+
+[[hooks.PreToolUse]]
+matcher = "Edit|Write|MultiEdit"
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/guard-secrets.sh\"'"
+timeout = 10
+
+[[hooks.PostToolUse]]
+matcher = "Edit|Write|MultiEdit"
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/format-on-save.sh\"'"
+timeout = 30
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/ensure-newline.sh\"'"
+timeout = 10
+
+[[hooks.Stop]]
+[[hooks.Stop.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/lint-on-stop.sh\"'"
+timeout = 180
+[[hooks.Stop.hooks]]
+type = "command"
+command = "bash -c 'exec \"$(git rev-parse --show-toplevel)/.claude/hooks/typecheck-on-stop.sh\"'"
+timeout = 180

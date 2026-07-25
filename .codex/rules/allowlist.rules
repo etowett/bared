@@ -1,0 +1,113 @@
+# BareD command rules for the Codex CLI — mirrors .claude/settings.json.
+#
+#   permissions.allow  ->  decision="allow"
+#   permissions.ask    ->  decision="prompt"
+#   permissions.deny   ->  decision="forbidden"   (commands only; see note below)
+#
+# Keep both sides in sync — `make agents-doctor` fails when they drift.
+# Docs: https://learn.chatgpt.com/docs/agent-configuration/rules
+#
+# Two things to know about how Codex evaluates these, which is why this file
+# does not look like a line-for-line copy of settings.json:
+#
+#   1. Codex splits compound commands (&&, ||, ;, |) itself and evaluates each
+#      segment, so there is no equivalent of Claude's compound-command handling.
+#   2. `pattern` is an exact prefix over the argument list, and each element may
+#      be a union of literals. When several rules match, the most restrictive
+#      decision wins (forbidden > prompt > allow) — so the broad "allow" rules
+#      below can be safely narrowed by the "prompt" rules that follow them.
+
+# --- Build, test, and the verify gate ----------------------------------------
+prefix_rule(pattern=["make"], decision="allow")
+
+prefix_rule(pattern=["go", ["build", "test", "vet", "run", "list", "version", "env"]], decision="allow")
+prefix_rule(pattern=["go", "mod", ["tidy", "download", "verify", "graph"]], decision="allow")
+prefix_rule(pattern=["go", "tool", "cover"], decision="allow")
+prefix_rule(pattern=["gofmt"], decision="allow")
+prefix_rule(pattern=["goimports"], decision="allow")
+prefix_rule(pattern=["golangci-lint"], decision="allow")
+
+# The built daemon itself — used by the run-daemon skill for smoke tests.
+prefix_rule(pattern=["./bin/brd"], decision="allow")
+prefix_rule(pattern=["./brd"], decision="allow")
+
+# --- Web UI -------------------------------------------------------------------
+prefix_rule(pattern=["npm", "--prefix", "web", ["ci", "install"]], decision="allow")
+prefix_rule(
+    pattern=[
+        "npm", "--prefix", "web", "run",
+        ["build", "dev", "lint", "type-check", "validate", "format", "format:check", "test:run"],
+    ],
+    decision="allow",
+)
+prefix_rule(pattern=["npx", ["prettier", "tsc", "vite", "eslint", "vitest"]], decision="allow")
+prefix_rule(pattern=["npx", "@tanstack/router-cli", "generate"], decision="allow")
+
+# --- Agent tooling ------------------------------------------------------------
+prefix_rule(pattern=["./scripts/agents-doctor.py"], decision="allow")
+prefix_rule(pattern=["python3"], decision="allow")
+
+# --- File search and inspection ----------------------------------------------
+prefix_rule(pattern=["find"], decision="allow")
+prefix_rule(pattern=["grep"], decision="allow")
+prefix_rule(pattern=["rg"], decision="allow")
+prefix_rule(pattern=["ls"], decision="allow")
+prefix_rule(pattern=["cat"], decision="allow")
+prefix_rule(pattern=["tree"], decision="allow")
+prefix_rule(pattern=["wc"], decision="allow")
+prefix_rule(pattern=["test"], decision="allow")
+prefix_rule(pattern=["echo"], decision="allow")
+prefix_rule(pattern=["mkdir"], decision="allow")
+prefix_rule(pattern=["tar"], decision="allow")
+
+# --- Version control ----------------------------------------------------------
+prefix_rule(
+    pattern=[
+        "git",
+        ["status", "diff", "log", "show", "branch", "describe", "add", "checkout",
+         "fetch", "pull", "mv", "rm", "rev-parse", "ls-files", "tag", "stash", "worktree"],
+    ],
+    decision="allow",
+)
+prefix_rule(pattern=["gh", ["api", "issue", "search", "label"]], decision="allow")
+prefix_rule(pattern=["gh", "run", ["list", "view", "watch"]], decision="allow")
+prefix_rule(pattern=["gh", "release", ["list", "view"]], decision="allow")
+prefix_rule(pattern=["gh", "pr", ["view", "list", "diff", "checks", "status"]], decision="allow")
+prefix_rule(pattern=["gh", "repo", "view"], decision="allow")
+
+# --- Containers ---------------------------------------------------------------
+prefix_rule(pattern=["docker", ["build", "images"]], decision="allow")
+
+# --- Ask first (mirrors permissions.ask) -------------------------------------
+prefix_rule(
+    pattern=["git", ["push", "commit", "reset", "rebase", "clean", "filter-branch"]],
+    decision="prompt",
+    justification="Rewrites history or publishes work — the human decides. Also see .claude/hooks/guard-main-branch.sh.",
+)
+prefix_rule(
+    pattern=["gh", "pr", ["create", "merge", "close", "edit"]],
+    decision="prompt",
+    justification="Outward-facing: opens or changes a pull request.",
+)
+prefix_rule(
+    pattern=["gh", ["workflow", "release"], ["run", "create", "delete"]],
+    decision="prompt",
+    justification="Triggers CI or publishes a release. See CONTRIBUTING.md for the release process.",
+)
+prefix_rule(
+    pattern=["docker", ["push", "run", "rm", "rmi"]],
+    decision="prompt",
+    justification="Publishes an image or starts/destroys a container.",
+)
+
+# --- Never (mirrors permissions.deny) ----------------------------------------
+# BareD's live config and job database hold database passwords, storage keys, and
+# encryption keys. Claude denies Read() on these; the equivalent here blocks the
+# obvious shell paths. The real enforcement for both clients is the PreToolUse
+# hook .claude/hooks/guard-secrets.sh, which also covers writes and staging.
+prefix_rule(
+    pattern=[["cat", "head", "tail", "less", "more", "bat", "xxd", "base64", "strings"],
+             ["config.yml", "bared.yml", ".env", "bared.db"]],
+    decision="forbidden",
+    justification="Live credentials — read examples/config.example.yml instead.",
+)

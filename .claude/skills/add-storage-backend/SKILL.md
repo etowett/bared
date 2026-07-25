@@ -1,6 +1,6 @@
 ---
 name: add-storage-backend
-description: Scaffold a new storage backend implementing the Storage interface in BareD, following the Local/S3/SFTP pattern. Use when the user wants backups stored in a new destination (e.g. "add Azure Blob storage", "support Google Cloud Storage / GCS", "add a Backblaze B2 backend", "store backups on a WebDAV/MinIO target", "implement a new Storage backend", "register a new storage.type").
+description: Scaffold a new storage backend (Storage) in BareD, following the Local/S3/SFTP pattern. Use for "add Azure Blob storage", "support Google Cloud Storage / GCS", "add a Backblaze B2 backend", "store backups on WebDAV/MinIO", "register a new storage.type".
 ---
 
 # Add a Storage Backend
@@ -30,5 +30,5 @@ Scaffold a new storage destination that implements the `Storage` interface, mirr
 - `make test` — unit tests pass
 - `make build` — backend compiles
 - `make web-validate` and `make build-with-web` — if you touched the React UI
-- `make validate` — run before finishing
+- `make pre-commit` — the full backend gate; run before finishing
 - If you changed the `Storage` interface, update `internal/storage/AGENTS.md` and `docs/` accordingly.

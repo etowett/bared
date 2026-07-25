@@ -33,6 +33,19 @@ AGENTS.md                          ← you are here: overview, workflow, convent
 **Rule of thumb:** touching `internal/storage/` → read `internal/storage/AGENTS.md` **and** `internal/AGENTS.md`.
 Touching `web/` → read `web/AGENTS.md`. A full-stack change → read both backend and frontend guides.
 
+Changing the **agent tooling itself** (skills, commands, subagents, hooks, permissions) is a separate
+tree — `.claude/` is canonical and `.codex/` mirrors it:
+
+```
+.claude/AGENTS.md                  ← source of truth: sync map + authoring gates
+│  └─ .claude/README.md            what's available: skills, commands, subagents, hooks
+├─ .codex/AGENTS.md                Codex CLI mirror (config.toml, allowlist rules, generated subagents)
+└─ .agents/AGENTS.md               the shared bits (the .claude/skills symlink)
+```
+
+Both clients read this file: `CLAUDE.md` is a symlink to `AGENTS.md`, and Codex reads `AGENTS.md`
+directly.
+
 ---
 
 ## Project overview
@@ -99,10 +112,13 @@ interface), capture the first two phases as a spec under [`specs/`](specs/) — 
 2. **Plan** — write the change down before writing code: files to touch, interfaces affected, tests
    to add. Capture in `specs/<date>-<slug>/plan.md`. Resolve open questions before implementing.
 3. **Implement → verify → ship** — make the change, then:
-   - **Backend:** `make fmt` → `make test` → `make lint` → `make build` → run `./bin/brd …`
-   - **Frontend:** `npm --prefix web run validate` (type-check + lint + format + tests)
-   - **Full-stack:** `make build-with-web` then exercise the running daemon.
+   - **Backend:** `make pre-commit` (fmt → vet → lint → unit tests → coverage), then run `./bin/brd …`
+   - **Frontend:** `make web-validate` (type-check + lint + format + tests)
+   - **Full-stack:** `make build-with-web`, then exercise the running daemon.
+   - **Agent tooling:** `make agents-doctor`
    Record anything surprising in `specs/<date>-<slug>/implementation-notes.md`, then open a PR.
+
+`/spec` scaffolds step 1–2 and `/gate` runs the right verification for step 3.
 
 ### Project skills
 
@@ -119,7 +135,29 @@ These repo-specific skills scaffold the common changes following existing patter
 | `/release` | drive the tag → GoReleaser → GitHub release flow |
 
 Built-in skills also apply here: `/code-review`, `/simplify`, `/verify`, `/pr`, `/security-review`.
-Custom review agents `go-backend-reviewer` and `web-frontend-reviewer` encode BareD's conventions.
+
+### Slash commands
+
+| Command | Does |
+|---------|------|
+| `/spec <slug>` | scaffold `specs/<date>-<slug>/` and run the research phase |
+| `/gate` | run the real verify gate for whatever changed, and fix what it reports |
+| `/agents-doctor` | check the Claude Code ⇄ Codex config mirrors and repair drift |
+
+### Subagents
+
+Delegate with the Agent/Task tool. The first three are for research, the reviewers for pre-PR checks.
+
+| Subagent | Answers |
+|----------|---------|
+| `codebase-locator` | where does X live? |
+| `codebase-analyzer` | how does X actually work? (traced, with `file:line`) |
+| `codebase-pattern-finder` | what's the closest existing implementation to copy? |
+| `specs-locator` | what's already written down about this? |
+| `go-backend-reviewer` | is this Go change up to BareD's conventions? |
+| `web-frontend-reviewer` | is this React/TS change up to BareD's conventions? |
+
+Skills, commands, and subagents are shared with the Codex CLI — see [`.claude/AGENTS.md`](.claude/AGENTS.md).
 
 ---
 
@@ -139,14 +177,24 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | Unit tests | `make test` / `make test-unit` |
 | Integration tests | `make test-integration` (needs `make setup-test-env`) |
 | Coverage | `make coverage` |
-| Validate backend (fmt+vet+lint+test) | `make validate` |
+| **Backend verify gate** (fmt+vet+lint+test+coverage) | **`make pre-commit`** |
 | Frontend dev server | `make web-dev` (or `npm --prefix web run dev`) |
 | Frontend lint | `make web-lint` |
-| Frontend validate (types+lint+fmt+tests) | `make web-validate` |
+| **Frontend verify gate** (types+lint+fmt+tests) | **`make web-validate`** |
 | Frontend build | `make web-build` |
+| Check the agent config mirrors | `make agents-doctor` |
 
-> A PostToolUse hook auto-formats `.go` files (gofmt + goimports) and `web/` files (prettier) on save.
-> A Stop hook runs a fast vet/lint pass and surfaces problems — see `.claude/hooks/`.
+> **`make validate` is not the verify gate** — it builds and validates
+> `examples/config.example.yml`, nothing more. The gate is `make pre-commit`.
+
+> **Known gap:** `make pre-commit`'s last step, `coverage-check`, currently fails — the repo sits at
+> ~27% against a 75% threshold, and `cmd/brd`, `internal/client`, and `internal/configservice` have
+> no tests at all. Everything before it (`fmt` → `vet` → `lint` → `test-unit`) must pass. Don't try
+> to close a 48-point coverage gap as a side quest; raising it is tracked separately.
+
+> Hooks in `.claude/hooks/` run under both Claude Code and Codex: files are auto-formatted on save,
+> secrets and direct-to-`main` commits are blocked, and a Stop hook surfaces lint/type errors.
+> `/gate` runs the right gate for whatever you changed.
 
 ---
 
@@ -157,7 +205,8 @@ PR checklist, and the GoReleaser release process. In short:
 
 - **Branch** off `main` with a descriptive name; never commit straight to `main`.
 - **Commit** in small, coherent chunks. Match the existing history style and reference the issue/PR.
-- **Before pushing:** `make validate` (backend) and/or `make web-validate` (frontend) must pass.
+- **Before pushing:** `make pre-commit` (backend) and/or `make web-validate` (frontend) must pass —
+  or just run `/gate`, which picks the right one from the diff.
 - **PR:** fill in `.github/PULL_REQUEST_TEMPLATE.md`; CI (`.github/workflows/`) runs Go + web checks,
   Docker build, and release tooling.
 - **Secrets:** never commit `config.yml`, `bared.yml`, `*.local.yml`, `.env*`, or `*.db` (all gitignored).

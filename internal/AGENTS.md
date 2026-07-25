@@ -357,7 +357,8 @@ make test-unit          # Explicitly unit tests
 make coverage           # Generate coverage report
 make lint               # Run golangci-lint
 make fmt                # Format Go code
-make validate           # Run all checks
+make pre-commit         # Full backend gate: fmt + vet + lint + unit tests + coverage
+make validate           # Build, then validate examples/config.example.yml
 make web-build          # Build frontend only
 make web-validate       # Frontend validation (type-check + lint + format + tests)
 ```

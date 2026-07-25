@@ -1,6 +1,6 @@
 ---
 name: add-database-type
-description: Scaffold a new database engine (Dumper/Restorer) in BareD following the MySQL/PostgreSQL/Redis pattern. Use when the user wants to add support for a new database type to back up or restore (e.g. "add MongoDB support", "support SQL Server backups", "back up MariaDB/Cassandra/ClickHouse", "implement a new Dumper/Restorer", "register a new conn.type").
+description: Scaffold a new database engine (Dumper/Restorer) in BareD, following the MySQL/PostgreSQL/Redis pattern. Use for "add MongoDB support", "support SQL Server backups", "back up MariaDB/ClickHouse", "implement a new Dumper/Restorer", "register a new conn.type".
 ---
 
 # Add a Database Type
@@ -30,5 +30,5 @@ Scaffold a new database engine that streams a backup (`Dumper`) and consumes one
 - `make test` — unit tests pass
 - `make build` — backend compiles
 - `make web-validate` and `make build-with-web` — if you touched the React UI
-- `make validate` — run before finishing
+- `make pre-commit` — the full backend gate; run before finishing
 - If you changed the `Dumper`/`Restorer` interfaces, update `internal/database/AGENTS.md` and `docs/` accordingly.

@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info agents-doctor agents-sync setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -16,6 +16,15 @@ DOCKER_IMAGE ?= ektowett/bared
 DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/arm64 || echo linux/amd64)
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 DOCKER_BUILDX_BUILDER ?= bared-multi
+
+# Package list for test/vet/coverage targets.
+#
+# npm packages occasionally ship Go sources — web/node_modules/flatted/golang is
+# one — and `./...` sweeps them in once `npm ci` has run. They are third party,
+# not part of the build, and they drag the coverage total below the threshold and
+# fail `make lint`. Recursively expanded so `go list` only runs when a recipe
+# actually needs it. (.golangci.yml excludes node_modules for the same reason.)
+GO_PKGS = $(shell go list ./... | grep -v '/node_modules/')
 
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).
@@ -86,7 +95,7 @@ test: test-unit
 # Run unit tests (fast, no external dependencies)
 test-unit:
 	@echo "Running unit tests..."
-	go test -v -race -short $(GO_TEST_LDFLAGS) -coverprofile=coverage.out ./...
+	go test -v -race -short $(GO_TEST_LDFLAGS) -coverprofile=coverage.out $(GO_PKGS)
 
 # Run integration tests (requires Docker services)
 test-integration:
@@ -95,7 +104,7 @@ test-integration:
 	docker-compose up -d mysql postgres redis minio
 	@echo "Waiting for services to be ready..."
 	sleep 15
-	go test -v -race -tags=integration ./...
+	go test -v -race -tags=integration $(GO_PKGS)
 	@echo "Stopping services..."
 	docker-compose down
 
@@ -110,14 +119,14 @@ test-all: test-unit test-integration test-e2e
 # Run tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -v -race -coverprofile=coverage.out $(GO_PKGS)
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
 # Check coverage threshold (75%)
 coverage-check:
 	@echo "Checking coverage threshold (75%)..."
-	@go test -coverprofile=coverage.out ./... > /dev/null 2>&1
+	@go test -coverprofile=coverage.out $(GO_PKGS) > /dev/null 2>&1
 	@total=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	if [ $$(echo "$$total < 75.0" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
 		echo "❌ Coverage ($$total%) is below threshold (75%)"; \
@@ -129,7 +138,7 @@ coverage-check:
 # Run benchmarks
 bench:
 	@echo "Running benchmarks..."
-	go test -bench=. -benchmem ./...
+	go test -bench=. -benchmem $(GO_PKGS)
 
 # Pre-commit checks
 pre-commit: fmt vet lint test-unit coverage-check
@@ -159,7 +168,7 @@ lint:
 # Run go vet
 vet:
 	@echo "Running go vet..."
-	go vet ./...
+	go vet $(GO_PKGS)
 
 # Check for common issues
 check: fmt vet lint
@@ -211,6 +220,14 @@ update-deps:
 	go get -u ./...
 	go mod tidy
 	@echo "Dependencies updated"
+
+# Check that the Claude Code <-> Codex agent config mirrors are in sync
+agents-doctor:
+	@python3 scripts/agents-doctor.py
+
+# Regenerate the derivable agent config (Codex subagents, hook permissions), then check
+agents-sync:
+	@python3 scripts/agents-doctor.py --fix
 
 # Create a test backup directory structure
 setup-test-env:
@@ -530,6 +547,10 @@ help:
 	@echo "  make deps        - Download dependencies"
 	@echo "  make update-deps - Update all dependencies"
 	@echo "  make setup-test-env - Create test directory structure"
+	@echo ""
+	@echo "Agent Tooling Commands:"
+	@echo "  make agents-doctor - Check the Claude Code <-> Codex config mirrors"
+	@echo "  make agents-sync   - Regenerate the derivable agent config, then check"
 	@echo ""
 	@echo "Docker Commands:"
 	@echo "  make docker-build                - Build Docker image locally (single platform)"

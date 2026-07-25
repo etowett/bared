@@ -22,6 +22,6 @@
 - <Unit/integration tests to add. Include a regression test that fails before, passes after.>
 
 ## Verification
-- Backend: `make fmt && make test && make lint && make build`
-- Frontend (if touched): `npm --prefix web run validate`
+- Backend: `make pre-commit` (fmt + vet + lint + unit tests + coverage), then `make build`
+- Frontend (if touched): `make web-validate`
 - Full-stack (if touched): `make build-with-web` then exercise via `/run-daemon`

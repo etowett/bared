@@ -68,22 +68,26 @@ git checkout -b feature/your-feature-name
 
 2. Make your changes following the code style guidelines below
 
-3. Format your code:
+3. Run the verify gate — formatting, vet, lint, unit tests, and the coverage threshold:
 
 ```bash
-make fmt
+make pre-commit
 ```
 
-4. Run all checks:
+> Heads-up: the final `coverage-check` step currently fails repo-wide (~27% against a 75%
+> threshold — `cmd/brd`, `internal/client`, and `internal/configservice` have no tests). Until that
+> is closed, make sure `fmt`, `vet`, `lint`, and `test-unit` all pass and that your change doesn't
+> lower coverage.
+
+4. If you touched the web UI, run its gate too:
 
 ```bash
-make check
+make web-validate
 ```
 
-5. Test your changes:
+5. Sanity-check the example config still loads (`make validate` does only this — it is not the gate):
 
 ```bash
-make test
 make validate
 ```
 

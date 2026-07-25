@@ -1,6 +1,6 @@
 ---
 name: add-api-endpoint
-description: Add a full-stack REST API endpoint to BareD — Go handler + chi route on the backend, plus the TypeScript client method, React Query hook, and component on the frontend. Use when the user wants a new HTTP endpoint and/or to surface new data in the web UI (e.g. "add a /api/stats endpoint", "expose backup statistics in the UI", "add an endpoint to trigger X", "new API route + React hook").
+description: Add a full-stack REST endpoint to BareD: Go handler + route, then the TS client method, React Query hook, and component. Use for "add a /api/stats endpoint", "expose backup statistics in the UI", "add an endpoint to trigger X", "new API route + React hook".
 ---
 
 # Add an API Endpoint (Full-Stack)
@@ -34,5 +34,5 @@ Frontend (`web/src/`):
 - `make build` — backend compiles
 - `make web-validate` — frontend type-check + lint + tests
 - `make build-with-web` — full build with embedded assets
-- `make validate` — run before finishing
+- `make pre-commit` — the full backend gate; run before finishing
 - If you changed the API contract (request/response shapes), keep `internal/AGENTS.md`, `web/AGENTS.md`, and `docs/` in sync.

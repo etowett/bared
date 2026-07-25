@@ -1,6 +1,6 @@
 ---
 name: add-config-field
-description: Add a new configuration field to BareD full-stack — Go struct + yaml tag + validation + usage on the backend, plus the TypeScript type, form input, and API wiring on the frontend. Use when the user wants a new setting on a target/storage/notifier/global config (e.g. "add a timeout field to targets", "add a retention setting", "new config option exposed in the UI", "add a yaml field to config").
+description: Add a config field to BareD full-stack: Go struct + yaml tag + validation, then the TS type, form input, and API wiring. Use for "add a timeout field to targets", "add a retention setting", "new config option exposed in the UI", "add a yaml field to config".
 ---
 
 # Add a Config Field (Full-Stack)
@@ -36,5 +36,5 @@ Docs/examples:
 - `make build` — backend compiles
 - `make web-validate` — frontend type-check + lint + tests
 - `make build-with-web` — full build with embedded assets
-- `make validate` — run before finishing
+- `make pre-commit` — the full backend gate; run before finishing
 - If the config schema/contract changed, keep `internal/AGENTS.md`, `web/AGENTS.md`, and `docs/` in sync.
