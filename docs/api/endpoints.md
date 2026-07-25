@@ -5,6 +5,7 @@ Complete reference for BareD's HTTP REST API endpoints.
 ## Table of Contents
 
 - [Health Check](#health-check)
+- [Session](#session)
 - [Dashboard](#dashboard)
 - [Targets](#targets)
 - [Restore Targets](#restore-targets)
@@ -47,6 +48,89 @@ Check if the API server is running.
 ```bash
 curl http://localhost:8080/api/health
 ```
+
+---
+
+## Session
+
+### Log In
+
+Validates credentials and issues a session cookie.
+
+**Endpoint**: `POST /api/login`
+
+**Authentication**: None (public endpoint)
+
+**Request**:
+
+```json
+{
+  "username": "admin",
+  "password": "your-password"
+}
+```
+
+**Response** (`200 OK`), plus a `Set-Cookie: bared_session=...` header:
+
+```json
+{
+  "username": "admin"
+}
+```
+
+**Errors**: `400` malformed body · `401` invalid credentials (the message never
+distinguishes a bad username from a bad password) · `413` body too large ·
+`503` no credentials configured on the daemon.
+
+**Example**:
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8080/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"your-password"}'
+```
+
+---
+
+### Log Out
+
+Revokes the session server-side and clears the cookie. Any WebSocket log streams
+belonging to the session are closed.
+
+**Endpoint**: `POST /api/logout`
+
+**Authentication**: None (safe to call with an already-expired session)
+
+**Response** (`200 OK`):
+
+```json
+{
+  "message": "Logged out"
+}
+```
+
+---
+
+### Current User
+
+Reports the authenticated identity. The dashboard uses this as its auth check,
+since an `httpOnly` cookie is invisible to JavaScript.
+
+**Endpoint**: `GET /api/me`
+
+**Authentication**: Required (Basic Auth)
+
+**Response** (`200 OK`):
+
+```json
+{
+  "username": "admin"
+}
+```
+
+Returns `401` when unauthenticated, and clears a stale session cookie if one was
+presented.
+
 
 ---
 
@@ -1662,15 +1746,22 @@ All endpoints return errors in the following format:
 | `200` | Success |
 | `400` | Bad request (invalid parameters) |
 | `401` | Unauthorized (missing or invalid credentials) |
+| `403` | Forbidden (cross-site request rejected — see Authentication) |
 | `404` | Not found (job or target doesn't exist) |
 | `405` | Method not allowed |
+| `413` | Request body too large |
 | `500` | Internal server error |
 
 ---
 
 ## Authentication
 
-All endpoints (except `/api/health`) require HTTP Basic Authentication:
+All endpoints except `/api/health`, `/api/login`, and `/api/logout` require
+authentication. Two mechanisms are accepted, and the endpoint reference below
+marks the requirement as "Basic Auth" for historical reasons — a session cookie
+works everywhere Basic Auth does.
+
+### HTTP Basic Auth (CLI and API clients)
 
 ```bash
 # Using curl
@@ -1680,6 +1771,22 @@ curl -u username:password http://localhost:8080/api/endpoint
 curl -H "Authorization: Basic $(echo -n username:password | base64)" \
   http://localhost:8080/api/endpoint
 ```
+
+### Session cookie (web dashboard)
+
+`POST /api/login` returns an `httpOnly; SameSite=Strict; Path=/` cookie holding
+an opaque, server-issued token. The browser attaches it to every subsequent
+request, including the WebSocket handshake — where a browser cannot set an
+`Authorization` header. See [Session](#session).
+
+Because a cookie is attached ambiently, cookie-authenticated **state-changing**
+requests (`POST`/`PUT`/`PATCH`/`DELETE`) must also carry an `Origin` header that
+matches the server or one of `--http-allowed-origin`; otherwise they are rejected
+with `403`. Basic-auth clients are exempt.
+
+Session cookies carry `Secure` automatically over TLS. Behind a TLS-terminating
+proxy pass `--http-secure-cookies`; `X-Forwarded-Proto` is not trusted, because
+it is client-controlled whenever the daemon is directly reachable.
 
 Configure credentials in `bared.yml`:
 

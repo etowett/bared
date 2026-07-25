@@ -36,10 +36,13 @@ type Daemon struct {
 	reloadChan    chan struct{}
 
 	// HTTP server configuration (optional)
-	httpAddr  string
-	authUser  string
-	authPass  string
-	apiServer *api.Server
+	httpAddr       string
+	authUser       string
+	authPass       string
+	sessionTTL     time.Duration
+	allowedOrigins []string
+	secureCookies  bool
+	apiServer      *api.Server
 
 	// Job configuration
 	maxConcurrentJobs int
@@ -56,6 +59,30 @@ func WithHTTP(addr, user, pass string) Option {
 		d.httpAddr = addr
 		d.authUser = user
 		d.authPass = pass
+	}
+}
+
+// WithSessionTTL sets the absolute lifetime of a dashboard session.
+func WithSessionTTL(ttl time.Duration) Option {
+	return func(d *Daemon) {
+		d.sessionTTL = ttl
+	}
+}
+
+// WithAllowedOrigins permits extra origins for CORS, CSRF, and the WebSocket
+// handshake. Same-origin is always allowed; this is for the Vite dev server and
+// reverse-proxy deployments.
+func WithAllowedOrigins(origins []string) Option {
+	return func(d *Daemon) {
+		d.allowedOrigins = origins
+	}
+}
+
+// WithSecureCookies forces the Secure attribute on the session cookie, for
+// operators terminating TLS in front of the daemon.
+func WithSecureCookies(secure bool) Option {
+	return func(d *Daemon) {
+		d.secureCookies = secure
 	}
 }
 
@@ -174,8 +201,19 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 		logger.InfoS("Creating HTTP server",
 			"component", "daemon",
 			"address", d.httpAddr)
-		d.apiServer = api.NewServer(d.httpAddr, d.authUser, d.authPass, d.jobManager, cfg,
-			configSvc, configLoader, reloadChan)
+		d.apiServer = api.NewServer(api.ServerOptions{
+			Addr:           d.httpAddr,
+			AuthUser:       d.authUser,
+			AuthPass:       d.authPass,
+			JobManager:     d.jobManager,
+			Config:         cfg,
+			ConfigService:  configSvc,
+			ConfigLoader:   configLoader,
+			ReloadChan:     reloadChan,
+			SessionTTL:     d.sessionTTL,
+			AllowedOrigins: d.allowedOrigins,
+			SecureCookies:  d.secureCookies,
+		})
 	}
 
 	return d

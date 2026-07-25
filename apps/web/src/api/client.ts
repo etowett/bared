@@ -19,50 +19,97 @@ import type {
   ConfigImportResponse,
 } from '../types'
 
-// Get auth from sessionStorage (set on login)
-export const getAuthHeader = (): string => {
-  const auth = sessionStorage.getItem('bared_auth')
-  return auth ? `Basic ${auth}` : ''
+/**
+ * Thrown when the server rejects a request as unauthenticated.
+ *
+ * The client deliberately does not navigate on its own — routing from here
+ * would mean reaching for `window.location` (a full page reload) or importing
+ * the router (a circular import). Callers subscribe via `onAuthFailure`.
+ */
+export class AuthError extends Error {
+  constructor(message = 'Authentication required') {
+    super(message)
+    this.name = 'AuthError'
+  }
 }
 
-// Set auth credentials
-export const setAuth = (username: string, password: string) => {
-  const encoded = btoa(`${username}:${password}`)
-  sessionStorage.setItem('bared_auth', encoded)
+type AuthFailureHandler = () => void
+
+let authFailureHandler: AuthFailureHandler | null = null
+
+/** Registers the callback invoked whenever a request comes back 401. */
+export const onAuthFailure = (handler: AuthFailureHandler | null) => {
+  authFailureHandler = handler
 }
 
-// Clear auth
-export const clearAuth = () => {
-  sessionStorage.removeItem('bared_auth')
+/**
+ * Logs in and lets the server set an httpOnly session cookie.
+ *
+ * Credentials are never stored client-side: the browser holds an httpOnly
+ * cookie that JavaScript cannot read, so an XSS payload has nothing to
+ * exfiltrate. It also rides along on the WebSocket handshake, which is the one
+ * request where the browser cannot set an Authorization header.
+ */
+export const login = async (username: string, password: string): Promise<{ username: string }> => {
+  const response = await fetch('/api/login', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }))
+    throw new Error(error.message || 'Invalid username or password')
+  }
+
+  return response.json()
 }
 
-// Logout
-export const logout = () => {
-  clearAuth()
+/** Ends the session server-side, which also closes its live log streams. */
+export const logout = async (): Promise<void> => {
+  await fetch('/api/logout', {
+    method: 'POST',
+    credentials: 'same-origin',
+  }).catch(() => {
+    // A failed logout must not trap the user in the app — the client-side
+    // session is discarded either way.
+  })
 }
 
-// Check if authenticated
-export const isAuthenticated = (): boolean => {
-  return !!sessionStorage.getItem('bared_auth')
+/**
+ * Resolves the current identity, or null when unauthenticated.
+ *
+ * This replaces reading a token out of storage: the session cookie is httpOnly,
+ * so only the server can answer whether it is still valid.
+ */
+export const fetchCurrentUser = async (): Promise<{ username: string } | null> => {
+  const response = await fetch('/api/me', { credentials: 'same-origin' })
+
+  if (response.status === 401) {
+    return null
+  }
+  if (!response.ok) {
+    throw new Error('Failed to check authentication')
+  }
+
+  return response.json()
 }
 
 // Base fetch with auth
 const apiFetch = async (url: string, options: RequestInit = {}) => {
-  const auth = getAuthHeader()
-
   const response = await fetch(url, {
     ...options,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
-      ...(auth && { Authorization: auth }),
       ...options.headers,
     },
   })
 
   if (response.status === 401) {
-    clearAuth()
-    window.location.reload()
-    throw new Error('Authentication required')
+    authFailureHandler?.()
+    throw new AuthError()
   }
 
   if (!response.ok) {

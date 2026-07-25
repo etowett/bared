@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getAuthHeader, setAuth, clearAuth, isAuthenticated, apiClient } from './client'
+import { AuthError, apiClient, fetchCurrentUser, login, logout, onAuthFailure } from './client'
 
 describe('API Client', () => {
   let mockFetch: ReturnType<typeof vi.fn>
@@ -8,53 +8,92 @@ describe('API Client', () => {
     mockFetch = vi.fn()
     globalThis.fetch = mockFetch
     sessionStorage.clear()
-    // Mock window.location.reload
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { reload: vi.fn() },
-    })
+    onAuthFailure(null)
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    onAuthFailure(null)
   })
 
   describe('Authentication Functions', () => {
-    it('sets auth credentials correctly', () => {
-      setAuth('testuser', 'testpass')
+    it('logs in via the API and stores nothing client-side', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ username: 'testuser' }),
+      })
 
-      const stored = sessionStorage.getItem('bared_auth')
-      expect(stored).toBe(btoa('testuser:testpass'))
+      const user = await login('testuser', 'testpass')
+
+      expect(user).toEqual({ username: 'testuser' })
+      expect(mockFetch).toHaveBeenCalledWith('/api/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'testuser', password: 'testpass' }),
+      })
     })
 
-    it('gets auth header when credentials are set', () => {
-      setAuth('testuser', 'testpass')
+    // The whole point of the change: a password must not be recoverable from
+    // the browser, so nothing credential-shaped may be written to storage.
+    it('never writes credentials to web storage', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ username: 'testuser' }),
+      })
 
-      const header = getAuthHeader()
-      expect(header).toBe(`Basic ${btoa('testuser:testpass')}`)
-    })
+      await login('testuser', 'testpass')
 
-    it('returns empty string when no auth is set', () => {
-      const header = getAuthHeader()
-      expect(header).toBe('')
-    })
-
-    it('clears auth credentials', () => {
-      setAuth('testuser', 'testpass')
-      expect(sessionStorage.getItem('bared_auth')).toBeTruthy()
-
-      clearAuth()
       expect(sessionStorage.getItem('bared_auth')).toBeNull()
+      expect(sessionStorage.length).toBe(0)
+      expect(localStorage.getItem('bared_auth')).toBeFalsy()
+      expect(JSON.stringify(sessionStorage)).not.toContain('testpass')
+      expect(JSON.stringify(localStorage)).not.toContain('testpass')
     })
 
-    it('checks authentication status correctly', () => {
-      expect(isAuthenticated()).toBe(false)
+    it('surfaces a failed login', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        json: async () => ({ message: 'Invalid username or password' }),
+      })
 
-      setAuth('testuser', 'testpass')
-      expect(isAuthenticated()).toBe(true)
+      await expect(login('testuser', 'wrong')).rejects.toThrow('Invalid username or password')
+    })
 
-      clearAuth()
-      expect(isAuthenticated()).toBe(false)
+    it('logs out via the API', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+
+      await logout()
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+    })
+
+    it('does not trap the user when logout fails', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('network down'))
+
+      await expect(logout()).resolves.toBeUndefined()
+    })
+
+    it('resolves the current user from the server', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ username: 'testuser' }),
+      })
+
+      await expect(fetchCurrentUser()).resolves.toEqual({ username: 'testuser' })
+      expect(mockFetch).toHaveBeenCalledWith('/api/me', { credentials: 'same-origin' })
+    })
+
+    it('reports no user on 401', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+
+      await expect(fetchCurrentUser()).resolves.toBeNull()
     })
   })
 
@@ -76,7 +115,6 @@ describe('API Client', () => {
 
     describe('getDashboard', () => {
       it('fetches dashboard data with auth', async () => {
-        setAuth('user', 'pass')
         const mockDashboard = {
           targets: [],
           active_jobs: 0,
@@ -92,8 +130,8 @@ describe('API Client', () => {
         expect(mockFetch).toHaveBeenCalledWith(
           '/api/dashboard',
           expect.objectContaining({
+            credentials: 'same-origin',
             headers: expect.objectContaining({
-              Authorization: `Basic ${btoa('user:pass')}`,
               'Content-Type': 'application/json',
             }),
           })
@@ -104,7 +142,6 @@ describe('API Client', () => {
 
     describe('getTargets', () => {
       it('fetches targets list', async () => {
-        setAuth('user', 'pass')
         const mockTargets = {
           targets: [{ name: 'db1', type: 'mysql', database: 'test', is_running: false }],
           total: 1,
@@ -119,9 +156,7 @@ describe('API Client', () => {
         expect(mockFetch).toHaveBeenCalledWith(
           '/api/targets',
           expect.objectContaining({
-            headers: expect.objectContaining({
-              Authorization: expect.any(String),
-            }),
+            credentials: 'same-origin',
           })
         )
         expect(result).toEqual(mockTargets)
@@ -130,7 +165,6 @@ describe('API Client', () => {
 
     describe('getRestoreTargets', () => {
       it('fetches restore targets list', async () => {
-        setAuth('user', 'pass')
         const mockRestoreTargets = {
           restore_targets: [
             {
@@ -156,7 +190,6 @@ describe('API Client', () => {
 
     describe('getJobs', () => {
       it('fetches jobs without filters', async () => {
-        setAuth('user', 'pass')
         const mockJobs = {
           jobs: [{ id: 'job1', type: 'backup', target: 'db1', status: 'running' }],
           total: 1,
@@ -173,7 +206,6 @@ describe('API Client', () => {
       })
 
       it('fetches jobs with status filter', async () => {
-        setAuth('user', 'pass')
         const mockJobs = { jobs: [], total: 0 }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -186,7 +218,6 @@ describe('API Client', () => {
       })
 
       it('fetches jobs with target filter', async () => {
-        setAuth('user', 'pass')
         const mockJobs = { jobs: [], total: 0 }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -199,7 +230,6 @@ describe('API Client', () => {
       })
 
       it('fetches jobs with multiple filters', async () => {
-        setAuth('user', 'pass')
         const mockJobs = { jobs: [], total: 0 }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -217,7 +247,6 @@ describe('API Client', () => {
 
     describe('getJob', () => {
       it('fetches single job by ID', async () => {
-        setAuth('user', 'pass')
         const mockJob = {
           id: 'job1',
           type: 'backup',
@@ -238,7 +267,6 @@ describe('API Client', () => {
 
     describe('triggerBackup', () => {
       it('triggers backup for target', async () => {
-        setAuth('user', 'pass')
         const mockResponse = { job_id: 'new-job', message: 'Backup started' }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -263,7 +291,6 @@ describe('API Client', () => {
 
     describe('triggerRestore', () => {
       it('triggers restore with required parameters', async () => {
-        setAuth('user', 'pass')
         const mockResponse = { job_id: 'restore-job', message: 'Restore started' }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -287,7 +314,6 @@ describe('API Client', () => {
       })
 
       it('triggers restore with dry_run enabled', async () => {
-        setAuth('user', 'pass')
         const mockResponse = { job_id: 'restore-job', message: 'Restore started' }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -312,7 +338,6 @@ describe('API Client', () => {
 
     describe('cancelJob', () => {
       it('cancels job by ID', async () => {
-        setAuth('user', 'pass')
         const mockResponse = { message: 'Job cancelled' }
         mockFetch.mockResolvedValueOnce({
           ok: true,
@@ -333,7 +358,6 @@ describe('API Client', () => {
 
     describe('getJobLogs', () => {
       it('fetches job logs by ID', async () => {
-        setAuth('user', 'pass')
         const mockLogs = {
           job_id: 'job1',
           logs: [{ timestamp: '2025-12-09T10:00:00Z', level: 'info', message: 'Starting' }],
@@ -352,8 +376,13 @@ describe('API Client', () => {
     })
 
     describe('Error Handling', () => {
-      it('handles 401 unauthorized by clearing auth and reloading', async () => {
-        setAuth('user', 'pass')
+      // Previously this reloaded the document, throwing away the SPA and
+      // re-downloading the whole bundle. Now it raises a typed error and
+      // notifies the handler the router registered.
+      it('raises AuthError on 401 and notifies the auth-failure handler', async () => {
+        const onFailure = vi.fn()
+        onAuthFailure(onFailure)
+
         mockFetch.mockResolvedValueOnce({
           ok: false,
           status: 401,
@@ -361,14 +390,31 @@ describe('API Client', () => {
           json: async () => ({ message: 'Unauthorized' }),
         })
 
-        await expect(apiClient.getDashboard()).rejects.toThrow('Authentication required')
+        await expect(apiClient.getDashboard()).rejects.toThrow(AuthError)
 
-        expect(sessionStorage.getItem('bared_auth')).toBeNull()
-        expect(window.location.reload).toHaveBeenCalled()
+        expect(onFailure).toHaveBeenCalledTimes(1)
+      })
+
+      it('does not reload the document on 401', async () => {
+        const reload = vi.fn()
+        Object.defineProperty(window, 'location', {
+          writable: true,
+          value: { ...window.location, reload },
+        })
+
+        mockFetch.mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({ message: 'Unauthorized' }),
+        })
+
+        await expect(apiClient.getDashboard()).rejects.toThrow(AuthError)
+
+        expect(reload).not.toHaveBeenCalled()
       })
 
       it('handles API errors with error message from response', async () => {
-        setAuth('user', 'pass')
         mockFetch.mockResolvedValueOnce({
           ok: false,
           status: 400,
@@ -380,7 +426,6 @@ describe('API Client', () => {
       })
 
       it('handles API errors with status text fallback', async () => {
-        setAuth('user', 'pass')
         mockFetch.mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -393,8 +438,7 @@ describe('API Client', () => {
         await expect(apiClient.getDashboard()).rejects.toThrow('Internal Server Error')
       })
 
-      it('includes auth header when credentials are set', async () => {
-        setAuth('testuser', 'testpass')
+      it('sends the session cookie instead of an Authorization header', async () => {
         mockFetch.mockResolvedValueOnce({
           ok: true,
           json: async () => ({ targets: [] }),
@@ -402,14 +446,9 @@ describe('API Client', () => {
 
         await apiClient.getDashboard()
 
-        expect(mockFetch).toHaveBeenCalledWith(
-          '/api/dashboard',
-          expect.objectContaining({
-            headers: expect.objectContaining({
-              Authorization: `Basic ${btoa('testuser:testpass')}`,
-            }),
-          })
-        )
+        const [, options] = mockFetch.mock.calls[0]
+        expect(options.credentials).toBe('same-origin')
+        expect(options.headers).not.toHaveProperty('Authorization')
       })
 
       it('works without auth header when not authenticated', async () => {

@@ -150,6 +150,10 @@ targets:
 # Run as daemon with web UI (API-based config management enabled)
 ./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret
 
+# Behind a TLS-terminating reverse proxy on another origin
+./bin/brd daemon --config bared.yml --http :8080 --http-user admin --http-pass secret \
+  --http-secure-cookies --http-allowed-origin https://backups.example.com
+
 # Import YAML configuration into database via API
 ./bin/brd config import bared.yml --user admin --pass secret
 ```

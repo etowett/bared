@@ -105,7 +105,8 @@ apps/web/
 
 ### Authentication
 
-- HTTP Basic Auth stored in sessionStorage
+- Session cookie (`httpOnly`, `SameSite=Strict`) issued by `POST /api/login`; no
+  credentials are stored in the browser
 - Automatic redirect to login on 401
 - Logout clears credentials
 

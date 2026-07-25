@@ -191,7 +191,7 @@ Backup progress is divided into weighted stages:
 ### Connection Lifecycle
 
 1. **Connect** - Establishes WebSocket on job detail open
-2. **Authenticate** - Sends Basic Auth token
+2. **Authenticate** - The session cookie rides along on the handshake
 3. **Stream** - Receives real-time log entries
 4. **Ping** - Keepalive every 30 seconds
 5. **Reconnect** - Auto-reconnect with exponential backoff
@@ -511,22 +511,27 @@ After making configuration changes via the web UI, click **"Reload Configuration
 
 1. Access `http://localhost:8080`
 2. Enter username and password
-3. Credentials stored in `sessionStorage`
-4. Automatic login on subsequent page loads
+3. The server validates them and sets an `httpOnly`, `SameSite=Strict` session
+   cookie holding an opaque token
+4. Automatic login on subsequent page loads, for as long as the session lives
+
+Your password is never stored in the browser and the cookie is not readable by
+JavaScript, so page scripts have no credential to leak.
 
 ### Session Management
 
 - Session persists across page reloads
-- Session expires on:
-  - Browser close (sessionStorage cleared)
-  - 401 Unauthorized response
-  - Manual logout
+- Session ends on:
+  - Manual logout (revoked server-side, closing any live log streams)
+  - Reaching `--http-session-ttl` (default 12 hours)
+  - A daemon restart — sessions are held in memory
+  - Any 401 response, which returns you to the login page
 
 ### Logout
 
 1. Click **"Logout"** button in header
-2. Credentials cleared from sessionStorage
-3. Redirected to login page
+2. The session is revoked on the server and the cookie is cleared
+3. Redirected to login page — without reloading the whole app
 
 ### Security Notes
 
@@ -709,8 +714,11 @@ For complete API reference, see [API Endpoints Documentation](../api/endpoints.m
 
 1. Verify credentials match command-line flags
 2. Check for typos in username/password
-3. Clear browser cache and sessionStorage
-4. Try incognito/private browsing mode
+3. Sign out (which clears the session cookie), or try incognito/private browsing
+4. If the daemon was restarted, sessions are gone — sign in again
+5. Behind a reverse proxy on a different host or port, pass
+   `--http-allowed-origin https://your-dashboard.example` so the origin check
+   accepts the dashboard
 
 ### WebSocket Disconnects
 
@@ -746,7 +754,7 @@ Requires:
 
 - JavaScript enabled
 - WebSocket support
-- sessionStorage support
+- Cookies enabled for the dashboard's origin
 - Fetch API support
 
 ## Mobile Support

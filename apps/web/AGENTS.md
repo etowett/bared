@@ -98,7 +98,10 @@ The live tree also contains `src/routes/` (TanStack Router route modules), `src/
    - Falls back to polling if WebSocket fails
 
 3. **Client State** (Zustand):
-   - Authentication (token, user)
+   - Authentication status (`src/stores/auth.ts`) — status + username only.
+     **Never a credential:** the session lives in an `httpOnly` cookie the
+     server sets, which JavaScript cannot read. The store caches the answer to
+     `GET /api/me` so the route guard doesn't round-trip per navigation.
    - UI preferences (theme, filters)
    - Global app state
 
@@ -125,36 +128,35 @@ export function useJobs(filters?: { status?: string; target?: string }) {
 }
 ```
 
-**Example - Using Zustand**:
+**Example - Using Zustand** (the real auth store, `src/stores/auth.ts`):
 
 ```typescript
-// stores/authStore.ts
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { fetchCurrentUser, login, logout } from '@/api/client';
 
 interface AuthState {
-  token: string | null;
-  user: string | null;
-  setAuth: (token: string, user: string) => void;
-  clearAuth: () => void;
-  isAuthenticated: boolean;
+  status: 'unknown' | 'authenticated' | 'anonymous';
+  username: string | null;
+  check: () => Promise<boolean>;
+  signIn: (username: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
-
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      token: null,
-      user: null,
-      setAuth: (token, user) => set({ token, user }),
-      clearAuth: () => set({ token: null, user: null }),
-      isAuthenticated: () => !!get().token,
-    }),
-    {
-      name: 'auth-storage',
-    }
-  )
-);
 ```
+
+**Do not add `persist` to this store, and do not put a token in it.** The
+session is an `httpOnly`, `SameSite=Strict` cookie issued by `POST /api/login`;
+persisting anything credential-shaped to `localStorage`/`sessionStorage` would
+reintroduce the XSS-exfiltration hole this design removed. Whether a session is
+still live is a *server* question — `check()` asks `GET /api/me`.
+
+### Auth rules
+
+- `fetch` calls go through `apiFetch` in `src/api/client.ts`, which sets
+  `credentials: 'same-origin'`. Never add an `Authorization` header.
+- A 401 throws `AuthError` and fires the handler registered with
+  `onAuthFailure` (wired to the router in `App.tsx`). Never navigate with
+  `window.location` — it reloads the whole bundle.
+- The WebSocket handshake needs no auth code: the cookie rides along.
 
 ## WebSocket Integration
 

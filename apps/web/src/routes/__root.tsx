@@ -1,6 +1,13 @@
-import { isAuthenticated, logout } from '@/api/client'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { createRootRoute, Outlet, redirect, useRouterState } from '@tanstack/react-router'
+import { useAuthStore } from '@/stores/auth'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  Outlet,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/router-devtools'
 
 export const Route = createRootRoute({
@@ -10,7 +17,11 @@ export const Route = createRootRoute({
       return
     }
 
-    if (!isAuthenticated()) {
+    // The session cookie is httpOnly, so only the server can confirm it. The
+    // store caches the answer, so this costs one request per session rather
+    // than one per navigation.
+    const authenticated = await useAuthStore.getState().check()
+    if (!authenticated) {
       throw redirect({
         to: '/login',
       })
@@ -20,9 +31,16 @@ export const Route = createRootRoute({
 })
 
 export function RootComponent() {
-  const handleLogout = () => {
-    logout()
-    window.location.href = '/login'
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const signOut = useAuthStore((state) => state.signOut)
+
+  const handleLogout = async () => {
+    await signOut()
+    // Drop cached server state so the next user never sees the previous one's
+    // dashboard behind a loading spinner.
+    queryClient.clear()
+    navigate({ to: '/login' })
   }
 
   const routerState = useRouterState()

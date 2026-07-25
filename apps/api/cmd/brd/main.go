@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -498,13 +499,31 @@ Examples:
 			return fmt.Errorf("failed to get http-pass flag: %w", err)
 		}
 
+		allowedOrigins, err := cmd.Flags().GetStringArray("http-allowed-origin")
+		if err != nil {
+			return fmt.Errorf("failed to get http-allowed-origin flag: %w", err)
+		}
+		sessionTTL, err := cmd.Flags().GetDuration("http-session-ttl")
+		if err != nil {
+			return fmt.Errorf("failed to get http-session-ttl flag: %w", err)
+		}
+		secureCookies, err := cmd.Flags().GetBool("http-secure-cookies")
+		if err != nil {
+			return fmt.Errorf("failed to get http-secure-cookies flag: %w", err)
+		}
+
 		// Prepare daemon options
 		var opts []daemon.Option
 		if httpAddr != "" {
 			if authUser == "" || authPass == "" {
 				return fmt.Errorf("--http-user and --http-pass are required when --http is set")
 			}
-			opts = append(opts, daemon.WithHTTP(httpAddr, authUser, authPass))
+			opts = append(opts,
+				daemon.WithHTTP(httpAddr, authUser, authPass),
+				daemon.WithSessionTTL(sessionTTL),
+				daemon.WithAllowedOrigins(allowedOrigins),
+				daemon.WithSecureCookies(secureCookies),
+			)
 		}
 
 		// Create and start daemon
@@ -517,6 +536,12 @@ func init() {
 	daemonCmd.Flags().String("http", "", "HTTP server address (e.g., :8080)")
 	daemonCmd.Flags().String("http-user", "", "HTTP basic auth username")
 	daemonCmd.Flags().String("http-pass", "", "HTTP basic auth password")
+	daemonCmd.Flags().StringArray("http-allowed-origin", nil,
+		"Additional allowed origin for the dashboard, e.g. http://localhost:5173 (repeatable)")
+	daemonCmd.Flags().Duration("http-session-ttl", 12*time.Hour,
+		"Absolute lifetime of a dashboard login session")
+	daemonCmd.Flags().Bool("http-secure-cookies", false,
+		"Mark session cookies Secure (enable when terminating TLS in front of the daemon)")
 }
 
 // formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)

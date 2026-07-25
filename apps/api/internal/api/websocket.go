@@ -11,13 +11,26 @@ import (
 	"bared/internal/util"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(_ *http.Request) bool {
-		// Allow all origins for now (can be restricted in production)
-		return true
-	},
+// upgrader builds the WebSocket upgrader for this server.
+//
+// CheckOrigin rejects foreign origins. Now that the handshake authenticates via
+// a cookie the browser attaches automatically, an unrestricted upgrader would
+// let any page on the internet open an authenticated log stream against a
+// reachable instance (cross-site WebSocket hijacking). A missing Origin is
+// accepted — non-browser clients don't send one, and they cannot be driven by a
+// hostile page.
+func (s *Server) upgrader() websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true
+			}
+			return s.originAllowed(origin, r.Host)
+		},
+	}
 }
 
 // handleStreamJobLogs handles WebSocket connections for log streaming
@@ -33,7 +46,16 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The session backing this request, if it authenticated with a cookie. The
+	// handshake is the only point where auth is checked, so the stream watches
+	// the session to learn about logout and expiry.
+	var sessionDone <-chan struct{}
+	if auth, ok := authFromContext(r.Context()); ok {
+		sessionDone = auth.sess.Done()
+	}
+
 	// Upgrade connection to WebSocket
+	upgrader := s.upgrader()
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		logger.ErrorS("Failed to upgrade WebSocket connection",
@@ -118,6 +140,21 @@ func (s *Server) handleStreamJobLogs(w http.ResponseWriter, r *http.Request) {
 			logger.InfoS("WebSocket client disconnected",
 				"component", "api",
 				"job_id", jobID)
+			return
+
+		case <-sessionDone:
+			// Session revoked (logout) or expired — stop streaming rather than
+			// serving job logs to a browser that is no longer authenticated.
+			logger.InfoS("WebSocket closed: session ended",
+				"component", "api",
+				"job_id", jobID)
+			if err := conn.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session ended")); err != nil {
+				logger.WarnS("Failed to send close frame",
+					"component", "api",
+					"job_id", jobID,
+					"error", err)
+			}
 			return
 
 		case <-r.Context().Done():

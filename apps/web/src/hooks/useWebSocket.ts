@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getAuthHeader } from '../api/client'
 import type { LogEntry } from '../types'
 
 interface UseWebSocketOptions {
@@ -28,13 +27,13 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
     if (!enabled || !jobId || !mountedRef.current) return
 
     try {
-      // Build WebSocket URL with auth
+      // The handshake authenticates with the session cookie, which the browser
+      // attaches automatically on a same-origin WebSocket. That is the whole
+      // reason for the cookie: a browser cannot set an Authorization header
+      // here, so the old first-message auth frame was never read by the server
+      // and the stream simply 401'd.
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const host = window.location.host
-      const auth = getAuthHeader()
-
-      // For WebSocket, we can't set Authorization header directly in browser
-      // We'll need to pass auth via query parameter or use a different approach
       const wsUrl = `${protocol}//${host}/api/jobs/${jobId}/logs/stream`
 
       const ws = new WebSocket(wsUrl)
@@ -49,11 +48,6 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
         setConnected(true)
         setError(null)
         reconnectDelayRef.current = initialReconnectDelay
-
-        // Send auth as first message if needed
-        if (auth) {
-          ws.send(JSON.stringify({ type: 'auth', token: auth }))
-        }
       }
 
       ws.onmessage = (event) => {
