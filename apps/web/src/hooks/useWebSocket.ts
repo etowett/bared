@@ -20,6 +20,9 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
   const reconnectTimeoutRef = useRef<number | undefined>(undefined)
   const reconnectDelayRef = useRef(initialReconnectDelay)
   const mountedRef = useRef(true)
+  // Holds the latest `connect` so the reconnect timer can call it without
+  // referencing the callback it lives inside.
+  const connectRef = useRef<(() => void) | null>(null)
 
   const connect = useCallback(() => {
     if (!enabled || !jobId || !mountedRef.current) return
@@ -80,13 +83,17 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
         if (enabled) {
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, maxReconnectDelay)
-            connect()
+            connectRef.current?.()
           }, reconnectDelayRef.current)
         }
       }
     } catch (err) {
+      // `connect` runs synchronously from the mount effect, so this path must not
+      // touch React state (see react-hooks/set-state-in-effect). Constructing the
+      // socket only throws on a malformed URL, which is a programming error —
+      // logging it is enough. Runtime failures arrive via onerror/onclose below,
+      // which do update `error`.
       console.error('Failed to create WebSocket:', err)
-      setError(err instanceof Error ? err.message : 'Connection failed')
     }
   }, [enabled, jobId, initialReconnectDelay, maxReconnectDelay])
 
@@ -108,10 +115,12 @@ export function useWebSocket(jobId: string, options: UseWebSocketOptions = {}) {
   // Connect on mount or when jobId/enabled changes
   useEffect(() => {
     mountedRef.current = true
+    connectRef.current = connect
     connect()
 
     return () => {
       mountedRef.current = false
+      connectRef.current = null
       disconnect()
     }
   }, [connect, disconnect])

@@ -99,9 +99,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
-                <Icon
-                  className={cn('h-5 w-5 flex-shrink-0', active && 'text-primary-foreground')}
-                />
+                <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary-foreground')} />
                 {!isCollapsed && <span>{item.label}</span>}
               </Link>
             )

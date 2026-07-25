@@ -27,7 +27,7 @@ export const Route = createFileRoute('/config/targets')({
   component: TargetsPage,
 })
 
-function TargetsPage() {
+export function TargetsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTarget, setEditingTarget] = useState<TargetConfig | undefined>(undefined)
 

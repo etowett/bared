@@ -19,7 +19,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "baseUrl": ".",
+    // No "baseUrl": it was removed in TypeScript 7. Without it, "paths" entries
+    // resolve relative to this file's directory, which is what we want.
     "paths": {
       "@/*": ["./src/*"]
     }

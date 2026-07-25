@@ -9,7 +9,7 @@ export const Route = createFileRoute('/jobs/$id')({
   component: JobDetailPage,
 })
 
-function JobDetailPage() {
+export function JobDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const { data: job, isLoading, error } = useJob(id)

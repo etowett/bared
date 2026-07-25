@@ -1,6 +1,12 @@
 # Web Frontend — Agent Guide
 
-> Scope: the React 19 + TypeScript + Vite dashboard in `apps/web/` (TanStack Router/Query, Zustand, Tailwind + Radix UI, Vitest). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) for project-wide workflow and conventions. **The innermost guide wins** when instructions conflict.
+> Scope: the React 19 + TypeScript + Vite dashboard in `apps/web/` (TanStack Router/Query, Zustand, Tailwind CSS v4 + Radix UI, Vitest). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) for project-wide workflow and conventions. **The innermost guide wins** when instructions conflict.
+
+> **The package manager is [Bun](https://bun.sh), not npm.** The pinned version lives in
+> `apps/web/.bun-version` (currently `1.3.5`) and is mirrored by `"packageManager"` in `package.json`.
+> The lockfile is the text-format `bun.lock` and it is committed — there is no `package-lock.json`
+> and no `.nvmrc`. Install with `bun install` (CI and Docker use `bun install --frozen-lockfile`)
+> and run scripts with `bun run <script>`.
 
 Full-stack recipes — adding a config field end-to-end, or adding an API endpoint end-to-end — live in the backend guide [`../internal/AGENTS.md`](../api/internal/AGENTS.md). This guide covers the frontend in isolation.
 
@@ -59,18 +65,21 @@ apps/web/
 │   ├── lib/                  # Utility libraries
 │   │   └── utils.ts          # Helper functions
 │   ├── styles/               # Global CSS
-│   │   └── index.css         # Tailwind imports + globals
+│   │   └── globals.css       # Tailwind v4 CSS-first config + theme vars
 │   ├── App.tsx               # Root component
 │   ├── main.tsx              # Entry point
 │   └── vite-env.d.ts         # Vite type declarations
 ├── public/                   # Static assets
 ├── dist/                     # Build output (copied to apps/api/internal/web/dist/)
-├── package.json              # Dependencies
+├── .bun-version              # Pinned Bun version (1.3.5)
+├── bun.lock                  # Committed Bun lockfile (text format)
+├── package.json              # Dependencies + "packageManager": "bun@1.3.5"
 ├── tsconfig.json             # TypeScript configuration
 ├── vite.config.ts            # Vite configuration
-├── tailwind.config.js        # Tailwind CSS configuration
-└── postcss.config.js         # PostCSS configuration
+└── postcss.config.js         # PostCSS configuration (@tailwindcss/postcss)
 ```
+
+There is no `tailwind.config.js` — Tailwind v4 is configured in CSS. See [Styling](#styling).
 
 The live tree also contains `src/routes/` (TanStack Router route modules), `src/test/` (test setup/helpers), and `src/utils/` alongside the directories above.
 
@@ -415,6 +424,24 @@ export function RestoreForm({ target }: { target: string }) {
 
 ## Styling
 
+**Tailwind CSS v4 is configured CSS-first.** There is no `tailwind.config.js`; everything lives in
+[`src/styles/globals.css`](./src/styles/globals.css):
+
+- `@import 'tailwindcss'` replaces the old `@tailwind base/components/utilities` triple.
+- `@plugin 'tailwindcss-animate'` loads the animation utilities (`animate-in`, `fade-in-0`,
+  `zoom-in-95`, `slide-in-from-*`) that Radix components rely on.
+- `@custom-variant dark (&:is(.dark *))` implements the class-based dark mode that `darkMode: ['class']`
+  used to provide.
+- `@theme { --color-*, --radius-*, --font-* }` defines the design tokens. The shadcn colours still
+  indirect through the `:root` / `.dark` HSL custom properties (e.g. `--color-border: hsl(var(--border))`),
+  so adding a colour means adding both the raw HSL var and the `--color-*` token.
+- Project-specific one-off classes use `@utility` (not `@layer utilities`).
+- `components.json` has `"tailwind": { "config": "" }` because there is no JS config for shadcn to find.
+
+Utility names follow v4: `outline-hidden` (not `outline-none`), `shrink-0` (not `flex-shrink-0`),
+`shadow-xs` (v3's `shadow-sm`), `wrap-break-word` (not `break-words`), `data-placeholder:`/`data-disabled:`
+(not `data-[placeholder]:`), and `h-(--var)` for CSS-variable values.
+
 **Styling with Tailwind + Radix UI** — use Radix UI primitives for accessible components, styled with Tailwind:
 
 ```typescript
@@ -425,7 +452,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
@@ -474,7 +501,7 @@ export { Button, buttonVariants };
 
 ## Build & Dev Commands
 
-Run npm scripts from inside `apps/web/`. The `scripts` block in `package.json` exposes:
+Run scripts with `bun run <script>` from inside `apps/web/`. The `scripts` block in `package.json` exposes:
 
 | Script | Command | Purpose |
 | --- | --- | --- |
@@ -486,11 +513,14 @@ Run npm scripts from inside `apps/web/`. The `scripts` block in `package.json` e
 | `type-check` | `tsc --noEmit` | TypeScript type-check only |
 | `format` | `prettier --write "src/**/*.{ts,tsx,css}"` | Format sources |
 | `format:check` | `prettier --check "src/**/*.{ts,tsx,css}"` | Verify formatting |
-| `validate` | `npm run type-check && npm run lint && npm run format:check && npm run test:run` | Full gate: type-check + lint + format check + tests |
+| `validate` | `bun run type-check && bun run lint && bun run format:check && bun run test:run` | Full gate: type-check + lint + format check + tests |
 | `test` | `vitest` | Run Vitest in watch mode |
 | `test:ui` | `vitest --ui` | Vitest with the UI runner |
 | `test:run` | `vitest run` | Run the test suite once |
 | `test:coverage` | `vitest run --coverage` | Run tests with coverage |
+
+Vitest runs on Node under Bun's script runner — `bun run test:run` invokes `vitest`, it does not use
+`bun test`. Don't swap it for `bun test`; the suite depends on Vitest's jsdom environment and mocking.
 
 **Makefile wrappers** (run from the repo root) cover the common flows:
 
@@ -504,9 +534,9 @@ Run npm scripts from inside `apps/web/`. The `scripts` block in `package.json` e
 **Development**:
 
 ```bash
-cd web
-npm install
-npm run dev          # Starts dev server on http://localhost:5173
+cd apps/web
+bun install
+bun run dev          # Starts dev server on http://localhost:5173
 ```
 
 **Vite proxy configuration** (in `vite.config.ts`):
@@ -532,7 +562,7 @@ export default defineConfig({
 **Production build**:
 
 ```bash
-npm run build        # Outputs to apps/web/dist/
+bun run build        # Outputs to apps/web/dist/
 ```
 
 **Integration with Go**:
@@ -676,6 +706,18 @@ See [`TESTING.md`](./TESTING.md) for the full frontend testing reference.
 - camelCase for hooks: `useJobs.ts`, `useWebSocket.ts`
 - kebab-case for CSS files: `job-list.css`
 ```
+
+**Route modules** (`src/routes/**`) must export **both** the `Route` and the page component:
+
+```typescript
+export const Route = createFileRoute('/jobs')({ component: JobsPage })
+
+export function JobsPage() { … }   // ← must be exported
+```
+
+`eslint-plugin-react-refresh` allows `Route` via `allowExportNames: ['Route']` (TanStack Router owns
+its HMR), but it flags a route module whose page component is only local — fast refresh cannot swap a
+component that the module does not export. Helper components in the same file may stay local.
 
 **Type definitions**:
 

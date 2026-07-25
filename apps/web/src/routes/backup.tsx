@@ -20,7 +20,7 @@ export const Route = createFileRoute('/backup')({
   component: BackupPage,
 })
 
-function BackupPage() {
+export function BackupPage() {
   const { data: dashboard } = useTargets()
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')

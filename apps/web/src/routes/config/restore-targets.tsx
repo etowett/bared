@@ -32,7 +32,7 @@ export const Route = createFileRoute('/config/restore-targets')({
   component: RestoreTargetsPage,
 })
 
-function RestoreTargetsPage() {
+export function RestoreTargetsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTarget, setEditingTarget] = useState<RestoreTargetConfig | undefined>(undefined)
 

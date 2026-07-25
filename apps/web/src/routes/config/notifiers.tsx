@@ -27,7 +27,7 @@ export const Route = createFileRoute('/config/notifiers')({
   component: NotifiersPage,
 })
 
-function NotifiersPage() {
+export function NotifiersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingNotifier, setEditingNotifier] = useState<Notifier | undefined>(undefined)
 

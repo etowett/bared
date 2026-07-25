@@ -58,7 +58,10 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
         'warn',
-        { allowConstantExport: true },
+        // `Route` is TanStack Router's file-route export; the router handles its HMR,
+        // so it is not expected to be a component. Route modules export their page
+        // component alongside it so fast refresh keeps working.
+        { allowConstantExport: true, allowExportNames: ['Route'] },
       ],
       '@typescript-eslint/no-unused-vars': [
         'error',

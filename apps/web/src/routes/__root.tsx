@@ -19,7 +19,7 @@ export const Route = createRootRoute({
   component: RootComponent,
 })
 
-function RootComponent() {
+export function RootComponent() {
   const handleLogout = () => {
     logout()
     window.location.href = '/login'

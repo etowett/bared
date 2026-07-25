@@ -1,6 +1,116 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+  `source(none)` disables Tailwind v4's automatic source detection and the two
+  @source globs below replace it, reproducing the v3 `content` array exactly.
+  Without this, v4 scans every non-ignored file in the project — including the
+  markdown guides — so class names merely *mentioned* in prose end up in the
+  production bundle.
+*/
+@import 'tailwindcss' source(none);
+@source '../../index.html';
+@source '../**/*.{ts,tsx}';
+
+@plugin 'tailwindcss-animate';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-success: #10b981;
+  --color-success-foreground: #ffffff;
+
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #ffffff;
+
+  --color-terminal-success: hsl(142 76% 46%);
+  --color-terminal-error: hsl(0 72% 60%);
+  --color-terminal-info: hsl(188 94% 60%);
+  --color-terminal-warning: hsl(38 92% 50%);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* Terminal color utilities */
+
+@utility font-mono-terminal {
+  font-family:
+    'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+}
+
+@utility text-terminal-green {
+  color: hsl(142 76% 46%);
+}
+
+@utility text-terminal-red {
+  color: hsl(0 72% 60%);
+}
+
+@utility text-terminal-cyan {
+  color: hsl(188 94% 60%);
+}
+
+@utility text-terminal-yellow {
+  color: hsl(38 92% 50%);
+}
+
+@utility bg-terminal-dark {
+  background-color: hsl(218 18% 12%);
+}
+
+/* Custom terminal/logs styling */
+
+@utility logs-viewer-dark {
+  @apply bg-slate-800 text-slate-200 rounded p-4 font-mono text-xs leading-relaxed;
+}
 
 @layer base {
   :root {
@@ -71,40 +181,5 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-  }
-}
-
-/* Terminal color utilities */
-@layer utilities {
-  .font-mono-terminal {
-    font-family:
-      'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
-  }
-
-  .text-terminal-green {
-    color: hsl(142 76% 46%);
-  }
-
-  .text-terminal-red {
-    color: hsl(0 72% 60%);
-  }
-
-  .text-terminal-cyan {
-    color: hsl(188 94% 60%);
-  }
-
-  .text-terminal-yellow {
-    color: hsl(38 92% 50%);
-  }
-
-  .bg-terminal-dark {
-    background-color: hsl(218 18% 12%);
-  }
-}
-
-/* Custom terminal/logs styling */
-@layer components {
-  .logs-viewer-dark {
-    @apply bg-slate-800 text-slate-200 rounded p-4 font-mono text-xs leading-relaxed;
   }
 }

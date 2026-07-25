@@ -27,7 +27,7 @@ export const Route = createFileRoute('/config/storages')({
   component: StoragesPage,
 })
 
-function StoragesPage() {
+export function StoragesPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingStorage, setEditingStorage] = useState<Storage | undefined>(undefined)
 

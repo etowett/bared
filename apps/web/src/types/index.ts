@@ -150,9 +150,7 @@ export interface RedisConnectionConfig {
 }
 
 export type ConnectionConfig =
-  | MySQLConnectionConfig
-  | PostgresConnectionConfig
-  | RedisConnectionConfig
+  MySQLConnectionConfig | PostgresConnectionConfig | RedisConnectionConfig
 
 export interface CompressionConfig {
   enabled: boolean
