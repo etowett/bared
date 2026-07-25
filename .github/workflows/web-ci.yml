@@ -5,11 +5,19 @@ on:
     branches: [main]
     paths:
       - "apps/web/**"
+      # The Dockerfile carries a second Bun pin that must match
+      # apps/web/.bun-version, and only the check-bun-pin step below enforces
+      # that. Dependabot's docker ecosystem bumps the Dockerfile alone (it did in
+      # #64), so a Dockerfile-only change has to trigger this workflow.
+      - "Dockerfile"
+      - "Makefile"
       - ".github/workflows/web-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "apps/web/**"
+      - "Dockerfile"
+      - "Makefile"
       - ".github/workflows/web-ci.yml"
 
 permissions:
@@ -24,6 +32,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+
+      # Runs before Setup Bun deliberately: if the two pins disagree, the version
+      # this job would install is already ambiguous, so fail before installing.
+      - name: Check Bun pin consistency
+        run: make check-bun-pin
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

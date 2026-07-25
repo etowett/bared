@@ -3,7 +3,7 @@
 > Scope: the React 19 + TypeScript + Vite dashboard in `apps/web/` (TanStack Router/Query, Zustand, Tailwind CSS v4 + Radix UI, Vitest). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) for project-wide workflow and conventions. **The innermost guide wins** when instructions conflict.
 
 > **The package manager is [Bun](https://bun.sh), not npm.** The pinned version lives in
-> `apps/web/.bun-version` (currently `1.3.5`) and is mirrored by `"packageManager"` in `package.json`.
+> `apps/web/.bun-version` (currently `1.3.14`) and is mirrored by `"packageManager"` in `package.json`.
 > The lockfile is the text-format `bun.lock` and it is committed — there is no `package-lock.json`
 > and no `.nvmrc`. Install with `bun install` (CI and Docker use `bun install --frozen-lockfile`)
 > and run scripts with `bun run <script>`.
@@ -71,9 +71,9 @@ apps/web/
 │   └── vite-env.d.ts         # Vite type declarations
 ├── public/                   # Static assets
 ├── dist/                     # Build output (copied to apps/api/internal/web/dist/)
-├── .bun-version              # Pinned Bun version (1.3.5)
+├── .bun-version              # Pinned Bun version (1.3.14)
 ├── bun.lock                  # Committed Bun lockfile (text format)
-├── package.json              # Dependencies + "packageManager": "bun@1.3.5"
+├── package.json              # Dependencies + "packageManager": "bun@1.3.14"
 ├── tsconfig.json             # TypeScript configuration
 ├── vite.config.ts            # Vite configuration
 └── postcss.config.js         # PostCSS configuration (@tailwindcss/postcss)

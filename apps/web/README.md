@@ -17,7 +17,7 @@ Modern React-based web interface for BareD backup management.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) — the version in [`.bun-version`](./.bun-version) (currently `1.3.5`)
+- [Bun](https://bun.sh) — the version in [`.bun-version`](./.bun-version) (currently `1.3.14`)
 - Go 1.25+ (for backend)
 
 Bun replaces npm here: the committed lockfile is `bun.lock` and there is no `package-lock.json`
@@ -202,7 +202,7 @@ The Dockerfile uses multi-stage builds:
 Roughly:
 
 ```dockerfile
-FROM oven/bun:1.3.5 AS frontend-builder
+FROM oven/bun:1.3.14 AS frontend-builder
 WORKDIR /app/web
 COPY apps/web/package.json apps/web/bun.lock ./
 RUN bun install --frozen-lockfile

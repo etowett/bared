@@ -74,6 +74,22 @@ updates:
     labels:
       - dependencies
       - javascript
+    ignore:
+      # TypeScript 7 is blocked upstream, not by us. typescript-eslint refuses to
+      # load against it ("typescript-eslint does not support TS 7.0"), and the
+      # newest @typescript-eslint (8.65.0) declares `typescript >=4.8.4 <6.1.0`.
+      # Merging a TS 7 bump leaves `main` unable to lint at all -- that happened
+      # in #65 and had to be reverted.
+      #
+      # Without this, Dependabot re-opens the same breaking PR every week. Drop
+      # this entry once typescript-eslint ships TS 7 support and bump `typescript`
+      # in the same change:
+      #   https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      #
+      # Only the major is ignored; 6.0.x patches still flow normally.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
     groups:
       bun-minor-and-patch:
         applies-to: version-updates

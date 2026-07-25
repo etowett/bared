@@ -20,7 +20,7 @@ Run the verify gate before this change ships. Scope: **${ARGUMENTS:-infer from t
 > `make validate` is **not** the gate — it only builds and validates `examples/config.example.yml`. Use `make pre-commit`.
 
 > To re-run a single web script instead of the whole `make web-validate`, the form is
-> `bun run --cwd apps/web <script>` (Bun 1.3.5, pinned in `apps/web/.bun-version`). The flag must come
+> `bun run --cwd apps/web <script>` (Bun's version is pinned in `apps/web/.bun-version`). The flag must come
 > **after** `run`: `bun --cwd apps/web run <script>` prints Bun's help and exits **0** without running
 > anything — a silent false pass.
 

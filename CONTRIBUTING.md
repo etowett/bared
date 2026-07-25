@@ -7,7 +7,7 @@ Thank you for your interest in contributing to BareD! This document provides gui
 ### Prerequisites
 
 - Go 1.26.5
-- Bun 1.3.5 (for the web dashboard — the version is pinned in `apps/web/.bun-version`)
+- Bun 1.3.14 (for the web dashboard — the version is pinned in `apps/web/.bun-version`)
 - Make (optional but recommended)
 - Docker and Docker Compose (for testing)
 - golangci-lint (for code quality checks)
