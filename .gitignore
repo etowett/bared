@@ -71,9 +71,20 @@ temp/
 *.sqlite-trace-wal
 *.sqlite-trace-shm
 
-# Claude Code / agent tooling — keep shared config (settings.json, skills, agents, hooks)
-# tracked, but ignore personal/local overrides and transient state
+# Agent tooling. Shared config is tracked (see .claude/AGENTS.md for the sync map);
+# personal overrides and per-client session state are not.
+#
+# Claude Code — canonical
 .claude/settings.local.json
 .claude/*.local.json
 .claude/local/
+
+# Codex CLI — mirrors .claude/. Codex writes a lot of local state into .codex/,
+# so ignore the directory and re-include only what's shared.
+.codex/*
+!.codex/AGENTS.md
+!.codex/config.toml
+!.codex/agents/
+!.codex/rules/
+
 .crush/

@@ -8,17 +8,10 @@
 # exits 0 so it never blocks the session. Missing tools are silently skipped.
 set -uo pipefail
 
-input="$(cat)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-# Pull tool_input.file_path out of the hook payload.
-file="$(printf '%s' "$input" | python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    print(d.get("tool_input", {}).get("file_path", "") or "")
-except Exception:
-    print("")
-' 2>/dev/null || true)"
+input="$(cat)"
+file="$(hook_json_field "$input" '.tool_input.file_path')"
 
 [ -z "$file" ] && exit 0
 [ -f "$file" ] || exit 0
@@ -33,8 +26,7 @@ case "$file" in
     fi
     ;;
   *web/*.ts | *web/*.tsx | *web/*.css)
-    root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-    prettier="$root/web/node_modules/.bin/prettier"
+    prettier="$(hook_repo_root)/web/node_modules/.bin/prettier"
     [ -x "$prettier" ] && "$prettier" --write "$file" >/dev/null 2>&1 || true
     ;;
 esac

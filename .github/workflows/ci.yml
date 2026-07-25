@@ -68,6 +68,25 @@ jobs:
           version: latest
           args: --timeout=5m
 
+  agent-config:
+    name: Agent Config
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # .claude/ is canonical and .codex/ mirrors it; without this the Codex
+      # setup rots silently. See .claude/AGENTS.md for the sync map.
+      - name: Check agent config mirrors
+        run: make agents-doctor
+
+      - name: Check hook scripts are valid shell
+        run: bash -n .claude/hooks/*.sh
+
+      - name: Test the hooks
+        run: ./scripts/test-agent-hooks.sh
+
   build:
     name: Build
     runs-on: ubuntu-latest

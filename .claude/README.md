@@ -1,12 +1,18 @@
-# `.claude/` — Agent tooling for BareD
+# `.claude/` — agent tooling for BareD
 
-Orientation for humans and agents working in this repo (`brd` Go daemon + React/TS web UI).
-This directory holds the skills, subagents, hooks, and settings that shape how Claude Code
-operates here. Start with the AGENTS.md tree below, then reach for the right skill/agent.
+What's available when working on this repo (`brd` Go daemon + React/TS web UI), for humans and
+agents alike.
+
+- **How to work in this codebase** → the [root `AGENTS.md`](../AGENTS.md) and its nested guides.
+- **How this tooling is wired and how to extend it** → [`AGENTS.md`](AGENTS.md) in this directory.
+- **The Codex CLI mirror** → [`.codex/AGENTS.md`](../.codex/AGENTS.md).
+
+Everything below is shared with the Codex CLI. `.claude/` is the source of truth; `.codex/` mirrors
+it, and `make agents-doctor` fails when they drift.
 
 ## AGENTS.md tree (read before editing)
 
-Area-specific guidance lives in nested `AGENTS.md` files. **The innermost (most specific) guide wins** when guidance conflicts.
+Area-specific guidance lives in nested `AGENTS.md` files. **The innermost guide wins** on conflict.
 
 ```
 AGENTS.md                          ← root: map, workflow, conventions
@@ -18,46 +24,91 @@ AGENTS.md                          ← root: map, workflow, conventions
 └─ web/AGENTS.md                   React 19 + TS dashboard (state, websocket, components, testing)
 ```
 
-`CLAUDE.md` is a **symlink to the root `AGENTS.md`** — one source of truth for both Claude Code and other agents.
-Rule of thumb: touching `internal/storage/` → read `internal/storage/AGENTS.md` **and** `internal/AGENTS.md`; full-stack change → read both backend and frontend guides.
+`CLAUDE.md` is a **symlink to the root `AGENTS.md`** — one source of truth for every client.
+Touching `internal/storage/` → read `internal/storage/AGENTS.md` **and** `internal/AGENTS.md`; a
+full-stack change → read both backend and frontend guides.
 
-## Skills (`.claude/skills/<name>/SKILL.md`)
+## Skills (`skills/<name>/SKILL.md`)
 
-Auto-activate on matching requests, or invoke explicitly. The pluggable-subsystem skills are checklists that defer to the nested AGENTS.md recipes.
+Auto-activate on a matching request, or invoke explicitly with `/<name>`. The pluggable-subsystem
+skills are deliberately thin checklists that defer to the nested `AGENTS.md` for the actual recipe.
 
-- **add-database-type** — scaffold a new DB engine (Dumper/Restorer) like MySQL/Postgres/Redis.
-- **add-storage-backend** — scaffold a new Storage backend like Local/S3/SFTP.
-- **add-notifier** — scaffold a new Notifier channel like Slack/Email/Webhook.
-- **add-api-endpoint** — add a full-stack REST endpoint (Go handler + route ⇄ TS client + React Query hook + component).
-- **add-config-field** — add a config field full-stack (Go struct/yaml/validation ⇄ TS type + form).
-- **run-daemon** — build and run `brd` locally and smoke-test a change in the real app.
-- **release** — cut a release (tag → GoReleaser → GitHub release + Docker).
+| Skill | Use it to… |
+|---|---|
+| `add-database-type` | scaffold a new DB engine (Dumper/Restorer) like MySQL/Postgres/Redis |
+| `add-storage-backend` | scaffold a new Storage backend like Local/S3/SFTP |
+| `add-notifier` | scaffold a new Notifier channel like Slack/Email/Webhook |
+| `add-api-endpoint` | add a full-stack REST endpoint (Go handler + route ⇄ TS client + hook + component) |
+| `add-config-field` | add a config field full-stack (Go struct/yaml/validation ⇄ TS type + form) |
+| `run-daemon` | build and run `brd` locally and smoke-test a change in the real app |
+| `release` | cut a release (tag → GoReleaser → GitHub release + Docker) |
 
-Built-in skills also apply: **/code-review**, **/simplify**, **/verify**, **/pr** (and /security-review). The built-in **/run** defers to `run-daemon`.
+Built-in skills also apply: `/code-review`, `/simplify`, `/verify`, `/pr`, `/security-review`. The
+built-in `/run` defers to `run-daemon`.
 
-## Subagents (`.claude/agents/<name>.md`)
+## Commands (`commands/<name>.md`)
 
-Delegate via the Agent/Task tool (e.g. "use the go-backend-reviewer to review my changes"); the reviewers are meant to run proactively before a PR.
+Explicit, human-triggered actions — no routing, no ambiguity.
 
-- **go-backend-reviewer** (opus) — reviews Go changes under `internal/`/`cmd/`: streaming/io.Pipe, interface+factory extension, context propagation, error wrapping, no-secrets-in-logs, path-traversal safety.
-- **web-frontend-reviewer** (sonnet) — reviews React/TS changes under `web/src/`: state layering (Query vs WebSocket vs Zustand), API client pattern, components, Radix+Tailwind, Vitest, strict TS.
-- **codebase-locator** (sonnet) — fast "where is X" map across `internal/`, `cmd/`, `web/src/`, and which nested AGENTS.md governs each area.
+| Command | Does |
+|---|---|
+| `/spec <slug>` | scaffold `specs/<date>-<slug>/` from the template and run the research phase |
+| `/gate` | run the real verify gate for whatever changed, then fix what it reports |
+| `/agents-doctor` | check the Claude Code ⇄ Codex mirrors and repair drift |
 
-## Hooks (`.claude/hooks/`)
+## Subagents (`agents/<name>.md`)
 
-- **format-on-save.sh** — PostToolUse (Edit/Write/MultiEdit): runs gofmt/goimports on Go files and prettier on web files. **Runs automatically** after edits.
-- **lint-on-stop.sh** — Stop: advisory `go vet` + golangci-lint + eslint. **Advisory only — it never blocks**; it surfaces issues, it doesn't fail the turn.
+Delegate via the Agent/Task tool ("use the go-backend-reviewer to review my changes"). Each runs in
+its own context, so bulk searching and review passes stay out of the main conversation. All are
+read-only. Mirrored to `.codex/agents/*.toml` by `make agents-sync`.
+
+| Subagent | Model | Answers |
+|---|---|---|
+| `codebase-locator` | sonnet | where does X live? |
+| `codebase-analyzer` | opus | how does X actually work? — traced with `file:line` |
+| `codebase-pattern-finder` | sonnet | what's the closest existing implementation to copy, and every touch-point? |
+| `specs-locator` | sonnet | what's already written down about this — specs, docs, prior PRs? |
+| `go-backend-reviewer` | opus | is this Go change up to BareD's conventions? (run before a PR) |
+| `web-frontend-reviewer` | sonnet | is this React/TS change up to BareD's conventions? (run before a PR) |
+
+## Hooks (`hooks/*.sh`)
+
+Registered in `settings.json` and mirrored into `.codex/config.toml`; the scripts themselves are
+shared, not duplicated. Tested by `scripts/test-agent-hooks.sh`, which CI runs.
+
+| Hook | Event | What it does |
+|---|---|---|
+| `session-start.sh` | SessionStart | branch, dirty count, and a warning if the toolchain the gate needs is missing |
+| `guard-secrets.sh` | PreToolUse (Bash, Edit/Write) | **blocks** writing, reading, staging, or uploading `config.yml`, `bared.yml`, `*.local.yml`, `.env*`, `*.db` |
+| `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit`/`git push` on `main` (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`) |
+| `format-on-save.sh` | PostToolUse (Edit/Write) | gofmt + goimports on Go, prettier on `web/` |
+| `ensure-newline.sh` | PostToolUse (Edit/Write) | appends a missing trailing newline |
+| `lint-on-stop.sh` | Stop | advisory `gofmt -l` + `go vet` + golangci-lint + eslint over the diff |
+| `typecheck-on-stop.sh` | Stop | advisory `tsc --noEmit` when web TS changed |
+| `lib.sh` | — | shared payload parsing and repo-root detection |
+
+Only the two `guard-*` hooks can block. Everything else always exits 0, so a hook can never trap a
+session in a loop.
 
 ## Settings & config
 
-- **settings.json** — shared, committed: permission allow/ask/deny lists, the two hooks, and `enableAllProjectMcpServers`. Secrets are denied for read (`config.yml`, `bared.yml`, `*.local.yml`, `.env*`).
-- **settings.local.json** — personal, **gitignored**: your own overrides; don't put shared config here.
-- **`.mcp.json`** (repo root) — provides the **Context7** MCP server for up-to-date library docs lookup. `enableAllProjectMcpServers` is on, so it loads automatically.
+- **`settings.json`** — committed and shared: permission allow/ask/deny lists, hook registrations,
+  `enableAllProjectMcpServers`. Secrets are denied for read (`config.yml`, `bared.yml`,
+  `*.local.yml`, `.env*`).
+- **`settings.local.json`** — personal, **gitignored**. Your overrides only; shared config goes in
+  `settings.json` or it won't reach teammates or Codex.
+- **`../.mcp.json`** — the MCP server set, currently **Context7** for up-to-date library docs.
+  `enableAllProjectMcpServers` is on, so it loads automatically. Mirrored to `.codex/config.toml`.
 
 ## Recommended workflow
 
-**research → plan → implement → verify → PR.** For non-trivial work, capture the first phases as a
-spec under `specs/<date>-<slug>/` (`research.md`, `plan.md`, `implementation-notes.md`). Verify by
-running the app (`run-daemon`) and the gates (`make validate` / `make test` / `make build`;
-`make web-validate` for UI), run the relevant reviewer subagent, then open a PR with the right
-`release:*` label (drives the automated release).
+**research → plan → implement → verify → PR.** For non-trivial work capture the first phases under
+`specs/<date>-<slug>/` — `/spec` scaffolds it. Verify by running the app (`run-daemon`) and the real
+gate (`/gate`, i.e. `make pre-commit` and/or `make web-validate`) — note that `make validate` only
+checks the example config and is *not* the gate. Run the relevant reviewer subagent, then open a PR
+with the right `release:*` label, which drives the automated release.
+
+> **Known gap:** the final step of `make pre-commit`, `coverage-check`, fails today — ~27% against a
+> 75% threshold, with `cmd/brd`, `internal/client`, and `internal/configservice` untested. Treat
+> `fmt` → `vet` → `lint` → `test-unit` as the bar your change must clear, and don't chase the
+> coverage number in an unrelated PR. Raising it is tracked separately.

@@ -8,8 +8,9 @@
 #   web : eslint (changed files)
 set -uo pipefail
 
-root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-cd "$root" 2>/dev/null || exit 0
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+cd "$(hook_repo_root)" 2>/dev/null || exit 0
 
 changed="$(git status --porcelain 2>/dev/null | sed 's/^...//')"
 [ -z "$changed" ] && exit 0
@@ -43,7 +44,7 @@ fi
 if [ "$issues" -eq 1 ]; then
   printf "\n── BareD lint-on-stop (advisory) ──────────────────────\n"
   printf "%b" "$out"
-  printf "Full output: 'make validate' (Go) · 'make web-validate' (web)\n"
+  printf "Full gate: 'make pre-commit' (Go) · 'make web-validate' (web)\n"
   printf "───────────────────────────────────────────────────────\n"
 fi
 

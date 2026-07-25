@@ -1,6 +1,6 @@
 ---
 name: run-daemon
-description: Build and run the BareD daemon (brd) locally and smoke-test a change in the real app. Use when the user wants to "run the daemon", "start brd", "run the app", "launch the server", check the web UI / dashboard, watch a backup job, or asks "does this actually work" / "verify this change runs". This is the project's run recipe — the built-in /run defers to it.
+description: Build and run the BareD daemon (brd) locally and smoke-test a change in the real app. Use for "run the daemon", "start brd", "launch the server", checking the web UI/dashboard, watching a backup job, or "does this actually work". The built-in /run defers to this.
 ---
 
 # Run the BareD daemon locally
