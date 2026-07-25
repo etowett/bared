@@ -8,7 +8,7 @@ project_name: brd
 before:
   hooks:
     # Build web frontend and sync to embed location
-    - sh -c "cd apps/web && npm ci && npm run build"
+    - sh -c "cd apps/web && bun install --frozen-lockfile && bun run build"
     - sh -c "mkdir -p apps/api/internal/web && rm -rf apps/api/internal/web/dist && cp -r apps/web/dist apps/api/internal/web/dist"
     # Tidy dependencies
     - sh -c "cd apps/api && go mod tidy"

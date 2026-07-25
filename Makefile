@@ -5,13 +5,19 @@ all: build
 
 # Application directories. The repo is a monorepo: each deployable app lives
 # under apps/. The Go module root is apps/api (module name is still `bared`, so
-# import paths are unchanged); the dashboard is a separate npm project.
+# import paths are unchanged); the dashboard is a separate Bun project.
 API_DIR=apps/api
 WEB_DIR=apps/web
 
 # Every Go invocation runs inside the module directory. Output paths are made
 # absolute with $(CURDIR) so artifacts still land at the repo root.
 GO=go -C $(API_DIR)
+
+# The dashboard's package manager. Bun's version is pinned by
+# $(WEB_DIR)/.bun-version, which CI and the Dockerfile read too. Overridable so
+# a caller can point at a specific install (e.g. BUN=~/.bun/bin/bun).
+# Note: `bun --cwd` needs an absolute path, so the web targets cd first.
+BUN ?= bun
 
 # Build variables
 BINARY_NAME=brd
@@ -30,11 +36,11 @@ DOCKER_BUILDX_BUILDER ?= bared-multi
 # Package list for test/vet/coverage targets. Recursively expanded so `go list`
 # only runs when a recipe actually needs it.
 #
-# node_modules used to leak in here: npm packages occasionally ship Go sources
-# (web/node_modules/flatted/golang), and back when the module root was the repo
-# root, `./...` swept them up once `npm ci` had run. With the module rooted at
-# apps/api and the dashboard at apps/web, node_modules is outside the module
-# entirely and no filtering is needed.
+# node_modules used to leak in here: npm registry packages occasionally ship Go
+# sources (web/node_modules/flatted/golang), and back when the module root was
+# the repo root, `./...` swept them up once dependencies had been installed.
+# With the module rooted at apps/api and the dashboard at apps/web,
+# node_modules is outside the module entirely and no filtering is needed.
 GO_PKGS = $(shell cd $(API_DIR) && go list ./...)
 
 # CGO handling:
@@ -601,14 +607,15 @@ help:
 	@echo "  make compose-exec                - Execute command (CMD=\"command\")"
 	@echo "  make compose-shell               - Open shell in bared container"
 	@echo ""
-	@echo "Web Frontend Commands:"
-	@echo "  make web-install   - Install web frontend dependencies"
+	@echo "Web Frontend Commands (Bun; version pinned by $(WEB_DIR)/.bun-version):"
+	@echo "  make web-install   - Install web frontend dependencies (bun install)"
 	@echo "  make web-build     - Build web frontend"
 	@echo "  make web-dev       - Start web frontend development server"
 	@echo "  make web-lint      - Lint web frontend"
 	@echo "  make web-format    - Format web frontend code"
-	@echo "  make web-validate  - Validate web frontend"
-	@echo "  make web-clean     - Clean web frontend"
+	@echo "  make web-validate  - Validate web frontend (types + lint + format + tests)"
+	@echo "  make web-clean     - Clean web frontend (dist + node_modules)"
+	@echo "  Override the package manager with BUN=/path/to/bun"
 	@echo ""
 	@echo "Info Commands:"
 	@echo "  make env         - Show Go environment"
@@ -616,29 +623,31 @@ help:
 	@echo "  make help        - Show this help message"
 
 # Web Frontend Commands
+# `bun install` (not --frozen-lockfile) so local dev can still add a dependency;
+# CI and the Docker build use --frozen-lockfile for reproducibility.
 web-install:
 	@echo "Installing web frontend dependencies..."
-	cd $(WEB_DIR) && npm install
+	cd $(WEB_DIR) && $(BUN) install
 
 web-build: web-install
 	@echo "Building web frontend..."
-	cd $(WEB_DIR) && npm run build
+	cd $(WEB_DIR) && $(BUN) run build
 
 web-dev:
 	@echo "Starting web frontend development server..."
-	cd $(WEB_DIR) && npm run dev
+	cd $(WEB_DIR) && $(BUN) run dev
 
 web-lint:
 	@echo "Linting web frontend..."
-	cd $(WEB_DIR) && npm run lint
+	cd $(WEB_DIR) && $(BUN) run lint
 
 web-format:
 	@echo "Formatting web frontend code..."
-	cd $(WEB_DIR) && npm run format
+	cd $(WEB_DIR) && $(BUN) run format
 
 web-validate: web-install
 	@echo "Validating web frontend..."
-	cd $(WEB_DIR) && npm run validate
+	cd $(WEB_DIR) && $(BUN) run validate
 
 web-clean:
 	@echo "Cleaning web frontend..."

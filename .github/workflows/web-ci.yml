@@ -23,26 +23,34 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: apps/web/.nvmrc
-          cache: "npm"
-          cache-dependency-path: apps/web/package-lock.json
+          bun-version-file: apps/web/.bun-version
+
+      # setup-bun caches the Bun binary only — it does not touch the dependency
+      # install cache — so this replaces what `cache: "npm"` used to do.
+      - name: Cache Bun install cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - name: Install dependencies
         working-directory: apps/web
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Validate
         working-directory: apps/web
-        run: npm run validate
+        run: bun run validate
 
       - name: Build
         working-directory: apps/web
-        run: npm run build
+        run: bun run build
 
       - name: Check build output
         run: |
