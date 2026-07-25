@@ -1,7 +1,7 @@
 ---
 description: Run BareD's real verify gate for whatever changed, and fix what it reports
 argument-hint: [go|web|all]  (default: infer from the diff)
-allowed-tools: Bash(make:*), Bash(go:*), Bash(gofmt:*), Bash(goimports:*), Bash(golangci-lint:*), Bash(npm --prefix apps/web run:*), Bash(git status:*), Bash(git diff:*), Read, Edit, Grep, Glob
+allowed-tools: Bash(make:*), Bash(go:*), Bash(gofmt:*), Bash(goimports:*), Bash(golangci-lint:*), Bash(bun run --cwd apps/web:*), Bash(bun install --cwd apps/web), Bash(git status:*), Bash(git diff:*), Read, Edit, Grep, Glob
 ---
 
 Run the verify gate before this change ships. Scope: **${ARGUMENTS:-infer from the diff}**
@@ -18,6 +18,11 @@ Run the verify gate before this change ships. Scope: **${ARGUMENTS:-infer from t
 | embedding / `go:embed` / release paths | `make build-with-web` as well | binary actually builds with a fresh UI |
 
 > `make validate` is **not** the gate — it only builds and validates `examples/config.example.yml`. Use `make pre-commit`.
+
+> To re-run a single web script instead of the whole `make web-validate`, the form is
+> `bun run --cwd apps/web <script>` (Bun 1.3.5, pinned in `apps/web/.bun-version`). The flag must come
+> **after** `run`: `bun --cwd apps/web run <script>` prints Bun's help and exits **0** without running
+> anything — a silent false pass.
 
 > **Known pre-existing failure.** `make pre-commit` ends in `coverage-check`, which demands 75% while the repo is at ~27% (`apps/api/cmd/brd`, `apps/api/internal/client`, `apps/api/internal/configservice` have no tests). Everything before it — `fmt` → `vet` → `lint` → `test-unit` — must pass, and that's what you're responsible for. If `coverage-check` is the *only* failure and your diff didn't lower coverage, say so and move on. Do **not** start writing tests for untouched packages, and do **not** lower the threshold.
 

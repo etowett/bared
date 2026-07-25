@@ -33,6 +33,33 @@ except Exception:
   fi
 }
 
+# hook_web_run <tool> [args...] — run apps/web's locally installed <tool> (the one
+# apps/web/bun.lock pinned), or return 127 without output when it cannot be run.
+#
+# `bun install` still writes real node_modules/.bin/* shims, so the tool is found
+# exactly where it always was. But those shims are `#!/usr/bin/env node` scripts,
+# and Bun is now the pinned toolchain (apps/web/.bun-version, no .nvmrc), so a
+# contributor may legitimately have no `node` at all — running the shim directly
+# then dies with `env: node: No such file or directory` (127), which an advisory
+# hook would happily print as if it were a lint or type error. So: use node when
+# it's there (unchanged behaviour), fall back to Bun's runtime, skip when neither.
+#
+# Never `bunx`/`npx` here — those may fetch a *different* version than the lockfile
+# installed, which would make the hook lie about the state of the project.
+hook_web_run() {
+  local tool="$1" shim
+  shift
+  shim="$(hook_repo_root)/apps/web/node_modules/.bin/$tool"
+  [ -x "$shim" ] || return 127
+  if command -v node >/dev/null 2>&1; then
+    "$shim" "$@"
+  elif command -v bun >/dev/null 2>&1; then
+    bun "$shim" "$@"
+  else
+    return 127
+  fi
+}
+
 # hook_is_secret_path <path> — true for files that must never be read, written,
 # staged, or echoed by an agent. Mirrors .gitignore and settings.json deny list.
 # `*.example.*` templates are explicitly fine.

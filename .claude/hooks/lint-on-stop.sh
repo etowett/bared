@@ -8,7 +8,8 @@
 #   web : eslint (changed files)
 #
 # Paths are repo-relative; the Go module lives in apps/api and the dashboard in
-# apps/web, so the Go and npm tools are invoked from inside those directories.
+# apps/web, so the Go and web tools are invoked from inside those directories.
+# eslint comes from apps/web's lockfile via hook_web_run — see lib.sh.
 set -uo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -38,9 +39,10 @@ if [ -n "$go_changed" ]; then
   fi
 fi
 
-if [ -n "$web_changed" ] && [ -x apps/web/node_modules/.bin/eslint ]; then
+if [ -n "$web_changed" ]; then
   files_rel="$(printf '%s\n' "$web_changed" | sed 's#^apps/web/##')"
-  weblint="$( (cd apps/web && ./node_modules/.bin/eslint $files_rel) 2>&1 || true )"
+  # Silent no-op when deps aren't installed: hook_web_run returns 127 with no output.
+  weblint="$( (cd apps/web && hook_web_run eslint $files_rel) 2>&1 || true )"
   [ -n "$weblint" ] && { out+="• eslint (web):\n$weblint\n"; issues=1; }
 fi
 

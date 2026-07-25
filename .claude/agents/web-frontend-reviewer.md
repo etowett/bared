@@ -24,7 +24,7 @@ Read `apps/web/AGENTS.md` first. The innermost guide wins. Scope yourself to the
 
 ## How to work
 - Verify every claim against the actual code before reporting — open the file and read the lines.
-- It is useful to run `npm --prefix apps/web run type-check` and `npm --prefix apps/web run lint` (and `npm --prefix apps/web run test:run` when relevant) to back findings with real output. `npm --prefix apps/web run validate` runs the full gate.
+- It is useful to run `bun run --cwd apps/web type-check` and `bun run --cwd apps/web lint` (and `bun run --cwd apps/web test:run` when relevant) to back findings with real output. `bun run --cwd apps/web validate` runs the full gate, as does `make web-validate`. The toolchain is Bun (pinned in `apps/web/.bun-version`); `--cwd` must come **after** `run`, because `bun --cwd apps/web run <script>` prints Bun's help and exits 0 without running anything.
 - Distinguish real defects from style nits, and note pre-existing vs newly introduced issues.
 
 ## How to report

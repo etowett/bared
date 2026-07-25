@@ -19,14 +19,16 @@ sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 
 [sandbox_workspace_write]
-# `go mod download`, `npm ci`, and the Context7 MCP server all need the network.
+# `go mod download`, `bun install`, and the Context7 MCP server all need the network.
 network_access = true
 exclude_slash_tmp = false
 exclude_tmpdir_env_var = false
 writable_roots = []
 
 # --- MCP servers — mirrors .mcp.json -----------------------------------------
-# Context7: up-to-date library documentation lookup.
+# Context7: up-to-date library documentation lookup. `npx` here is deliberate and
+# unrelated to the web toolchain (which is Bun): it must mirror .mcp.json verbatim,
+# and `make agents-doctor` compares the two.
 [mcp_servers.context7]
 command = "npx"
 args = ["-y", "@upstash/context7-mcp@latest"]
