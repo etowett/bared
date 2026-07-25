@@ -7,7 +7,7 @@
 # real Node, but they do put a `node` -> bun shim on PATH
 # (/usr/local/bun-node-fallback-bin/node) and `bun run` injects one of its own,
 # so the `#!/usr/bin/env node` shebangs on tsc/vite resolve fine.
-FROM oven/bun:1.3.5-alpine AS frontend-builder
+FROM oven/bun:1.3.14-alpine AS frontend-builder
 
 WORKDIR /app/web
 
@@ -51,7 +51,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o brd ./cmd/brd
 
 # Stage 3: Runtime
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Install runtime dependencies (database clients + wget for health checks)
 # Note: mysql-client provides mysql/mysqldump commands compatible with both MySQL and MariaDB
