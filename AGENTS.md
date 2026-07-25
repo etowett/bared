@@ -193,6 +193,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | **Frontend verify gate** (types+lint+fmt+tests) | **`make web-validate`** |
 | Frontend build | `make web-build` |
 | Check the agent config mirrors | `make agents-doctor` |
+| Check the Bun pin is consistent | `make check-bun-pin` |
 
 > **`make validate` is not the verify gate** — it builds and validates
 > `examples/config.example.yml`, nothing more. The gate is `make pre-commit`.

@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info agents-doctor agents-sync setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info agents-doctor agents-sync setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help check-bun-pin web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -571,6 +571,7 @@ help:
 	@echo ""
 	@echo "Agent Tooling Commands:"
 	@echo "  make agents-doctor - Check the Claude Code <-> Codex config mirrors"
+	@echo "  make check-bun-pin - Check the Bun version matches across its three pins"
 	@echo "  make agents-sync   - Regenerate the derivable agent config, then check"
 	@echo ""
 	@echo "Docker Commands:"
@@ -621,6 +622,43 @@ help:
 	@echo "  make env         - Show Go environment"
 	@echo "  make mod-info    - Show module information"
 	@echo "  make help        - Show this help message"
+
+# Guard against the Bun version drifting between the THREE places that pin it.
+#
+#   1. $(WEB_DIR)/.bun-version  — read by oven-sh/setup-bun in CI, and what local
+#                                 dev should install
+#   2. Dockerfile               — `FROM oven/bun:<tag>`; a Dockerfile cannot read
+#                                 .bun-version, so this is an independent pin
+#   3. $(WEB_DIR)/package.json  — the "packageManager" field
+#
+# Dependabot's docker ecosystem bumps only the Dockerfile and cannot know about
+# the other two, so the first time it ran (PR #64) all three desynced: the
+# Dockerfile went to 1.3.14 while .bun-version and packageManager stayed at
+# 1.3.5. This turns that into a hard failure instead of a silent split-brain.
+#
+# The Go pin needs no equivalent: CI reads go-version-file: apps/api/go.mod
+# directly, so only the Dockerfile duplicates it.
+check-bun-pin:
+	@want="$$(tr -d '[:space:]' < $(WEB_DIR)/.bun-version)"; \
+	docker_pin="$$(grep -oE 'oven/bun:[0-9]+\.[0-9]+\.[0-9]+' Dockerfile | head -1 | cut -d: -f2)"; \
+	pkg_pin="$$(grep -oE '"packageManager"[[:space:]]*:[[:space:]]*"bun@[0-9]+\.[0-9]+\.[0-9]+"' $(WEB_DIR)/package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"; \
+	rc=0; \
+	if [ -z "$$want" ]; then echo "❌ check-bun-pin: $(WEB_DIR)/.bun-version is empty or missing"; exit 1; fi; \
+	if [ -z "$$docker_pin" ]; then \
+		echo "❌ check-bun-pin: no pinned oven/bun:<x.y.z> tag found in Dockerfile"; rc=1; \
+	elif [ "$$want" != "$$docker_pin" ]; then \
+		echo "❌ check-bun-pin: Dockerfile pins oven/bun:$$docker_pin, expected $$want"; rc=1; \
+	fi; \
+	if [ -z "$$pkg_pin" ]; then \
+		echo "❌ check-bun-pin: no \"packageManager\": \"bun@<x.y.z>\" found in $(WEB_DIR)/package.json"; rc=1; \
+	elif [ "$$want" != "$$pkg_pin" ]; then \
+		echo "❌ check-bun-pin: packageManager pins bun@$$pkg_pin, expected $$want"; rc=1; \
+	fi; \
+	if [ $$rc -ne 0 ]; then \
+		echo "   All three must match $(WEB_DIR)/.bun-version ($$want). Update them together."; \
+		exit 1; \
+	fi; \
+	echo "✅ check-bun-pin: Bun $$want pinned consistently in .bun-version, Dockerfile and package.json"
 
 # Web Frontend Commands
 # `bun install` (not --frozen-lockfile) so local dev can still add a dependency;

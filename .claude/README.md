@@ -114,9 +114,10 @@ are told to use:
 | `bun install --frozen-lockfile --cwd apps/web` | `npm --prefix apps/web ci` |
 | `bun run --cwd apps/web <script>` | `bun --cwd apps/web run <script>` |
 
-**`--cwd` goes after the subcommand.** Put it before and Bun 1.3.5 treats the rest as a filename:
+**`--cwd` goes after the subcommand.** Put it before and Bun treats the rest as a filename:
 `bun --cwd apps/web run lint` prints the help menu and exits **0** having run nothing (a silent false
-pass), and `bun --cwd apps/web install` fails with `Script not found "install"`.
+pass), and `bun --cwd apps/web install` fails with `Script not found "install"`. Confirmed still
+present in Bun 1.3.14 — treat it as current behaviour, not a bug that got fixed.
 
 The hooks keep calling `apps/web/node_modules/.bin/*` — `bun install` writes those shims exactly like
 npm did. But they carry a `#!/usr/bin/env node` shebang, and Node is no longer a declared dependency
