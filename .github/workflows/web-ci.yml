@@ -4,12 +4,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "web/**"
+      - "apps/web/**"
       - ".github/workflows/web-ci.yml"
   pull_request:
     branches: [main]
     paths:
-      - "web/**"
+      - "apps/web/**"
       - ".github/workflows/web-ci.yml"
 
 permissions:
@@ -28,25 +28,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: apps/web/.nvmrc
           cache: "npm"
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install dependencies
-        working-directory: web
+        working-directory: apps/web
         run: npm ci
 
       - name: Validate
-        working-directory: web
+        working-directory: apps/web
         run: npm run validate
 
       - name: Build
-        working-directory: web
+        working-directory: apps/web
         run: npm run build
 
       - name: Check build output
         run: |
-          if [ ! -f "web/dist/index.html" ]; then
+          if [ ! -f "apps/web/dist/index.html" ]; then
             echo "Error: index.html not found in build output"
             exit 1
           fi

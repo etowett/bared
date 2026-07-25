@@ -1,6 +1,6 @@
 # Notifications Subsystem — Agent Guide
 
-> Scope: notification channels (e.g. Slack, email/SMTP, webhooks) in `internal/notify/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) and the backend guide [`internal/AGENTS.md`](../AGENTS.md). **The innermost guide wins** when instructions conflict.
+> Scope: notification channels (e.g. Slack, email/SMTP, webhooks) in `apps/api/internal/notify/`. Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../../../AGENTS.md) and the backend guide [`apps/api/internal/AGENTS.md`](../AGENTS.md). **The innermost guide wins** when instructions conflict.
 
 Channels implement the `Notifier` interface in `notifier.go` (`NotifySuccess`, `NotifyFailure`, `Name`, `ShouldNotifySuccess`), all taking a rich `*Message` describing the backup/restore operation. The current implementations are Slack (`slack.go`), email/SMTP (`email.go`), and webhook (`webhook.go`). The factory `New(cfg *config.Notifier)` in `factory.go` dispatches on `cfg.Type` (`"slack"`, `"email"`, `"webhook"`) and returns an error for unsupported types, so adding a channel means writing an implementation plus registering it in that switch.
 
@@ -10,7 +10,7 @@ Channels implement the `Notifier` interface in `notifier.go` (`NotifySuccess`, `
 
 **Example**: Adding Discord webhook support
 
-1. **Create implementation** (`internal/notify/discord.go`):
+1. **Create implementation** (`apps/api/internal/notify/discord.go`):
 
 ```go
 package notify
@@ -102,7 +102,7 @@ func statusString(success bool) string {
 }
 ```
 
-2. **Update config** (`internal/config/config.go`):
+2. **Update config** (`apps/api/internal/config/config.go`):
 
 ```go
 type Notifier struct {
@@ -118,7 +118,7 @@ type Notifier struct {
 }
 ```
 
-3. **Register in factory** (`internal/notify/factory.go`):
+3. **Register in factory** (`apps/api/internal/notify/factory.go`):
 
 ```go
 func New(cfg *config.Notifier) (Notifier, error) {
@@ -139,7 +139,7 @@ func New(cfg *config.Notifier) (Notifier, error) {
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — backend (`internal/`) guide
-- [`../../AGENTS.md`](../../AGENTS.md) — root BareD agent guide
+- [`../AGENTS.md`](../AGENTS.md) — backend (`apps/api/internal/`) guide
+- [`../../AGENTS.md`](../../../../AGENTS.md) — root BareD agent guide
 - [`../database/AGENTS.md`](../database/AGENTS.md) — database subsystem guide
 - [`../storage/AGENTS.md`](../storage/AGENTS.md) — storage subsystem guide

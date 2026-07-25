@@ -1,11 +1,11 @@
 # CLI (brd) — Agent Guide
 
-> Scope: the `brd` command-line binary built from `cmd/brd/` (Cobra commands, including `config import`). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../AGENTS.md) and the backend guide [`internal/AGENTS.md`](../internal/AGENTS.md). **The innermost guide wins** when instructions conflict.
+> Scope: the `brd` command-line binary built from `apps/api/cmd/brd/` (Cobra commands, including `config import`). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../../AGENTS.md) and the backend guide [`apps/api/internal/AGENTS.md`](../internal/AGENTS.md). **The innermost guide wins** when instructions conflict.
 
 `brd` is the single entrypoint for BareD: it runs one-off backup/restore/list operations, validates config, runs the long-lived daemon (scheduler + HTTP API), and imports YAML config into a running daemon's database. The Cobra command tree lives in two files:
 
-- `cmd/brd/main.go` — root command, `backup`, `restore`, `list`, `validate-config`, `daemon`.
-- `cmd/brd/config_import.go` — the `config` parent command and its `config import` subcommand.
+- `apps/api/cmd/brd/main.go` — root command, `backup`, `restore`, `list`, `validate-config`, `daemon`.
+- `apps/api/cmd/brd/config_import.go` — the `config` parent command and its `config import` subcommand.
 
 ## Command surface
 
@@ -53,10 +53,10 @@ Notes on behavior worth knowing before editing:
 
 1. **Config** — `config.Load(cfgFile)` (or `config.LoadOrEmpty` for `daemon`), then `cfg.Validate()`.
 2. **Logging** — `initializeLogger(cfg)` translates `cfg.LogLevel` / `cfg.LogFormat` / `cfg.LogOptions` into `util.InitLoggerWithOptions`.
-3. **App layer** — one-off commands call `internal/app` directly: `app.BackupTarget`, `app.RestoreTargetWithOptions` (with `app.RestoreOptions`), `app.ListBackups`, `app.FindLatestBackup`. The CLI passes `nil` for progress tracking (that's used by the web/API path).
+3. **App layer** — one-off commands call `apps/api/internal/app` directly: `app.BackupTarget`, `app.RestoreTargetWithOptions` (with `app.RestoreOptions`), `app.ListBackups`, `app.FindLatestBackup`. The CLI passes `nil` for progress tracking (that's used by the apps/web/API path).
 4. **Daemon** — `daemon.New(cfg, opts...)` then `d.Start()`. HTTP is opt-in via the functional option `daemon.WithHTTP(addr, user, pass)`.
 
-Imported packages: `internal/app`, `internal/config`, `internal/daemon`, `internal/util`, `internal/version` (and for `config import`: `internal/client`, `internal/configservice`). The CLI is thin — real logic lives in `internal/`.
+Imported packages: `apps/api/internal/app`, `apps/api/internal/config`, `apps/api/internal/daemon`, `apps/api/internal/util`, `apps/api/internal/version` (and for `config import`: `apps/api/internal/client`, `apps/api/internal/configservice`). The CLI is thin — real logic lives in `apps/api/internal/`.
 
 ## The `config import` flow
 
@@ -75,7 +75,7 @@ Imported packages: `internal/app`, `internal/config`, `internal/daemon`, `intern
 
 ## Building & running
 
-These targets live in the root `Makefile` (the canonical Build-System list is in [`../AGENTS.md`](../AGENTS.md); the CLI-relevant ones are mirrored here).
+These targets live in the root `Makefile` (the canonical Build-System list is in [`../AGENTS.md`](../../../AGENTS.md); the CLI-relevant ones are mirrored here).
 
 ```sh
 make build            # builds bin/brd WITH the embedded web UI
@@ -87,9 +87,9 @@ make run-daemon-fast  # CGO_ENABLED=1 `go run` — no build, fastest dev loop
 
 Key facts:
 
-- `make build` is **not** backend-only: it depends on `web-build` + `web-sync-dist`, so it compiles the frontend and copies it into `internal/web/dist` for embedding. There is no separate "backend-only" default target.
+- `make build` is **not** backend-only: it depends on `web-build` + `web-sync-dist`, so it compiles the frontend and copies it into `apps/api/internal/web/dist` for embedding. There is no separate "backend-only" default target.
 - Local daemon runs (`run-daemon`, `run-daemon-fast`) set **`CGO_ENABLED=1`** because the sqlite3 persistence driver needs cgo. A pure `go build` without CGO will not have working sqlite persistence.
-- Version metadata (`Version`, `Commit`, `BuildDate`) is injected via `LDFLAGS` at link time — see `internal/version/version.go`.
+- Version metadata (`Version`, `Commit`, `BuildDate`) is injected via `LDFLAGS` at link time — see `apps/api/internal/version/version.go`.
 
 ## Adding a new command
 
@@ -98,11 +98,11 @@ Follow the existing pattern in `main.go` (or `config_import.go` for a subcommand
 1. Declare a `var fooCmd = &cobra.Command{ Use, Short, Long, RunE: ... }`. Prefer `RunE` (return errors) over `Run`.
 2. Add flags in an `init()`: `fooCmd.Flags().String("target", "", "...")`, read them back in `RunE` with `cmd.Flags().GetString(...)`.
 3. Register it: top-level commands go in the main `init()` via `rootCmd.AddCommand(fooCmd)`; subcommands attach to their parent (e.g. `configCmd.AddCommand(configImportCmd)`).
-4. In `RunE`, reuse the shared wiring: `config.Load(cfgFile)` → `initializeLogger(cfg)` → `cfg.Validate()` → call into `internal/app` (or `internal/daemon`/`internal/client`). Keep the command thin; put logic in `internal/`.
+4. In `RunE`, reuse the shared wiring: `config.Load(cfgFile)` → `initializeLogger(cfg)` → `cfg.Validate()` → call into `apps/api/internal/app` (or `apps/api/internal/daemon`/`apps/api/internal/client`). Keep the command thin; put logic in `apps/api/internal/`.
 5. Log structured output through `util.GetLogger().InfoS(...)` with a `"component"` / `"command"` pair, matching the existing commands.
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — root guide (architecture, full build system).
+- [`../AGENTS.md`](../../../AGENTS.md) — root guide (architecture, full build system).
 - [`../internal/AGENTS.md`](../internal/AGENTS.md) — backend packages (`app`, `daemon`, `config`, `client`, …).
-- [`../web/AGENTS.md`](../web/AGENTS.md) — the embedded web UI built into `brd`.
+- [`../web/AGENTS.md`](../../web/AGENTS.md) — the embedded web UI built into `brd`.

@@ -40,21 +40,34 @@ make test
 
 ## Project Structure
 
+Each deployable app lives under `apps/`; the repo root holds project-level concerns only.
+
 ```
 bared/
-├── cmd/brd/              # CLI entry point
-├── internal/
-│   ├── app/              # High-level orchestration
-│   ├── config/           # Configuration parsing & validation
-│   ├── database/         # Database dumpers (MySQL, Postgres, Redis)
-│   ├── storage/          # Storage backends (Local, S3, SFTP)
-│   ├── compress/         # Compression implementations
-│   ├── notify/           # Notification implementations
-│   ├── daemon/           # Daemon and scheduler
-│   ├── retention/        # Backup tracking and cleanup
-│   └── util/             # Utility functions
-└── examples/             # Example configurations
+├── apps/
+│   ├── api/                  # Go backend — module root (go.mod lives here)
+│   │   ├── cmd/brd/          # CLI entry point
+│   │   └── internal/
+│   │       ├── app/          # High-level orchestration
+│   │       ├── config/       # Configuration parsing & validation
+│   │       ├── database/     # Database dumpers (MySQL, Postgres, Redis)
+│   │       ├── storage/      # Storage backends (Local, S3, SFTP)
+│   │       ├── compress/     # Compression implementations
+│   │       ├── notify/       # Notification implementations
+│   │       ├── daemon/       # Daemon and scheduler
+│   │       ├── retention/    # Backup tracking and cleanup
+│   │       ├── web/          # go:embed of the built dashboard
+│   │       └── util/         # Utility functions
+│   └── web/                  # React 19 + TypeScript dashboard
+├── docs/                     # Long-form documentation
+├── examples/                 # Example configurations
+└── specs/                    # Spec-driven feature work
 ```
+
+> **Where to run commands.** The `Makefile` at the repo root drives everything and already
+> knows where each app lives — prefer it. If you invoke Go directly, run it from `apps/api/`
+> (or use `go -C apps/api …`), and npm from `apps/web/`. The Go module is still named `bared`,
+> so import paths are unchanged: `bared/internal/storage`, `bared/cmd/brd`.
 
 ## Development Workflow
 
@@ -75,7 +88,7 @@ make pre-commit
 ```
 
 > Heads-up: the final `coverage-check` step currently fails repo-wide (~27% against a 75%
-> threshold — `cmd/brd`, `internal/client`, and `internal/configservice` have no tests). Until that
+> threshold — `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` have no tests). Until that
 > is closed, make sure `fmt`, `vet`, `lint`, and `test-unit` all pass and that your change doesn't
 > lower coverage.
 
@@ -106,29 +119,29 @@ make validate
 
 #### Adding a New Database Type
 
-1. Create a new file in `internal/database/` (e.g., `mongodb.go`)
+1. Create a new file in `apps/api/internal/database/` (e.g., `mongodb.go`)
 2. Implement the `Dumper` and `Restorer` interfaces
-3. Add the new type to `internal/database/factory.go`
-4. Update `internal/config/validator.go` to recognize the new type
+3. Add the new type to `apps/api/internal/database/factory.go`
+4. Update `apps/api/internal/config/validator.go` to recognize the new type
 5. Add example configuration to `examples/config.example.yml`
 6. Update documentation
 
 #### Adding a New Storage Backend
 
-1. Create a new file in `internal/storage/` (e.g., `gcs.go`)
+1. Create a new file in `apps/api/internal/storage/` (e.g., `gcs.go`)
 2. Implement the `Storage` interface
-3. Add the new type to `internal/storage/factory.go`
-4. Update `internal/config/validator.go` to recognize the new type
-5. Add configuration options to `internal/config/config.go`
+3. Add the new type to `apps/api/internal/storage/factory.go`
+4. Update `apps/api/internal/config/validator.go` to recognize the new type
+5. Add configuration options to `apps/api/internal/config/config.go`
 6. Add example configuration to `examples/config.example.yml`
 7. Update documentation
 
 #### Adding a New Notifier
 
-1. Create a new file in `internal/notify/` (e.g., `discord.go`)
+1. Create a new file in `apps/api/internal/notify/` (e.g., `discord.go`)
 2. Implement the `Notifier` interface
-3. Add the new type to `internal/notify/factory.go`
-4. Update `internal/config/validator.go` to recognize the new type
+3. Add the new type to `apps/api/internal/notify/factory.go`
+4. Update `apps/api/internal/config/validator.go` to recognize the new type
 5. Add configuration options as needed
 6. Update documentation
 
@@ -139,7 +152,7 @@ make validate
 Write unit tests for new functionality:
 
 ```go
-// internal/database/mydb_test.go
+// apps/api/internal/database/mydb_test.go
 package database
 
 import (
@@ -332,7 +345,7 @@ If a release fails:
 
 1. **Check workflow logs:** GitHub Actions → Failed workflow → View logs
 2. **Common issues:**
-   - Web build failed: Check `web/` directory, run `npm run build` locally
+   - Web build failed: Check `apps/web/` directory, run `npm run build` locally
    - Binary build failed: Check Go version, dependencies
    - Docker push failed: Check Docker Hub credentials
 3. **Recovery:**
@@ -411,9 +424,9 @@ type MyInterface interface {
 
 ### Adding a Configuration Option
 
-1. Add field to appropriate struct in `internal/config/config.go`
+1. Add field to appropriate struct in `apps/api/internal/config/config.go`
 2. Add YAML tag for parsing
-3. Add validation in `internal/config/validator.go`
+3. Add validation in `apps/api/internal/config/validator.go`
 4. Update example configuration
 5. Document in README.md
 

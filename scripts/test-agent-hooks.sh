@@ -47,23 +47,23 @@ expect 2 "a glob that could match a db"  guard-secrets.sh "$(cmd_payload 'cp *.d
 echo "guard-secrets.sh — must allow"
 expect 0 "the example config"            guard-secrets.sh "$(file_payload "examples/config.example.yml")"
 expect 0 "a dotenv example"              guard-secrets.sh "$(file_payload ".env.example")"
-expect 0 "ordinary Go source"            guard-secrets.sh "$(file_payload "internal/config/config.go")"
+expect 0 "ordinary Go source"            guard-secrets.sh "$(file_payload "apps/api/internal/config/config.go")"
 expect 0 "compose.yml"                   guard-secrets.sh "$(file_payload "compose.yml")"
 expect 0 "grepping docs for the word"    guard-secrets.sh "$(cmd_payload 'grep -rn config.yml AGENTS.md')"
 expect 0 "a normal build"                guard-secrets.sh "$(cmd_payload 'make build')"
-expect 0 "cat of a source file"          guard-secrets.sh "$(cmd_payload 'cat internal/api/server.go')"
+expect 0 "cat of a source file"          guard-secrets.sh "$(cmd_payload 'cat apps/api/internal/api/server.go')"
 expect 0 "no command at all"             guard-secrets.sh '{}'
 # Regression: the token scan must not glob-expand against the working directory.
 # A bare `*` in prose used to expand to every file in the repo root — matching
 # bared.db — and blocked writing an unrelated file.
 expect 0 "prose containing a bare asterisk" guard-secrets.sh "$(cmd_payload 'cat > /tmp/notes.md <<EOF
 - **Raise coverage** from 27% to 75%
-- see `internal/web` at 83.9%
+- see `apps/api/internal/web` at 83.9%
 EOF')"
 expect 0 "a heredoc body naming a secret"   guard-secrets.sh "$(cmd_payload 'cat > /tmp/doc.md <<EOF
 never commit config.yml or bared.db
 EOF')"
-expect 0 "an asterisk in a git pathspec"    guard-secrets.sh "$(cmd_payload 'git add internal/*.go')"
+expect 0 "an asterisk in a git pathspec"    guard-secrets.sh "$(cmd_payload 'git add apps/api/internal/*.go')"
 
 echo "guard-main-branch.sh"
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"

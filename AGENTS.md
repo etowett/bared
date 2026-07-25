@@ -13,25 +13,33 @@ This file is the single source of truth for agents; `CLAUDE.md` is a symlink to 
 
 ## How to use this guide (documentation tree)
 
+Each deployable app lives under `apps/`; the repo root holds project-level concerns only.
 Before editing, load the guide(s) for the area you're working in:
 
 ```
-AGENTS.md                          ← you are here: overview, workflow, conventions
-├─ internal/AGENTS.md              Go backend deep-dive (architecture, API, testing, full-stack recipes)
-│  ├─ internal/database/AGENTS.md  ▸ add / change a database engine (Dumper/Restorer)
-│  ├─ internal/storage/AGENTS.md   ▸ add / change a storage backend (Local/S3/SFTP)
-│  └─ internal/notify/AGENTS.md    ▸ add / change a notification channel
-├─ cmd/AGENTS.md                   CLI (`brd`): Cobra commands, config import, build & run
-├─ web/AGENTS.md                   React 19 + TS dashboard (state, websocket, components, testing)
-│  ├─ web/README.md                frontend overview
-│  └─ web/TESTING.md               frontend testing guide
-├─ docs/                           long-form docs: api/, architecture/, development/, operations/, user-guide/
-├─ CONTRIBUTING.md                 contribution flow, code style, release process
-└─ specs/                          spec-driven feature work (research → plan → implementation notes)
+AGENTS.md                                  ← you are here: overview, workflow, conventions
+├─ apps/
+│  ├─ api/                                 the Go backend — module root (go.mod lives here)
+│  │  ├─ internal/AGENTS.md                backend deep-dive (architecture, API, testing, full-stack recipes)
+│  │  │  ├─ internal/database/AGENTS.md    ▸ add / change a database engine (Dumper/Restorer)
+│  │  │  ├─ internal/storage/AGENTS.md     ▸ add / change a storage backend (Local/S3/SFTP)
+│  │  │  └─ internal/notify/AGENTS.md      ▸ add / change a notification channel
+│  │  └─ cmd/AGENTS.md                     CLI (`brd`): Cobra commands, config import, build & run
+│  └─ web/                                 the React 19 + TS dashboard
+│     ├─ AGENTS.md                         state, websocket, components, testing
+│     ├─ README.md                         frontend overview
+│     └─ TESTING.md                        frontend testing guide
+├─ docs/                                   long-form docs: api/, architecture/, development/, operations/, user-guide/
+├─ CONTRIBUTING.md                         contribution flow, code style, release process
+└─ specs/                                  spec-driven feature work (research → plan → implementation notes)
 ```
 
-**Rule of thumb:** touching `internal/storage/` → read `internal/storage/AGENTS.md` **and** `internal/AGENTS.md`.
-Touching `web/` → read `web/AGENTS.md`. A full-stack change → read both backend and frontend guides.
+**Rule of thumb:** touching `apps/api/internal/storage/` → read `apps/api/internal/storage/AGENTS.md` **and** `apps/api/internal/AGENTS.md`.
+Touching `apps/web/` → read `apps/web/AGENTS.md`. A full-stack change → read both backend and frontend guides.
+
+**The module is still `bared`.** `go.mod` sits at `apps/api/`, so every import path is unchanged
+(`bared/internal/storage`, `bared/cmd/brd`). Run Go commands from `apps/api/` — or just use the
+root `Makefile`, which already does.
 
 Changing the **agent tooling itself** (skills, commands, subagents, hooks, permissions) is a separate
 tree — `.claude/` is canonical and `.codex/` mirrors it:
@@ -68,23 +76,25 @@ WebSocket, SQLite for job/config persistence. The web UI is embedded into the bi
 ### Key files to know
 
 ```
-cmd/brd/main.go                 # CLI entry point (Cobra commands)
-internal/app/                   # high-level backup/restore orchestration
-internal/api/server.go          # HTTP API + WebSocket server
-internal/daemon/daemon.go       # cron scheduler & signal handling
-internal/jobs/manager.go        # job queue & worker pool
-internal/config/config.go       # configuration structures
-internal/{database,storage,notify}/  # the three pluggable backend families
-web/src/App.tsx                 # frontend entry point
-web/src/api/client.ts           # API client
-web/src/hooks/useWebSocket.ts   # WebSocket integration
+apps/api/go.mod                                # module root (module name: bared)
+apps/api/cmd/brd/main.go                       # CLI entry point (Cobra commands)
+apps/api/internal/app/                         # high-level backup/restore orchestration
+apps/api/internal/api/server.go                # HTTP API + WebSocket server
+apps/api/internal/daemon/daemon.go             # cron scheduler & signal handling
+apps/api/internal/jobs/manager.go              # job queue & worker pool
+apps/api/internal/config/config.go             # configuration structures
+apps/api/internal/{database,storage,notify}/   # the three pluggable backend families
+apps/api/internal/web/embed.go                 # go:embed of the built dashboard
+apps/web/src/App.tsx                           # frontend entry point
+apps/web/src/api/client.ts                     # API client
+apps/web/src/hooks/useWebSocket.ts             # WebSocket integration
 ```
 
 ---
 
 ## Architecture in one screen
 
-Five mental models carry most of the codebase. Full detail in [`internal/AGENTS.md`](internal/AGENTS.md).
+Five mental models carry most of the codebase. Full detail in [`apps/api/internal/AGENTS.md`](apps/api/internal/AGENTS.md).
 
 1. **Streaming is sacred.** Never buffer an entire dataset into memory. Connect pipeline stages with
    `io.Reader`/`io.Writer` and `io.Pipe`. New stages must preserve streaming.
@@ -168,7 +178,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | Task | Command |
 |------|---------|
 | Build binary (embeds web UI) | `make build` |
-| Build backend only (no web) | `go build ./cmd/brd` |
+| Build backend only (no web) | `go -C apps/api build ./cmd/brd` |
 | Build + embed fresh web UI | `make build-with-web` |
 | Run daemon (dev, CGO on for sqlite) | `make run-daemon` |
 | Format Go | `make fmt` |
@@ -178,7 +188,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | Integration tests | `make test-integration` (needs `make setup-test-env`) |
 | Coverage | `make coverage` |
 | **Backend verify gate** (fmt+vet+lint+test+coverage) | **`make pre-commit`** |
-| Frontend dev server | `make web-dev` (or `npm --prefix web run dev`) |
+| Frontend dev server | `make web-dev` (or `npm --prefix apps/web run dev`) |
 | Frontend lint | `make web-lint` |
 | **Frontend verify gate** (types+lint+fmt+tests) | **`make web-validate`** |
 | Frontend build | `make web-build` |
@@ -188,7 +198,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 > `examples/config.example.yml`, nothing more. The gate is `make pre-commit`.
 
 > **Known gap:** `make pre-commit`'s last step, `coverage-check`, currently fails — the repo sits at
-> ~27% against a 75% threshold, and `cmd/brd`, `internal/client`, and `internal/configservice` have
+> ~27% against a 75% threshold, and `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` have
 > no tests at all. Everything before it (`fmt` → `vet` → `lint` → `test-unit`) must pass. Don't try
 > to close a 48-point coverage gap as a side quest; raising it is tracked separately.
 
@@ -232,7 +242,7 @@ PR checklist, and the GoReleaser release process. In short:
 ## Safety & security
 
 Backups touch credentials and customer data — treat this code as security-sensitive. Highlights
-(full detail under "Safety & Security" in [`internal/AGENTS.md`](internal/AGENTS.md)):
+(full detail under "Safety & Security" in [`apps/api/internal/AGENTS.md`](apps/api/internal/AGENTS.md)):
 
 - **Never log secrets** (DB passwords, S3 keys, SFTP creds, encryption keys). Redact in errors/logs.
 - **Validate and sanitize** all external input — config values, API request bodies, file paths

@@ -65,9 +65,9 @@ make test
 
 ### Adding a New Database Type
 
-1. Implement `Dumper` and `Restorer` interfaces in `internal/database/`
-2. Register in `internal/database/factory.go`
-3. Add validation in `internal/config/validator.go`
+1. Implement `Dumper` and `Restorer` interfaces in `apps/api/internal/database/`
+2. Register in `apps/api/internal/database/factory.go`
+3. Add validation in `apps/api/internal/config/validator.go`
 4. Update example configuration
 5. Add tests
 
@@ -75,9 +75,9 @@ make test
 
 ### Adding a New Storage Backend
 
-1. Implement `Storage` interface in `internal/storage/`
-2. Register in `internal/storage/factory.go`
-3. Add config options to `internal/config/config.go`
+1. Implement `Storage` interface in `apps/api/internal/storage/`
+2. Register in `apps/api/internal/storage/factory.go`
+3. Add config options to `apps/api/internal/config/config.go`
 4. Update example configuration
 5. Add tests
 
@@ -85,8 +85,8 @@ make test
 
 ### Adding a New Notifier
 
-1. Implement `Notifier` interface in `internal/notify/`
-2. Register in `internal/notify/factory.go`
+1. Implement `Notifier` interface in `apps/api/internal/notify/`
+2. Register in `apps/api/internal/notify/factory.go`
 3. Add config options
 4. Update documentation
 5. Add tests
@@ -102,7 +102,7 @@ make test
 docker-compose up -d
 
 # Make changes...
-vim internal/database/mongodb.go
+vim apps/api/internal/database/mongodb.go
 
 # Format code
 make fmt
@@ -209,7 +209,7 @@ make vet           # Run go vet
 
 **Adding a configuration option**:
 
-1. Add field to struct in `internal/config/config.go`
+1. Add field to struct in `apps/api/internal/config/config.go`
 2. Add YAML tag
 3. Add validation
 4. Update example config

@@ -38,12 +38,20 @@ make validate
 
 ## Project Layout
 
+Each deployable app lives under `apps/`; the repo root holds project-level concerns only.
+The Go module is rooted at `apps/api/` — run Go commands from there (or `go -C apps/api …`).
+Its module name is still `bared`, so import paths are unchanged (`bared/internal/storage`).
+
 ```
 bared/
-├── cmd/brd/                   # Application entry point
+├── apps/web/                  # React 19 + TypeScript dashboard
+│
+├── apps/api/                  # Go backend — module root (go.mod, .golangci.yml)
+│
+├── apps/api/cmd/brd/                   # Application entry point
 │   └── main.go               # CLI commands and flags
 │
-├── internal/                  # Private application code
+├── apps/api/internal/                  # Private application code
 │   ├── app/                  # Business logic layer
 │   │   ├── backup.go        # Backup orchestration
 │   │   ├── restore.go       # Restore orchestration
@@ -102,10 +110,9 @@ bared/
 │   ├── settings.json        # Editor settings
 │   └── launch.json          # Debug configurations
 │
-├── Makefile                  # Build automation
-├── Dockerfile                # Container image
-├── docker-compose.yml        # Development stack
-├── .golangci.yml            # Linter configuration
+├── Makefile                  # Build automation (drives both apps)
+├── Dockerfile                # Container image (builds web, then embeds into the Go binary)
+├── compose.yml               # Development stack
 └── .gitignore               # Git ignore rules
 ```
 
@@ -120,8 +127,8 @@ make build
 # Build with version info
 VERSION=v1.0.0 make build
 
-# Manual build with Go
-go build -o bin/brd ./cmd/brd
+# Manual build with Go (the module lives in apps/api)
+go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 
 # Cross-platform builds (outputs to dist/)
 make build-all
@@ -323,7 +330,7 @@ make check  # Runs fmt, vet, and lint
 
 ### Adding a Database Type
 
-1. **Create implementation file**: `internal/database/mongodb.go`
+1. **Create implementation file**: `apps/api/internal/database/mongodb.go`
 
 ```go
 package database
@@ -351,31 +358,31 @@ func (m *MongoDB) Restore(ctx context.Context, r io.Reader) error {
 }
 ```
 
-2. **Update factory**: `internal/database/factory.go`
+2. **Update factory**: `apps/api/internal/database/factory.go`
 
 ```go
 case "mongodb":
     return NewMongoDB(target.Conn), nil
 ```
 
-3. **Update validator**: `internal/config/validator.go`
+3. **Update validator**: `apps/api/internal/config/validator.go`
 
 ```go
 case "mysql", "postgres", "redis", "mongodb":
     // existing validation
 ```
 
-4. **Add tests**: `internal/database/mongodb_test.go`
+4. **Add tests**: `apps/api/internal/database/mongodb_test.go`
 
 5. **Update docs**: Add example to `examples/config.example.yml`
 
 ### Adding a Storage Backend
 
-Similar process to adding a database, but in `internal/storage/`.
+Similar process to adding a database, but in `apps/api/internal/storage/`.
 
 ### Adding Configuration Options
 
-1. **Update struct**: `internal/config/config.go`
+1. **Update struct**: `apps/api/internal/config/config.go`
 
 ```go
 type Storage struct {
@@ -384,7 +391,7 @@ type Storage struct {
 }
 ```
 
-2. **Add validation**: `internal/config/validator.go`
+2. **Add validation**: `apps/api/internal/config/validator.go`
 
 ```go
 if storage.NewOption == "" {

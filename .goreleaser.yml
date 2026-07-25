@@ -8,13 +8,15 @@ project_name: brd
 before:
   hooks:
     # Build web frontend and sync to embed location
-    - sh -c "cd web && npm ci && npm run build"
-    - sh -c "mkdir -p internal/web && cp -r web/dist internal/web/dist"
+    - sh -c "cd apps/web && npm ci && npm run build"
+    - sh -c "mkdir -p apps/api/internal/web && rm -rf apps/api/internal/web/dist && cp -r apps/web/dist apps/api/internal/web/dist"
     # Tidy dependencies
-    - go mod tidy
+    - sh -c "cd apps/api && go mod tidy"
 
 builds:
   - id: brd
+    # The Go module is rooted at apps/api; main is relative to this dir.
+    dir: apps/api
     main: ./cmd/brd
     binary: brd
     env:

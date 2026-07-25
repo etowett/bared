@@ -1,8 +1,8 @@
 # Web Frontend — Agent Guide
 
-> Scope: the React 19 + TypeScript + Vite dashboard in `web/` (TanStack Router/Query, Zustand, Tailwind + Radix UI, Vitest). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../AGENTS.md) for project-wide workflow and conventions. **The innermost guide wins** when instructions conflict.
+> Scope: the React 19 + TypeScript + Vite dashboard in `apps/web/` (TanStack Router/Query, Zustand, Tailwind + Radix UI, Vitest). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../AGENTS.md) for project-wide workflow and conventions. **The innermost guide wins** when instructions conflict.
 
-Full-stack recipes — adding a config field end-to-end, or adding an API endpoint end-to-end — live in the backend guide [`../internal/AGENTS.md`](../internal/AGENTS.md). This guide covers the frontend in isolation.
+Full-stack recipes — adding a config field end-to-end, or adding an API endpoint end-to-end — live in the backend guide [`../internal/AGENTS.md`](../api/internal/AGENTS.md). This guide covers the frontend in isolation.
 
 ## Architecture (event-driven)
 
@@ -35,7 +35,7 @@ Full-stack recipes — adding a config field end-to-end, or adding an API endpoi
 ## Project Structure
 
 ```
-web/
+apps/web/
 ├── src/
 │   ├── api/                  # API client and types
 │   │   └── client.ts         # Axios instance, auth, endpoints
@@ -64,7 +64,7 @@ web/
 │   ├── main.tsx              # Entry point
 │   └── vite-env.d.ts         # Vite type declarations
 ├── public/                   # Static assets
-├── dist/                     # Build output (copied to internal/web/dist/)
+├── dist/                     # Build output (copied to apps/api/internal/web/dist/)
 ├── package.json              # Dependencies
 ├── tsconfig.json             # TypeScript configuration
 ├── vite.config.ts            # Vite configuration
@@ -474,12 +474,12 @@ export { Button, buttonVariants };
 
 ## Build & Dev Commands
 
-Run npm scripts from inside `web/`. The `scripts` block in `package.json` exposes:
+Run npm scripts from inside `apps/web/`. The `scripts` block in `package.json` exposes:
 
 | Script | Command | Purpose |
 | --- | --- | --- |
 | `dev` | `vite` | Start dev server on http://localhost:5173 |
-| `build` | `tsc && vite build` | Type-check then production build into `web/dist/` |
+| `build` | `tsc && vite build` | Type-check then production build into `apps/web/dist/` |
 | `preview` | `vite preview` | Preview the production build locally |
 | `lint` | `eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0` | Lint (zero warnings allowed) |
 | `lint:fix` | `eslint . --ext ts,tsx --fix` | Lint and auto-fix |
@@ -532,7 +532,7 @@ export default defineConfig({
 **Production build**:
 
 ```bash
-npm run build        # Outputs to web/dist/
+npm run build        # Outputs to apps/web/dist/
 ```
 
 **Integration with Go**:
@@ -541,7 +541,7 @@ npm run build        # Outputs to web/dist/
 make build-with-web  # Builds frontend, then embeds in Go binary
 ```
 
-The frontend is embedded in the Go binary via `go:embed` directive in `internal/web/handler.go`:
+The frontend is embedded in the Go binary via `go:embed` directive in `apps/api/internal/web/handler.go`:
 
 ```go
 //go:embed dist/*
@@ -767,7 +767,7 @@ export function JobList({ target }: Props) {
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — root agent guide (project-wide workflow and conventions)
-- [`../internal/AGENTS.md`](../internal/AGENTS.md) — backend (Go) guide, including full-stack recipes for adding a config field or API endpoint end-to-end
+- [`../AGENTS.md`](../../AGENTS.md) — root agent guide (project-wide workflow and conventions)
+- [`../internal/AGENTS.md`](../api/internal/AGENTS.md) — backend (Go) guide, including full-stack recipes for adding a config field or API endpoint end-to-end
 - [`./README.md`](./README.md) — frontend README
 - [`./TESTING.md`](./TESTING.md) — frontend testing guide

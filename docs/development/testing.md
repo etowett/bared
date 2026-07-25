@@ -34,10 +34,10 @@ Mock infrastructure that all other tests depend on.
 
 #### Files to Create
 
-1. `internal/testutil/mocks/command_executor.go` - Mock shell commands
-2. `internal/testutil/mocks/storage.go` - Mock storage interface
-3. `internal/testutil/mocks/database.go` - Mock dumper/restorer
-4. `internal/testutil/fixtures/database_fixtures.go` - DB test data
+1. `apps/api/internal/testutil/mocks/command_executor.go` - Mock shell commands
+2. `apps/api/internal/testutil/mocks/storage.go` - Mock storage interface
+3. `apps/api/internal/testutil/mocks/database.go` - Mock dumper/restorer
+4. `apps/api/internal/testutil/fixtures/database_fixtures.go` - DB test data
 
 **Deliverable:** Reusable mocks for all downstream tests
 
@@ -59,8 +59,8 @@ Database layer depends on shell command execution.
 
 #### Files to Create
 
-1. `internal/util/shell_test.go` - Test command execution
-2. `internal/util/retry_test.go` - Test retry logic
+1. `apps/api/internal/util/shell_test.go` - Test command execution
+2. `apps/api/internal/util/retry_test.go` - Test retry logic
 
 **Test Coverage:**
 
@@ -88,10 +88,10 @@ Core functionality - backing up and restoring databases.
 
 #### Files to Create
 
-1. `internal/database/mysql_test.go` - MySQL driver tests
-2. `internal/database/postgres_test.go` - Postgres driver tests
-3. `internal/database/redis_test.go` - Redis driver tests
-4. `internal/database/factory_test.go` - Factory tests
+1. `apps/api/internal/database/mysql_test.go` - MySQL driver tests
+2. `apps/api/internal/database/postgres_test.go` - Postgres driver tests
+3. `apps/api/internal/database/redis_test.go` - Redis driver tests
+4. `apps/api/internal/database/factory_test.go` - Factory tests
 
 **Test Coverage per Driver:**
 
@@ -120,10 +120,10 @@ Where backups are stored - local, S3, SFTP.
 
 #### Files to Create
 
-1. `internal/storage/local_test.go` - Local filesystem tests
-2. `internal/storage/s3_test.go` - S3 storage tests (mocked AWS SDK)
-3. `internal/storage/sftp_test.go` - SFTP storage tests (mocked SSH)
-4. `internal/storage/factory_test.go` - Factory tests
+1. `apps/api/internal/storage/local_test.go` - Local filesystem tests
+2. `apps/api/internal/storage/s3_test.go` - S3 storage tests (mocked AWS SDK)
+3. `apps/api/internal/storage/sftp_test.go` - SFTP storage tests (mocked SSH)
+4. `apps/api/internal/storage/factory_test.go` - Factory tests
 
 **Test Coverage per Storage:**
 
@@ -153,9 +153,9 @@ Compression reduces backup size, retention manages cleanup.
 
 #### Files to Create
 
-1. `internal/compress/tgz_test.go` - Tar.gz compression tests
-2. `internal/compress/factory_test.go` - Factory tests
-3. `internal/retention/tracker_test.go` - Retention tracker tests
+1. `apps/api/internal/compress/tgz_test.go` - Tar.gz compression tests
+2. `apps/api/internal/compress/factory_test.go` - Factory tests
+3. `apps/api/internal/retention/tracker_test.go` - Retention tracker tests
 
 **Test Coverage:**
 
@@ -181,9 +181,9 @@ Brings everything together - backup/restore workflows.
 
 #### Files to Create
 
-1. `internal/app/backup_test.go` - Backup orchestration tests
-2. `internal/app/restore_test.go` - Restore orchestration tests
-3. `internal/app/list_test.go` - List operations tests
+1. `apps/api/internal/app/backup_test.go` - Backup orchestration tests
+2. `apps/api/internal/app/restore_test.go` - Restore orchestration tests
+3. `apps/api/internal/app/list_test.go` - List operations tests
 
 **Test Coverage:**
 
@@ -211,8 +211,8 @@ Nice to have - alerts on success/failure.
 
 #### Files to Create
 
-1. `internal/notify/slack_test.go` - Slack webhook tests
-2. `internal/notify/factory_test.go` - Factory tests
+1. `apps/api/internal/notify/slack_test.go` - Slack webhook tests
+2. `apps/api/internal/notify/factory_test.go` - Factory tests
 
 **Test Coverage:**
 
@@ -239,7 +239,7 @@ Scheduled backups - important but can be deferred.
 
 #### Files to Create
 
-1. `internal/daemon/daemon_test.go` - Daemon scheduler tests
+1. `apps/api/internal/daemon/daemon_test.go` - Daemon scheduler tests
 
 **Test Coverage:**
 
@@ -440,54 +440,54 @@ go test -race ./...
 
 #### Phase 1: Foundation ✅ COMPLETE
 
-- [x] `internal/testutil/mocks/command_executor.go`
-- [x] `internal/testutil/mocks/storage.go`
-- [x] `internal/testutil/mocks/database.go`
-- [x] `internal/testutil/fixtures/database_fixtures.go`
-- [x] `internal/testutil/fixtures/storage_fixtures.go`
+- [x] `apps/api/internal/testutil/mocks/command_executor.go`
+- [x] `apps/api/internal/testutil/mocks/storage.go`
+- [x] `apps/api/internal/testutil/mocks/database.go`
+- [x] `apps/api/internal/testutil/fixtures/database_fixtures.go`
+- [x] `apps/api/internal/testutil/fixtures/storage_fixtures.go`
 
 #### Phase 2: Shell Utilities ✅ COMPLETE
 
-- [x] `internal/util/shell_test.go` - 10 test cases, all passing
-- [x] `internal/util/retry_test.go` - 14 test cases, all passing
+- [x] `apps/api/internal/util/shell_test.go` - 10 test cases, all passing
+- [x] `apps/api/internal/util/retry_test.go` - 14 test cases, all passing
 
 #### Phase 3: Database Layer ✅ COMPLETE
 
-- [x] `internal/database/mysql_test.go` - 21 test cases
-- [x] `internal/database/postgres_test.go` - 19 test cases
-- [x] `internal/database/redis_test.go` - 16 test cases
-- [x] `internal/database/factory_test.go` - 15 test cases
+- [x] `apps/api/internal/database/mysql_test.go` - 21 test cases
+- [x] `apps/api/internal/database/postgres_test.go` - 19 test cases
+- [x] `apps/api/internal/database/redis_test.go` - 16 test cases
+- [x] `apps/api/internal/database/factory_test.go` - 15 test cases
 - **Total: 71 test cases, 118 test runs (including subtests), ALL PASSING**
 
 #### Phase 4: Storage Layer ✅ COMPLETE
 
-- [x] `internal/storage/local_test.go` - 22 test cases
-- [x] `internal/storage/s3_test.go` - 14 test cases
-- [x] `internal/storage/sftp_test.go` - 13 test cases
-- [x] `internal/storage/factory_test.go` - 12 test cases
+- [x] `apps/api/internal/storage/local_test.go` - 22 test cases
+- [x] `apps/api/internal/storage/s3_test.go` - 14 test cases
+- [x] `apps/api/internal/storage/sftp_test.go` - 13 test cases
+- [x] `apps/api/internal/storage/factory_test.go` - 12 test cases
 - **Total: 61 test cases, 166 test runs (including subtests), ALL PASSING**
 
 #### Phase 5: Compression & Retention ✅ COMPLETE
 
-- [x] `internal/compress/tgz_test.go` - 18 test cases
-- [x] `internal/compress/factory_test.go` - 11 test cases
-- [x] `internal/retention/tracker_test.go` - 13 test cases
+- [x] `apps/api/internal/compress/tgz_test.go` - 18 test cases
+- [x] `apps/api/internal/compress/factory_test.go` - 11 test cases
+- [x] `apps/api/internal/retention/tracker_test.go` - 13 test cases
 - **Total: 42 test cases, 110+ test runs (including subtests), ALL PASSING**
 
 #### Phase 6: Application Orchestration ⏳
 
-- [ ] `internal/app/backup_test.go`
-- [ ] `internal/app/restore_test.go`
-- [ ] `internal/app/list_test.go`
+- [ ] `apps/api/internal/app/backup_test.go`
+- [ ] `apps/api/internal/app/restore_test.go`
+- [ ] `apps/api/internal/app/list_test.go`
 
 #### Phase 7: Notifications ⏳
 
-- [ ] `internal/notify/slack_test.go`
-- [ ] `internal/notify/factory_test.go`
+- [ ] `apps/api/internal/notify/slack_test.go`
+- [ ] `apps/api/internal/notify/factory_test.go`
 
 #### Phase 8: Daemon (DEFERRED) ⏸️
 
-- [ ] `internal/daemon/daemon_test.go`
+- [ ] `apps/api/internal/daemon/daemon_test.go`
 
 ---
 
@@ -513,7 +513,7 @@ go test -race ./...
 **Test Results:**
 
 ```
-internal/util/shell_test.go - 10 test cases covering:
+apps/api/internal/util/shell_test.go - 10 test cases covering:
   - ExecuteCommand (4 tests)
   - ExecuteCommandWithStderr (2 tests)
   - ExecuteCommandWithStdin (5 tests)
@@ -521,7 +521,7 @@ internal/util/shell_test.go - 10 test cases covering:
   - Context cancellation (3 tests)
   - Real-world mysqldump scenario (1 test)
 
-internal/util/retry_test.go - 14 test cases covering:
+apps/api/internal/util/retry_test.go - 14 test cases covering:
   - Success on various attempts (3 tests)
   - Failure scenarios (1 test)
   - Exponential backoff (2 tests)
@@ -532,13 +532,13 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (9 total):**
 
-1. `internal/testutil/mocks/command_executor.go` (264 lines)
-2. `internal/testutil/mocks/storage.go` (330 lines)
-3. `internal/testutil/mocks/database.go` (212 lines)
-4. `internal/testutil/fixtures/database_fixtures.go` (150 lines)
-5. `internal/testutil/fixtures/storage_fixtures.go` (153 lines)
-6. `internal/util/shell_test.go` (350 lines)
-7. `internal/util/retry_test.go` (380 lines)
+1. `apps/api/internal/testutil/mocks/command_executor.go` (264 lines)
+2. `apps/api/internal/testutil/mocks/storage.go` (330 lines)
+3. `apps/api/internal/testutil/mocks/database.go` (212 lines)
+4. `apps/api/internal/testutil/fixtures/database_fixtures.go` (150 lines)
+5. `apps/api/internal/testutil/fixtures/storage_fixtures.go` (153 lines)
+6. `apps/api/internal/util/shell_test.go` (350 lines)
+7. `apps/api/internal/util/retry_test.go` (380 lines)
 
 **Total:** ~1,839 lines of test infrastructure and tests
 
@@ -565,10 +565,10 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (4 total):**
 
-1. `internal/database/mysql_test.go` (~450 lines)
-2. `internal/database/postgres_test.go` (~360 lines)
-3. `internal/database/redis_test.go` (~280 lines)
-4. `internal/database/factory_test.go` (~240 lines)
+1. `apps/api/internal/database/mysql_test.go` (~450 lines)
+2. `apps/api/internal/database/postgres_test.go` (~360 lines)
+3. `apps/api/internal/database/redis_test.go` (~280 lines)
+4. `apps/api/internal/database/factory_test.go` (~240 lines)
 
 **Total Phase 3:** ~1,330 lines of test code
 
@@ -597,10 +597,10 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (4 total):**
 
-1. `internal/storage/local_test.go` (~570 lines)
-2. `internal/storage/s3_test.go` (~478 lines)
-3. `internal/storage/sftp_test.go` (~468 lines)
-4. `internal/storage/factory_test.go` (~370 lines)
+1. `apps/api/internal/storage/local_test.go` (~570 lines)
+2. `apps/api/internal/storage/s3_test.go` (~478 lines)
+3. `apps/api/internal/storage/sftp_test.go` (~468 lines)
+4. `apps/api/internal/storage/factory_test.go` (~370 lines)
 
 **Total Phase 4:** ~1,886 lines of test code
 
@@ -627,9 +627,9 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (3 total):**
 
-1. `internal/compress/tgz_test.go` (~430 lines)
-2. `internal/compress/factory_test.go` (~240 lines)
-3. `internal/retention/tracker_test.go` (~600 lines)
+1. `apps/api/internal/compress/tgz_test.go` (~430 lines)
+2. `apps/api/internal/compress/factory_test.go` (~240 lines)
+3. `apps/api/internal/retention/tracker_test.go` (~600 lines)
 
 **Total Phase 5:** ~1,270 lines of test code
 
@@ -656,7 +656,7 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (1 partial):**
 
-1. `internal/app/backup_test.go` (~320 lines, 18 test cases)
+1. `apps/api/internal/app/backup_test.go` (~320 lines, 18 test cases)
    - 2 passing: BackupResult field validation tests
    - 16 deferred: Integration tests that need real database tools
 
@@ -704,8 +704,8 @@ internal/util/retry_test.go - 14 test cases covering:
 
 **Files Created (2 total):**
 
-1. `internal/notify/slack_test.go` (~670 lines, 20 test cases)
-2. `internal/notify/factory_test.go` (~280 lines, 10 test cases)
+1. `apps/api/internal/notify/slack_test.go` (~670 lines, 20 test cases)
+2. `apps/api/internal/notify/factory_test.go` (~280 lines, 10 test cases)
 
 **Total Phase 7:** ~950 lines of test code
 
@@ -753,16 +753,16 @@ internal/util/retry_test.go - 14 test cases covering:
 
 ### Coverage Summary by Package
 
-- ✅ **internal/config**: 100% (27 tests across 3 files)
-- ✅ **internal/util**: 100% (26 tests across 3 files)
-- ✅ **internal/database**: 100% (76 tests across 4 files)
-- ✅ **internal/storage**: 100% (61 tests across 4 files)
-- ✅ **internal/compress**: 100% (29 tests across 2 files)
-- ✅ **internal/retention**: 100% (13 tests across 1 file)
-- ✅ **internal/notify**: 100% (30 tests across 2 files)
-- 🟡 **internal/app**: PARTIAL (2 struct tests, integration tests deferred)
-- ⏸️ **internal/daemon**: DEFERRED
-- ❌ **cmd/brd**: Not tested (CLI entry point)
+- ✅ **apps/api/internal/config**: 100% (27 tests across 3 files)
+- ✅ **apps/api/internal/util**: 100% (26 tests across 3 files)
+- ✅ **apps/api/internal/database**: 100% (76 tests across 4 files)
+- ✅ **apps/api/internal/storage**: 100% (61 tests across 4 files)
+- ✅ **apps/api/internal/compress**: 100% (29 tests across 2 files)
+- ✅ **apps/api/internal/retention**: 100% (13 tests across 1 file)
+- ✅ **apps/api/internal/notify**: 100% (30 tests across 2 files)
+- 🟡 **apps/api/internal/app**: PARTIAL (2 struct tests, integration tests deferred)
+- ⏸️ **apps/api/internal/daemon**: DEFERRED
+- ❌ **apps/api/cmd/brd**: Not tested (CLI entry point)
 
 ### Test Quality Metrics
 
@@ -782,7 +782,7 @@ The application layer tests are partially complete:
 - ⏸️ **Integration tests**: Deferred because they require real database tools (mysqldump, pg_dump, redis-cli)
 - **Recommendation**: Accept current coverage or add Docker-based integration tests later
 
-The application orchestration code (`internal/app/backup.go`, `restore.go`, `list.go`) brings together:
+The application orchestration code (`apps/api/internal/app/backup.go`, `restore.go`, `list.go`) brings together:
 
 - Database drivers (tested ✅)
 - Storage backends (tested ✅)
@@ -806,7 +806,7 @@ Since all components are tested individually, integration confidence is high eve
 
 ### Additional Areas
 
-- CLI commands (`cmd/brd/main.go`) - currently untested
+- CLI commands (`apps/api/cmd/brd/main.go`) - currently untested
 - Performance benchmarks
 - Stress testing (large backups, many targets)
 - Concurrent backup testing

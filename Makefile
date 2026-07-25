@@ -3,6 +3,16 @@
 # Default target
 all: build
 
+# Application directories. The repo is a monorepo: each deployable app lives
+# under apps/. The Go module root is apps/api (module name is still `bared`, so
+# import paths are unchanged); the dashboard is a separate npm project.
+API_DIR=apps/api
+WEB_DIR=apps/web
+
+# Every Go invocation runs inside the module directory. Output paths are made
+# absolute with $(CURDIR) so artifacts still land at the repo root.
+GO=go -C $(API_DIR)
+
 # Build variables
 BINARY_NAME=brd
 BIN_DIR=bin
@@ -17,14 +27,15 @@ DOCKER_PLATFORM ?= $(shell uname -m | grep -qiE 'arm64|aarch64' && echo linux/ar
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 DOCKER_BUILDX_BUILDER ?= bared-multi
 
-# Package list for test/vet/coverage targets.
+# Package list for test/vet/coverage targets. Recursively expanded so `go list`
+# only runs when a recipe actually needs it.
 #
-# npm packages occasionally ship Go sources — web/node_modules/flatted/golang is
-# one — and `./...` sweeps them in once `npm ci` has run. They are third party,
-# not part of the build, and they drag the coverage total below the threshold and
-# fail `make lint`. Recursively expanded so `go list` only runs when a recipe
-# actually needs it. (.golangci.yml excludes node_modules for the same reason.)
-GO_PKGS = $(shell go list ./... | grep -v '/node_modules/')
+# node_modules used to leak in here: npm packages occasionally ship Go sources
+# (web/node_modules/flatted/golang), and back when the module root was the repo
+# root, `./...` swept them up once `npm ci` had run. With the module rooted at
+# apps/api and the dashboard at apps/web, node_modules is outside the module
+# entirely and no filtering is needed.
+GO_PKGS = $(shell cd $(API_DIR) && go list ./...)
 
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).
@@ -44,18 +55,18 @@ endif
 build: web-build web-sync-dist
 	@echo "Building ${BINARY_NAME}..."
 	@mkdir -p ${BIN_DIR}
-	CGO_ENABLED=$(CGO) go build ${LDFLAGS} -o ${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	CGO_ENABLED=$(CGO) $(GO) build ${LDFLAGS} -o $(CURDIR)/${BIN_DIR}/${BINARY_NAME} ./cmd/brd
 	@echo "Build complete: ./${BIN_DIR}/${BINARY_NAME}"
 
 # Build for multiple platforms (with web UI by default)
 build-all: web-build web-sync-dist
 	@echo "Building for multiple platforms..."
 	@mkdir -p dist
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-linux-arm64 ./cmd/brd
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-amd64 ./cmd/brd
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-darwin-arm64 ./cmd/brd
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ${LDFLAGS} -o dist/${BINARY_NAME}-windows-amd64.exe ./cmd/brd
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build ${LDFLAGS} -o $(CURDIR)/dist/${BINARY_NAME}-linux-amd64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build ${LDFLAGS} -o $(CURDIR)/dist/${BINARY_NAME}-linux-arm64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GO) build ${LDFLAGS} -o $(CURDIR)/dist/${BINARY_NAME}-darwin-amd64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build ${LDFLAGS} -o $(CURDIR)/dist/${BINARY_NAME}-darwin-arm64 ./cmd/brd
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO) build ${LDFLAGS} -o $(CURDIR)/dist/${BINARY_NAME}-windows-amd64.exe ./cmd/brd
 	@echo "Cross-platform builds complete in ./dist/"
 
 # Clean build artifacts
@@ -95,7 +106,7 @@ test: test-unit
 # Run unit tests (fast, no external dependencies)
 test-unit:
 	@echo "Running unit tests..."
-	go test -v -race -short $(GO_TEST_LDFLAGS) -coverprofile=coverage.out $(GO_PKGS)
+	$(GO) test -v -race -short $(GO_TEST_LDFLAGS) -coverprofile=$(CURDIR)/coverage.out $(GO_PKGS)
 
 # Run integration tests (requires Docker services)
 test-integration:
@@ -104,14 +115,14 @@ test-integration:
 	docker-compose up -d mysql postgres redis minio
 	@echo "Waiting for services to be ready..."
 	sleep 15
-	go test -v -race -tags=integration $(GO_PKGS)
+	$(GO) test -v -race -tags=integration $(GO_PKGS)
 	@echo "Stopping services..."
 	docker-compose down
 
 # Run end-to-end tests
 test-e2e:
 	@echo "Running end-to-end tests..."
-	go test -v -race ./test/...
+	$(GO) test -v -race ./test/...
 
 # Run all tests (unit + integration + e2e)
 test-all: test-unit test-integration test-e2e
@@ -119,15 +130,15 @@ test-all: test-unit test-integration test-e2e
 # Run tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	go test -v -race -coverprofile=coverage.out $(GO_PKGS)
-	go tool cover -html=coverage.out -o coverage.html
+	$(GO) test -v -race -coverprofile=$(CURDIR)/coverage.out $(GO_PKGS)
+	$(GO) tool cover -html=$(CURDIR)/coverage.out -o $(CURDIR)/coverage.html
 	@echo "Coverage report generated: coverage.html"
 
 # Check coverage threshold (75%)
 coverage-check:
 	@echo "Checking coverage threshold (75%)..."
-	@go test -coverprofile=coverage.out $(GO_PKGS) > /dev/null 2>&1
-	@total=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	@$(GO) test -coverprofile=$(CURDIR)/coverage.out $(GO_PKGS) > /dev/null 2>&1
+	@total=$$($(GO) tool cover -func=$(CURDIR)/coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
 	if [ $$(echo "$$total < 75.0" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
 		echo "❌ Coverage ($$total%) is below threshold (75%)"; \
 		exit 1; \
@@ -138,7 +149,7 @@ coverage-check:
 # Run benchmarks
 bench:
 	@echo "Running benchmarks..."
-	go test -bench=. -benchmem $(GO_PKGS)
+	$(GO) test -bench=. -benchmem $(GO_PKGS)
 
 # Pre-commit checks
 pre-commit: fmt vet lint test-unit coverage-check
@@ -152,14 +163,14 @@ validate: build
 # Format code
 fmt:
 	@echo "Formatting code..."
-	go fmt ./...
+	$(GO) fmt ./...
 	@echo "Format complete"
 
 # Run linter (requires golangci-lint)
 lint:
 	@echo "Running linter..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run; \
+		cd $(API_DIR) && golangci-lint run; \
 	else \
 		echo "golangci-lint not installed. Install from: https://golangci-lint.run/usage/install/"; \
 		exit 1; \
@@ -168,7 +179,7 @@ lint:
 # Run go vet
 vet:
 	@echo "Running go vet..."
-	go vet $(GO_PKGS)
+	$(GO) vet $(GO_PKGS)
 
 # Check for common issues
 check: fmt vet lint
@@ -183,10 +194,14 @@ run-daemon: web-build web-sync-dist build
 		--http-user admin \
 		--http-pass changeme
 
-# Run the daemon without building web UI (faster for backend-only development)
+# Run the daemon without rebuilding the web UI (faster for backend-only development).
+# Compiles rather than `go run` so the daemon still starts with the repo root as
+# its working directory — config paths and the sqlite file are resolved from there.
 run-daemon-fast:
-	@echo "Starting daemon in development mode (go run, no build)..."
-	CGO_ENABLED=1 go run ${LDFLAGS} ./cmd/brd daemon \
+	@echo "Starting daemon in development mode (no web UI rebuild)..."
+	@mkdir -p ${BIN_DIR}
+	CGO_ENABLED=1 $(GO) build ${LDFLAGS} -o $(CURDIR)/${BIN_DIR}/${BINARY_NAME} ./cmd/brd
+	./${BIN_DIR}/${BINARY_NAME} daemon \
 		--http :8080 \
 		--http-user admin \
 		--http-pass changeme
@@ -194,8 +209,8 @@ run-daemon-fast:
 # Development setup
 dev:
 	@echo "Setting up development environment..."
-	go mod download
-	go mod tidy
+	$(GO) mod download
+	$(GO) mod tidy
 	@echo "Installing development tools..."
 	@command -v golangci-lint >/dev/null 2>&1 || \
 		(echo "Installing golangci-lint..." && \
@@ -205,20 +220,20 @@ dev:
 # Download dependencies
 deps:
 	@echo "Downloading dependencies..."
-	go mod download
-	go mod tidy
+	$(GO) mod download
+	$(GO) mod tidy
 	@echo "Dependencies updated"
 
 # Show module information
 mod-info:
 	@echo "Go module information:"
-	@go list -m all
+	@$(GO) list -m all
 
 # Update dependencies
 update-deps:
 	@echo "Updating dependencies..."
-	go get -u ./...
-	go mod tidy
+	$(GO) get -u ./...
+	$(GO) mod tidy
 	@echo "Dependencies updated"
 
 # Check that the Claude Code <-> Codex agent config mirrors are in sync
@@ -397,7 +412,7 @@ release-all: build-all
 
 # Show Go environment
 env:
-	@go env
+	@$(GO) env
 
 # Docker Compose Commands
 # Start all services (detached mode)
@@ -603,41 +618,41 @@ help:
 # Web Frontend Commands
 web-install:
 	@echo "Installing web frontend dependencies..."
-	cd web && npm install
+	cd $(WEB_DIR) && npm install
 
 web-build: web-install
 	@echo "Building web frontend..."
-	cd web && npm run build
+	cd $(WEB_DIR) && npm run build
 
 web-dev:
 	@echo "Starting web frontend development server..."
-	cd web && npm run dev
+	cd $(WEB_DIR) && npm run dev
 
 web-lint:
 	@echo "Linting web frontend..."
-	cd web && npm run lint
+	cd $(WEB_DIR) && npm run lint
 
 web-format:
 	@echo "Formatting web frontend code..."
-	cd web && npm run format
+	cd $(WEB_DIR) && npm run format
 
 web-validate: web-install
 	@echo "Validating web frontend..."
-	cd web && npm run validate
+	cd $(WEB_DIR) && npm run validate
 
 web-clean:
 	@echo "Cleaning web frontend..."
-	rm -rf web/dist web/node_modules
+	rm -rf $(WEB_DIR)/dist $(WEB_DIR)/node_modules
 
-# Sync built web assets into the Go embed directory (internal/web/dist)
+# Sync built web assets into the Go embed directory ($(API_DIR)/internal/web/dist)
 web-sync-dist:
-	@echo "Syncing web assets into internal/web/dist..."
-	@mkdir -p internal/web/dist
-	@if [ -d "web/dist" ]; then \
-		rm -rf internal/web/dist/*; \
-		cp -R web/dist/. internal/web/dist/; \
+	@echo "Syncing web assets into $(API_DIR)/internal/web/dist..."
+	@mkdir -p $(API_DIR)/internal/web/dist
+	@if [ -d "$(WEB_DIR)/dist" ]; then \
+		rm -rf $(API_DIR)/internal/web/dist/*; \
+		cp -R $(WEB_DIR)/dist/. $(API_DIR)/internal/web/dist/; \
 	else \
-		echo "web/dist not found; leaving internal/web/dist as-is"; \
+		echo "$(WEB_DIR)/dist not found; leaving $(API_DIR)/internal/web/dist as-is"; \
 	fi
 
 # Build with web frontend

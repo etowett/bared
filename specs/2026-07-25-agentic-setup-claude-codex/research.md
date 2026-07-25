@@ -30,12 +30,12 @@ configuration, and stop the two from drifting apart. Issue: #52.
   "Validate backend (fmt+vet+lint+test)" and `AGENTS.md:160` told contributors to run it before
   pushing. `Makefile:139-142` shows `validate: build` → `brd validate-config --config
   examples/config.example.yml`. The real gate is `pre-commit` (`Makefile:135`):
-  `fmt vet lint test-unit coverage-check`. `.claude/README.md`, `internal/AGENTS.md:360`,
+  `fmt vet lint test-unit coverage-check`. `.claude/README.md`, `apps/api/internal/AGENTS.md:360`,
   `specs/TEMPLATE/plan.md`, `CONTRIBUTING.md:87`, and `.claude/hooks/lint-on-stop.sh` repeated the
   same error.
 - **`make lint` fails on a clean checkout** once `npm ci` has run: `.golangci.yml` excluded only
   `vendor` and `examples`, so golangci-lint walked into
-  `web/node_modules/flatted/golang/pkg/flatted/` — a Go file shipped inside an npm package — and
+  `apps/web/node_modules/flatted/golang/pkg/flatted/` — a Go file shipped inside an npm package — and
   reported 5 issues. CI's lint job never runs `npm ci`, which is why it stayed hidden.
 
 ## Constraints & considerations

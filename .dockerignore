@@ -45,11 +45,15 @@ compose.yml
 docker-compose.yml
 
 # Web frontend intermediate files
-web/node_modules
-web/dist
-web/.vite
-web/.eslintcache
-web/coverage
+apps/web/node_modules
+apps/web/dist
+apps/web/.vite
+apps/web/.eslintcache
+apps/web/coverage
+
+# Locally-built embed target — the image rebuilds it from the frontend stage,
+# so shipping the host's copy in would only risk stale assets.
+apps/api/internal/web/dist
 
 # Database files
 *.db

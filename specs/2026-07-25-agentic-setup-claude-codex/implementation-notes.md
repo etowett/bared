@@ -44,7 +44,7 @@
   "fmt+vet+lint+test"; it actually runs `brd validate-config` against the example config. The real
   gate is `make pre-commit`. Five files repeated the error, including the Stop hook's own output —
   so an agent following the guide ran the wrong command and got a green result.
-- **`make lint` fails on any machine that has run `npm ci`.** `web/node_modules/flatted/golang/`
+- **`make lint` fails on any machine that has run `npm ci`.** `apps/web/node_modules/flatted/golang/`
   ships a Go source file, and `.golangci.yml` excluded only `vendor` and `examples`. CI never caught
   it because the lint job doesn't install npm dependencies. Fixed by excluding `node_modules`.
 - **Codex needs a one-time trust acknowledgement** before it reads `.codex/config.toml`. Without it
@@ -79,8 +79,8 @@
 - `make web-validate` → type-check, lint, format:check clean; 237 tests in 15 files pass
 - `make fmt`, `make vet`, `make lint`, `make test-unit` → all pass
 - `make pre-commit` → **fails at `coverage-check`**: 27.0% against a 75% threshold. Pre-existing and
-  unrelated to this change — no `.go` file is touched here, and `cmd/brd`, `internal/client`, and
-  `internal/configservice` have no tests at all. See `open-questions.md` and the follow-up issue.
+  unrelated to this change — no `.go` file is touched here, and `apps/api/cmd/brd`, `apps/api/internal/client`, and
+  `apps/api/internal/configservice` have no tests at all. See `open-questions.md` and the follow-up issue.
   The `lint` step of `pre-commit` *did* fail before this change and now passes.
 - `bash -n .claude/hooks/*.sh` → clean
 - `codex doctor` with `CODEX_HOME` pointed at a copy of `.codex/config.toml` → `config.toml parse

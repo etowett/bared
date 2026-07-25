@@ -24,13 +24,14 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: "1.26.4"
+          cache-dependency-path: apps/api/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: apps/web/.nvmrc
           cache: "npm"
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Get version
         id: get_version
@@ -41,18 +42,19 @@ jobs:
 
       - name: Build web frontend
         run: |
-          cd web
+          cd apps/web
           npm ci
           npm run build
-          cd ..
+          cd ../..
           echo "✅ Web frontend built successfully"
-          ls -lh web/dist/
+          ls -lh apps/web/dist/
 
       - name: Copy web dist to embed location
         run: |
-          mkdir -p internal/web
-          cp -r web/dist internal/web/dist
-          echo "✅ Web frontend copied to internal/web/dist for embedding"
+          mkdir -p apps/api/internal/web
+          rm -rf apps/api/internal/web/dist
+          cp -r apps/web/dist apps/api/internal/web/dist
+          echo "✅ Web frontend copied to apps/api/internal/web/dist for embedding"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

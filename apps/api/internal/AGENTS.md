@@ -1,6 +1,6 @@
 # Backend (Go) — Agent Guide
 
-> Scope: the Go daemon — all packages under `internal/` (config, daemon, jobs, api, web, persistence, database, storage, notify, compress, encryption, retention, progress, …). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../AGENTS.md) for project-wide workflow. **The innermost guide wins** when instructions conflict.
+> Scope: the Go daemon — all packages under `apps/api/internal/` (config, daemon, jobs, api, web, persistence, database, storage, notify, compress, encryption, retention, progress, …). Part of the BareD AGENTS.md tree — see the root [`AGENTS.md`](../../../AGENTS.md) for project-wide workflow. **The innermost guide wins** when instructions conflict.
 
 ## Architecture
 
@@ -68,9 +68,9 @@ type Compressor interface {
 **Pattern**: New database types, storage backends, or compression formats implement these interfaces and register in factory functions.
 
 > **Extending a subsystem?** The three pluggable subsystems have their own dedicated guides — read them instead of duplicating their setup here:
-> - Adding a new database engine → [`internal/database/AGENTS.md`](database/AGENTS.md)
-> - Adding a new storage backend → [`internal/storage/AGENTS.md`](storage/AGENTS.md)
-> - Adding a notification channel → [`internal/notify/AGENTS.md`](notify/AGENTS.md)
+> - Adding a new database engine → [`apps/api/internal/database/AGENTS.md`](database/AGENTS.md)
+> - Adding a new storage backend → [`apps/api/internal/storage/AGENTS.md`](storage/AGENTS.md)
+> - Adding a notification channel → [`apps/api/internal/notify/AGENTS.md`](notify/AGENTS.md)
 
 ### Job Queue Architecture
 
@@ -102,14 +102,14 @@ type Compressor interface {
 
 **Key Files**:
 
-- `internal/jobs/manager.go` - Job lifecycle, queue, persistence
-- `internal/jobs/worker.go` - Worker pool execution
-- `internal/jobs/job.go` - Job structure and state
+- `apps/api/internal/jobs/manager.go` - Job lifecycle, queue, persistence
+- `apps/api/internal/jobs/worker.go` - Worker pool execution
+- `apps/api/internal/jobs/job.go` - Job structure and state
 
 ## Package Layout
 
 ```
-internal/
+apps/api/internal/
 ├── api/           # HTTP server, WebSocket, REST endpoints, middleware
 ├── app/           # Orchestration layer (backup, restore, list operations)
 ├── client/        # Config import client (import_client.go, import_types.go)
@@ -150,21 +150,21 @@ internal/
 ├── testutil/      # Test helpers (fixtures, integration, mocks)
 ├── util/          # Utilities (logging, retry, shell, paths, heartbeat, stage, tempfile)
 ├── version/       # Build-time version metadata (version.go)
-└── web/           # Embedded frontend assets via go:embed (embed.go, dist/)
+└── apps/web/           # Embedded frontend assets via go:embed (embed.go, dist/)
 ```
 
 ## HTTP API
 
 ### HTTP API Development
 
-**Pattern**: The API server in `internal/api/server.go` follows a simple handler pattern.
+**Pattern**: The API server in `apps/api/internal/api/server.go` follows a simple handler pattern.
 
 **Adding a new endpoint**:
 
 1. **Add handler method to Server**:
 
 ```go
-// internal/api/server.go
+// apps/api/internal/api/server.go
 
 func (s *Server) handleGetStorages(w http.ResponseWriter, r *http.Request) {
     storages := make([]map[string]interface{}, 0, len(s.cfg.Storages))
@@ -204,7 +204,7 @@ func (s *Server) setupRoutes() {
 
 ### WebSocket Communication
 
-**Pattern**: WebSocket in `internal/api/websocket.go` broadcasts job logs in real-time.
+**Pattern**: WebSocket in `apps/api/internal/api/websocket.go` broadcasts job logs in real-time.
 
 **Key concepts**:
 
@@ -215,7 +215,7 @@ func (s *Server) setupRoutes() {
 **Adding new WebSocket message types**:
 
 ```go
-// internal/api/websocket.go
+// apps/api/internal/api/websocket.go
 
 type MessageType string
 
@@ -366,7 +366,7 @@ make web-validate       # Frontend validation (type-check + lint + format + test
 **Version injection** (happens automatically in Makefile):
 
 ```go
-// internal/version/version.go
+// apps/api/internal/version/version.go
 var (
     Version   = "dev"         // Injected at link time
     Commit    = "unknown"     // Injected at link time
@@ -489,7 +489,7 @@ func TestValidateConnection(t *testing.T) {
 **Mock interfaces** (for testing with mocks):
 
 ```go
-// internal/storage/mock.go
+// apps/api/internal/storage/mock.go
 type MockStorage struct {
     StoreFunc    func(ctx context.Context, path string, r io.Reader, size int64) error
     RetrieveFunc func(ctx context.Context, path string, w io.Writer) error
@@ -521,13 +521,13 @@ func TestBackupWithMockStorage(t *testing.T) {
 
 ## Full-Stack Recipes
 
-> The React side of these recipes is detailed in [`../web/AGENTS.md`](../web/AGENTS.md). The steps below cover the Go backend work; frontend hooks/components are shown for context where the source recipe spans both sides.
+> The React side of these recipes is detailed in [`../web/AGENTS.md`](../../web/AGENTS.md). The steps below cover the Go backend work; frontend hooks/components are shown for context where the source recipe spans both sides.
 
 ### Task 1: Add a New Configuration Field
 
 **Scenario**: Add a `timeout` field to backup targets.
 
-1. **Update config struct** (`internal/config/config.go`):
+1. **Update config struct** (`apps/api/internal/config/config.go`):
 
 ```go
 type Target struct {
@@ -540,7 +540,7 @@ type Target struct {
 }
 ```
 
-2. **Add validation** (`internal/config/validator.go`):
+2. **Add validation** (`apps/api/internal/config/validator.go`):
 
 ```go
 func (v *Validator) validateTarget(target *Target, idx int) error {
@@ -555,7 +555,7 @@ func (v *Validator) validateTarget(target *Target, idx int) error {
 }
 ```
 
-3. **Use in backup logic** (`internal/app/backup.go`):
+3. **Use in backup logic** (`apps/api/internal/app/backup.go`):
 
 ```go
 func (b *BackupOrchestrator) Backup(ctx context.Context, targetName string) error {
@@ -591,13 +591,13 @@ targets:
 
 **Scenario**: Add progress tracking to S3 uploads.
 
-1. **Define progress callback type** (`internal/progress/progress.go`):
+1. **Define progress callback type** (`apps/api/internal/progress/progress.go`):
 
 ```go
 type Callback func(bytesTransferred, totalBytes int64)
 ```
 
-2. **Create progress reader wrapper** (`internal/progress/reader.go`):
+2. **Create progress reader wrapper** (`apps/api/internal/progress/reader.go`):
 
 ```go
 type Reader struct {
@@ -627,7 +627,7 @@ func (pr *Reader) Read(p []byte) (n int, err error) {
 }
 ```
 
-3. **Use in S3 storage** (`internal/storage/s3.go`):
+3. **Use in S3 storage** (`apps/api/internal/storage/s3.go`):
 
 ```go
 func (s *S3Storage) Store(ctx context.Context, path string, r io.Reader, size int64) error {
@@ -650,7 +650,7 @@ func (s *S3Storage) Store(ctx context.Context, path string, r io.Reader, size in
 4. **Expose progress via WebSocket** (if needed):
 
 ```go
-// internal/jobs/job.go
+// apps/api/internal/jobs/job.go
 type Job struct {
     // ... existing fields
     Progress     int    `json:"progress"`      // 0-100
@@ -673,7 +673,7 @@ func (j *Job) UpdateProgress(transferred, total int64) {
 
 **Scenario**: Add endpoint to get backup statistics.
 
-**Backend** (`internal/api/server.go`):
+**Backend** (`apps/api/internal/api/server.go`):
 
 ```go
 type BackupStats struct {
@@ -701,7 +701,7 @@ func (s *Server) setupRoutes() {
 }
 ```
 
-**Frontend Hook** (`web/src/hooks/useStats.ts`):
+**Frontend Hook** (`apps/web/src/hooks/useStats.ts`):
 
 ```typescript
 import { useQuery } from '@tanstack/react-query';
@@ -726,7 +726,7 @@ export function useStats() {
 }
 ```
 
-**Frontend Component** (`web/src/components/StatsCard.tsx`):
+**Frontend Component** (`apps/web/src/components/StatsCard.tsx`):
 
 ```typescript
 import { useStats } from '../hooks/useStats';
@@ -783,7 +783,7 @@ function formatBytes(bytes: number): string {
 
 **Scenario**: Test MySQL backup and restore flow.
 
-**Create test file** (`internal/app/backup_test.go`):
+**Create test file** (`apps/api/internal/app/backup_test.go`):
 
 ```go
 //go:build integration
@@ -892,7 +892,7 @@ go test -tags=integration -v ./...
 
 **API Contract**:
 
-Backend types (`internal/api/types.go`):
+Backend types (`apps/api/internal/api/types.go`):
 
 ```go
 type Job struct {
@@ -905,7 +905,7 @@ type Job struct {
 }
 ```
 
-Frontend types (`web/src/types/index.ts`):
+Frontend types (`apps/web/src/types/index.ts`):
 
 ```typescript
 interface Job {
@@ -1102,9 +1102,9 @@ try {
 
 ## See also
 
-- [`../AGENTS.md`](../AGENTS.md) — root project guide and project-wide workflow
+- [`../AGENTS.md`](../../../AGENTS.md) — root project guide and project-wide workflow
 - [`../cmd/AGENTS.md`](../cmd/AGENTS.md) — CLI / `brd` binary and entrypoints
-- [`../web/AGENTS.md`](../web/AGENTS.md) — frontend (React) guide
+- [`../web/AGENTS.md`](../../web/AGENTS.md) — frontend (React) guide
 - [`database/AGENTS.md`](database/AGENTS.md) — adding a new database engine
 - [`storage/AGENTS.md`](storage/AGENTS.md) — adding a new storage backend
 - [`notify/AGENTS.md`](notify/AGENTS.md) — adding a notification channel

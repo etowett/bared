@@ -159,16 +159,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version-file: web/.nvmrc
+          node-version-file: apps/web/.nvmrc
 
       - name: Install dependencies
-        run: cd web && npm ci
+        run: cd apps/web && npm ci
 
       - name: Run validation
-        run: cd web && npm run validate
+        run: cd apps/web && npm run validate
 
       - name: Build
-        run: cd web && npm run build
+        run: cd apps/web && npm run build
 ```
 
 ## Testing the Build
@@ -183,7 +183,7 @@ make web-clean
 make web-build
 
 # Verify dist/ was created
-ls -lh web/dist/
+ls -lh apps/web/dist/
 ```
 
 ### 2. Development Server Test
@@ -313,7 +313,7 @@ curl http://localhost:8080/api/health
 ## File Structure
 
 ```
-web/
+apps/web/
 ├── dist/                  # Production build (gitignored)
 ├── node_modules/          # Dependencies (gitignored)
 ├── src/

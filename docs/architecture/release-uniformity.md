@@ -34,7 +34,7 @@ This document validates that all distribution methods (Docker images, binary rel
 |--------|--------------|--------------|
 | Docker | ✅ Included | Multi-stage build: Stage 1 builds React, Stage 2 embeds |
 | Binary Release | ✅ Included | Workflow builds web with `npm ci && npm run build` before Go build |
-| Local Build | ✅ Included | Use `make build-with-web` or manual `cd web && npm run build` |
+| Local Build | ✅ Included | Use `make build-with-web` or manual `cd apps/web && npm run build` |
 
 **Implementation**:
 

@@ -69,7 +69,7 @@ standing context cost in every session, for everyone. Before adding one:
    it. A personal, single-author skill belongs in your **user-scope** directory
    (`~/.claude/skills/` for Claude Code; Codex scans its own), not in this repo.
 3. **Don't duplicate a nested `AGENTS.md`.** BareD's subsystem skills are deliberately thin
-   checklists that defer to `internal/{database,storage,notify}/AGENTS.md` for the actual recipe.
+   checklists that defer to `apps/api/internal/{database,storage,notify}/AGENTS.md` for the actual recipe.
    Keep it that way — one source of truth per fact.
 4. **If it must live in-repo but shouldn't auto-load,** suppress implicit invocation per client —
    Claude Code: `disable-model-invocation: true` in the frontmatter (this also drops the description

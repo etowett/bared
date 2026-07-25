@@ -127,8 +127,8 @@ targets:
 
 ```
 bared/
-├── cmd/brd/              # CLI entry point (1 file)
-├── internal/
+├── apps/api/cmd/brd/              # CLI entry point (1 file)
+├── apps/api/internal/
 │   ├── app/              # Orchestration (3 files)
 │   ├── config/           # Config system (3 files)
 │   ├── database/         # Dumpers (5 files)

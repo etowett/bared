@@ -18,7 +18,7 @@ missing=""
 for tool in go golangci-lint node; do
   command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
 done
-[ -x web/node_modules/.bin/eslint ] || missing="$missing web/node_modules(npm --prefix web ci)"
+[ -x apps/web/node_modules/.bin/eslint ] || missing="$missing apps/web/node_modules(npm --prefix apps/web ci)"
 
 printf 'BareD · branch %s · %s uncommitted file(s)\n' "$branch" "$dirty"
 case "$branch" in

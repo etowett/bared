@@ -32,10 +32,10 @@ prefix_rule(pattern=["./bin/brd"], decision="allow")
 prefix_rule(pattern=["./brd"], decision="allow")
 
 # --- Web UI -------------------------------------------------------------------
-prefix_rule(pattern=["npm", "--prefix", "web", ["ci", "install"]], decision="allow")
+prefix_rule(pattern=["npm", "--prefix", "apps/web", ["ci", "install"]], decision="allow")
 prefix_rule(
     pattern=[
-        "npm", "--prefix", "web", "run",
+        "npm", "--prefix", "apps/web", "run",
         ["build", "dev", "lint", "type-check", "validate", "format", "format:check", "test:run"],
     ],
     decision="allow",

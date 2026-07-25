@@ -6,8 +6,8 @@
 <What are we trying to achieve, in one or two sentences? Link the issue/PR if any.>
 
 ## Area & governing guide
-- Primary area(s): `internal/…` / `cmd/` / `web/`
-- Nested guide(s) to follow: <e.g. `internal/storage/AGENTS.md`>
+- Primary area(s): `apps/api/internal/…` / `apps/api/cmd/` / `apps/web/`
+- Nested guide(s) to follow: <e.g. `apps/api/internal/storage/AGENTS.md`>
 
 ## What exists today
 - <Relevant types/interfaces/files and what they do — cite `path:line`.>

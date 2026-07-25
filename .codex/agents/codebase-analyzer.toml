@@ -11,13 +11,13 @@ You explain **how BareD works**, by reading the code. BareD is a streaming backu
 
 BareD's architecture rests on a few invariants; note explicitly where the code upholds or departs from them:
 - **Streaming, never buffering.** Stages are wired with `io.Reader`/`io.Writer`/`io.Pipe`; memory stays flat regardless of dataset size. Backup is dump → compress → (encrypt) → upload → track/retention; restore is the mirror image.
-- **Interface + factory extension.** `Dumper`/`Restorer` (`internal/database/`), `Storage` (`internal/storage/`), `Notifier` (`internal/notify/`), each with a factory dispatching on a type string.
+- **Interface + factory extension.** `Dumper`/`Restorer` (`apps/api/internal/database/`), `Storage` (`apps/api/internal/storage/`), `Notifier` (`apps/api/internal/notify/`), each with a factory dispatching on a type string.
 - **Context propagation.** `context.Context` is the first parameter and cancellation is honored in long-running work.
 - **Frontend state layering.** Server state → TanStack Query, live updates → WebSocket, UI/client prefs → Zustand.
 
 ## How to work
 
-1. **Start at the entry point and follow the call chain.** `cmd/brd/` (Cobra) → `internal/app/` (orchestration) → the subsystem. For the daemon path: `internal/daemon/` (cron, signals) → `internal/jobs/` (queue, worker pool, persistence). For the API path: `internal/api/server.go` routes → handler → service. For the UI: route → hook → `web/src/api/client.ts` → the Go handler.
+1. **Start at the entry point and follow the call chain.** `apps/api/cmd/brd/` (Cobra) → `apps/api/internal/app/` (orchestration) → the subsystem. For the daemon path: `apps/api/internal/daemon/` (cron, signals) → `apps/api/internal/jobs/` (queue, worker pool, persistence). For the API path: `apps/api/internal/api/server.go` routes → handler → service. For the UI: route → hook → `apps/web/src/api/client.ts` → the Go handler.
 2. **Read the code, don't infer from names.** Open each file in the chain. Where a value is transformed, note what it becomes. Where a goroutine or pipe is created, note who closes it and who propagates the error.
 3. **Trace the failure paths too.** Where errors are wrapped, swallowed, retried, or turned into a notification/job status. Partial-failure behavior is usually the interesting part.
 4. **Cross the boundary when the question does.** A full-stack question needs both the Go handler and the TS client/hook/component.

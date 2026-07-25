@@ -53,7 +53,7 @@ BareD uses a fully automated release system that:
 │    1. Checkout with full history                             │
 │    2. Setup Go 1.26.4 & Node.js                              │
 │    3. Build web frontend (npm ci && npm run build)           │
-│    4. Copy web/dist to internal/web/dist                     │
+│    4. Copy apps/web/dist to apps/api/internal/web/dist                     │
 │    5. Run GoReleaser:                                        │
 │       - Cross-compile for 5 platforms                        │
 │       - Create archives (tar.gz, zip)                        │
@@ -139,8 +139,8 @@ Key sections:
    ```yaml
    before:
      hooks:
-       - sh -c "cd web && npm ci && npm run build"
-       - sh -c "mkdir -p internal/web && cp -r web/dist internal/web/dist"
+       - sh -c "cd apps/web && npm ci && npm run build"
+       - sh -c "mkdir -p apps/api/internal/web && cp -r apps/web/dist apps/api/internal/web/dist"
        - go mod tidy
    ```
 
