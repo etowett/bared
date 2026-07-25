@@ -4,23 +4,29 @@ Modern React-based web interface for BareD backup management.
 
 ## Technology Stack
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **TanStack Query** - Server state management
+- **React 19** - UI framework
+- **TypeScript 6** - Type safety
+- **TanStack Router + Query** - Routing and server state management
 - **Zustand** - Client state management
-- **Vite** - Build tool and dev server
+- **Tailwind CSS v4 + Radix UI** - Styling and accessible primitives
+- **Vite 8** - Build tool and dev server
+- **Vitest 4** - Test runner
+- **Bun** - Package manager and script runner
 
 ## Development Setup
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- [Bun](https://bun.sh) — the version in [`.bun-version`](./.bun-version) (currently `1.3.5`)
 - Go 1.25+ (for backend)
+
+Bun replaces npm here: the committed lockfile is `bun.lock` and there is no `package-lock.json`
+or `.nvmrc`.
 
 ### Install Dependencies
 
 ```bash
-npm install
+bun install                    # or: bun install --frozen-lockfile (CI/Docker)
 ```
 
 ### Development Mode
@@ -28,7 +34,7 @@ npm install
 Start the Vite dev server (runs on <http://localhost:5173>):
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 The dev server will proxy API requests to the Go backend at `http://localhost:8080`.
@@ -45,7 +51,7 @@ go run apps/api/cmd/brd/main.go daemon --config examples/config.example.yml --ht
 Build the optimized production bundle:
 
 ```bash
-npm run build
+bun run build
 ```
 
 Output will be in the `dist/` directory, which gets embedded into the Go binary.
@@ -55,7 +61,7 @@ Output will be in the `dist/` directory, which gets embedded into the Go binary.
 Test the production build locally:
 
 ```bash
-npm run preview
+bun run preview
 ```
 
 ## Project Structure
@@ -78,16 +84,22 @@ apps/web/
 │   │   ├── useDashboard.ts    # Dashboard API hook
 │   │   └── useWebSocket.ts    # WebSocket connection
 │   ├── styles/
-│   │   └── index.css          # Global styles
+│   │   └── globals.css        # Tailwind v4 CSS-first config + theme
 │   ├── types/
 │   │   └── index.ts           # TypeScript interfaces
 │   ├── App.tsx                # Root component
 │   └── main.tsx               # Entry point
 ├── index.html                  # HTML template
 ├── vite.config.ts             # Vite configuration
+├── postcss.config.js          # PostCSS (@tailwindcss/postcss)
 ├── tsconfig.json              # TypeScript config
+├── .bun-version               # Pinned Bun version
+├── bun.lock                   # Committed lockfile
 └── package.json               # Dependencies
 ```
+
+> Tailwind v4 needs no `tailwind.config.js` — theme tokens, the dark-mode variant and custom
+> utilities all live in `src/styles/globals.css`.
 
 ## Features
 
@@ -173,7 +185,7 @@ Adjust in `src/hooks/*.ts` files.
 
 The frontend build is embedded into the Go binary:
 
-1. **Build frontend**: `npm run build`
+1. **Build frontend**: `bun run build`
 2. **Build Go binary**: `go build -o brd apps/api/cmd/brd/main.go`
 3. **Deploy single binary**: Contains both backend and frontend
 
@@ -183,19 +195,21 @@ The Go binary serves the React SPA for all non-API routes via `embed.FS`.
 
 The Dockerfile uses multi-stage builds:
 
-1. **Stage 1**: Build React frontend with Node
+1. **Stage 1**: Build React frontend with Bun
 2. **Stage 2**: Build Go binary with embedded frontend
 3. **Stage 3**: Runtime image with minimal dependencies
 
-```dockerfile
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/web
-COPY apps/web/package*.json ./
-RUN npm ci
-COPY apps/web/ ./
-RUN npm run build
+Roughly:
 
-FROM golang:1.25-alpine AS backend-builder
+```dockerfile
+FROM oven/bun:1.3.5 AS frontend-builder
+WORKDIR /app/web
+COPY apps/web/package.json apps/web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY apps/web/ ./
+RUN bun run build
+
+FROM golang:alpine AS backend-builder
 WORKDIR /app
 COPY --from=frontend-builder /app/web/dist ./internal/web/dist
 RUN go build -o brd ./cmd/brd
@@ -203,6 +217,8 @@ RUN go build -o brd ./cmd/brd
 FROM alpine:latest
 COPY --from=backend-builder /app/brd /usr/local/bin/brd
 ```
+
+See the repo-root `Dockerfile` for the authoritative version.
 
 ## API Authentication
 
@@ -236,9 +252,9 @@ If you see CORS errors in development, ensure:
 
 ### Build Fails
 
-- Clear node_modules: `rm -rf node_modules && npm install`
-- Clear Vite cache: `rm -rf node_modules/.vite`
-- Check Node version: `node -v` (should be 18+)
+- Clear dependencies: `rm -rf node_modules && bun install`
+- Clear Vite cache: `rm -rf node_modules/.vite .vite`
+- Check Bun version: `bun --version` (should match `.bun-version`)
 
 ## License
 

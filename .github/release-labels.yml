@@ -1,6 +1,12 @@
-# Label definitions for BareD releases
-# These labels are synced to the repository via the sync-labels workflow
+# Label definitions for BareD
+#
+# These labels are synced to the repository via the sync-labels workflow, which
+# runs the labeler with `skip-delete: false` — so this file is the complete,
+# authoritative set. Any label not listed here is DELETED from the repo on the
+# next sync, which is why the Dependabot labels live here too even though they
+# aren't release labels.
 
+# Release labels — consumed by .github/workflows/auto-release.yml
 - name: "release:major"
   color: "d73a4a"
   description: "Breaking changes - triggers major version bump (x.0.0)"
@@ -16,3 +22,13 @@
 - name: "release:skip"
   color: "ffffff"
   description: "Skip release - no version bump or release will be created"
+
+# Dependency labels — applied by .github/dependabot.yml. Colours match the ones
+# Dependabot created on the repo, so syncing is a no-op rather than a recolour.
+- name: "dependencies"
+  color: "0366d6"
+  description: "Pull requests that update a dependency file"
+
+- name: "javascript"
+  color: "168700"
+  description: "Pull requests that update javascript code"

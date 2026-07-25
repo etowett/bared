@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+#
+# Dependabot configuration for BareD.
+#
+# Before this file existed only Dependabot *security* updates ran (those need no
+# config), so nothing kept the repo current between advisories — and the few
+# times Dependabot did open PRs they arrived one-per-dependency and went stale
+# (#29, #30, #31, #32, #51, #55, #56 were all closed unmerged).
+#
+# So every ecosystem below is grouped into exactly two pull requests:
+#   * <eco>-minor-and-patch — safe bumps, review as one unit, merge on green
+#   * <eco>-major           — breaking bumps, reviewed on their own
+# That caps the queue at two PRs per ecosystem per week, and the days are
+# staggered so all four ecosystems don't land on the same morning.
+#
+# Commit messages come out as `chore(deps): ...` / `chore(deps-dev): ...` —
+# `include: scope` is what appends the (deps)/(deps-dev) scope to the prefix,
+# matching the existing history (e.g. a355a0e).
+#
+# Labels must exist in the repo, and .github/workflows/sync-labels.yml runs the
+# labeler with `skip-delete: false` — anything missing from
+# .github/release-labels.yml gets deleted. Both labels used here are declared
+# there for that reason.
+version: 2
+
+updates:
+  # --------------------------------------------------------------- Go backend
+  # The Go module root is apps/api (module name is still `bared`).
+  - package-ecosystem: gomod
+    directory: /apps/api
+    target-branch: main
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      gomod-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      gomod-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - major
+
+  # ----------------------------------------------------------- Web dashboard
+  # `bun` — NOT `npm`. Dependabot has a dedicated Bun ecosystem (GA 2025-02-13)
+  # that reads the text-based bun.lock; the npm ecosystem does not look at
+  # bun.lock at all and would bump package.json without touching the lockfile,
+  # which breaks `bun install --frozen-lockfile` in CI.
+  # Caveat: the bun ecosystem supports version updates only, not automated
+  # security-update PRs. That gap is covered by .github/workflows/security-audit.yml,
+  # which runs `bun audit` on a weekly schedule and on any lockfile change.
+  - package-ecosystem: bun
+    directory: /apps/web
+    target-branch: main
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+      - javascript
+    groups:
+      bun-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      bun-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - major
+
+  # ---------------------------------------------------------- GitHub Actions
+  # `directory: /` makes Dependabot scan .github/workflows plus any root action
+  # manifest, so this keeps every workflow's action pins current.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+      day: wednesday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      actions-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      actions-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - major
+
+  # ------------------------------------------------------ Docker base images
+  # The root Dockerfile is multi-stage, so this covers all three FROM lines
+  # (oven/bun, golang, alpine). Grouping matters here: ungrouped, Dependabot
+  # opens one PR per FROM line. Note the `# syntax=docker/dockerfile:1`
+  # directive is invisible to Dependabot — it only parses `FROM` — which is why
+  # that pin floats on the v1 major rather than being pinned exactly.
+  - package-ecosystem: docker
+    directory: /
+    target-branch: main
+    schedule:
+      interval: weekly
+      day: thursday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      docker-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+      docker-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - major

@@ -32,16 +32,27 @@ prefix_rule(pattern=["./bin/brd"], decision="allow")
 prefix_rule(pattern=["./brd"], decision="allow")
 
 # --- Web UI -------------------------------------------------------------------
-prefix_rule(pattern=["npm", "--prefix", "apps/web", ["ci", "install"]], decision="allow")
+# Bun, pinned in apps/web/.bun-version. Two gotchas behind the shape of these rules:
+#   • `--cwd` must come AFTER the subcommand. `bun --cwd apps/web run lint` prints
+#     Bun's help and exits 0 without running anything, and `bun --cwd apps/web install`
+#     fails with `Script not found "install"`.
+#   • `bun install` on its own is the whole install; `--frozen-lockfile` is the
+#     reproducible form (the `npm ci` equivalent). Both are pinned to apps/web here
+#     so that `bun add`/`bun install <pkg>` still needs a prompt — a dependency
+#     change is the human's call.
+prefix_rule(pattern=["bun", "install", "--cwd", "apps/web"], decision="allow")
+prefix_rule(pattern=["bun", "install", "--frozen-lockfile", "--cwd", "apps/web"], decision="allow")
 prefix_rule(
     pattern=[
-        "npm", "--prefix", "apps/web", "run",
-        ["build", "dev", "lint", "type-check", "validate", "format", "format:check", "test:run"],
+        "bun", "run", "--cwd", "apps/web",
+        ["build", "dev", "lint", "lint:fix", "type-check", "validate",
+         "format", "format:check", "test:run", "test:coverage"],
     ],
     decision="allow",
 )
-prefix_rule(pattern=["npx", ["prettier", "tsc", "vite", "eslint", "vitest"]], decision="allow")
-prefix_rule(pattern=["npx", "@tanstack/router-cli", "generate"], decision="allow")
+prefix_rule(pattern=["bun", "--version"], decision="allow")
+prefix_rule(pattern=["bunx", ["prettier", "tsc", "vite", "eslint", "vitest"]], decision="allow")
+prefix_rule(pattern=["bunx", "@tanstack/router-cli", "generate"], decision="allow")
 
 # --- Agent tooling ------------------------------------------------------------
 prefix_rule(pattern=["./scripts/agents-doctor.py"], decision="allow")

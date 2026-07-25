@@ -4,20 +4,25 @@
 
 The BareD web frontend includes comprehensive testing, linting, and validation tools to ensure code quality.
 
+The toolchain is **Bun** (version pinned in [`.bun-version`](./.bun-version)) plus **Vitest 4**. The
+lockfile is `bun.lock`; there is no `package-lock.json` and no `.nvmrc`. `bun run test:run` invokes
+Vitest — do not substitute `bun test`, which is a different runner and does not use this project's
+jsdom setup.
+
 ## Quick Start
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Build for production
-npm run build
+bun run build
 
 # Run development server
-npm run dev
+bun run dev
 
 # Validate everything
-npm run validate
+bun run validate
 ```
 
 ## Available Commands
@@ -26,43 +31,43 @@ npm run validate
 
 ```bash
 # Development server with hot reload
-npm run dev
+bun run dev
 
 # Production build (TypeScript check + Vite build)
-npm run build
+bun run build
 
 # Preview production build locally
-npm run preview
+bun run preview
 ```
 
 ### Linting & Formatting
 
 ```bash
 # Run ESLint
-npm run lint
+bun run lint
 
 # Run ESLint with auto-fix
-npm run lint:fix
+bun run lint:fix
 
 # Format code with Prettier
-npm run format
+bun run format
 
 # Check formatting without modifying files
-npm run format:check
+bun run format:check
 ```
 
 ### Type Checking
 
 ```bash
 # Run TypeScript type checker (no emit)
-npm run type-check
+bun run type-check
 ```
 
 ### Complete Validation
 
 ```bash
-# Run all checks: type-check + lint + format:check
-npm run validate
+# Run all checks: type-check + lint + format:check + tests
+bun run validate
 ```
 
 ## Makefile Integration
@@ -139,8 +144,8 @@ make validate-all
 #!/bin/bash
 # .git/hooks/pre-commit
 
-cd web
-npm run validate || exit 1
+cd apps/web
+bun run validate || exit 1
 ```
 
 ### GitHub Actions Example
@@ -156,19 +161,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version-file: apps/web/.nvmrc
+          bun-version-file: apps/web/.bun-version
 
       - name: Install dependencies
-        run: cd apps/web && npm ci
+        run: cd apps/web && bun install --frozen-lockfile
 
       - name: Run validation
-        run: cd apps/web && npm run validate
+        run: cd apps/web && bun run validate
 
       - name: Build
-        run: cd apps/web && npm run build
+        run: cd apps/web && bun run build
 ```
 
 ## Testing the Build
@@ -190,7 +195,7 @@ ls -lh apps/web/dist/
 
 ```bash
 # Start dev server
-npm run dev
+bun run dev
 
 # Open browser to http://localhost:5173
 # Verify hot reload works by editing a component
@@ -200,10 +205,10 @@ npm run dev
 
 ```bash
 # Build for production
-npm run build
+bun run build
 
 # Preview production build
-npm run preview
+bun run preview
 
 # Open browser to http://localhost:4173
 ```
@@ -216,8 +221,8 @@ cd ..
 make run-daemon --http :8080 --http-user admin --http-pass changeme
 
 # Terminal 2: Start React dev server (proxies to Go)
-cd web
-npm run dev
+cd apps/web
+bun run dev
 
 # Browser: http://localhost:5173
 # Should proxy API requests to http://localhost:8080
@@ -242,20 +247,23 @@ make build
 
 ## Common Issues & Solutions
 
-### Issue: `npm install` fails
+### Issue: `bun install` fails
 
 **Solution**:
 
 ```bash
-# Clear npm cache
-npm cache clean --force
+# Clear Bun's global cache
+bun pm cache rm
 
-# Remove node_modules
-rm -rf node_modules package-lock.json
+# Remove installed dependencies
+rm -rf node_modules
 
 # Reinstall
-npm install
+bun install
 ```
+
+If the lockfile is the problem, `bun install` (without `--frozen-lockfile`) will update `bun.lock` —
+commit the result. Never delete `bun.lock`.
 
 ### Issue: TypeScript errors
 
@@ -263,7 +271,7 @@ npm install
 
 ```bash
 # Run type checker with verbose output
-npm run type-check
+bun run type-check
 
 # Check tsconfig.json is correct
 cat tsconfig.json
@@ -275,10 +283,10 @@ cat tsconfig.json
 
 ```bash
 # Auto-fix what can be fixed
-npm run lint:fix
+bun run lint:fix
 
 # Check for remaining issues
-npm run lint
+bun run lint
 ```
 
 ### Issue: Build succeeds but page is blank
@@ -324,14 +332,18 @@ apps/web/
 │   ├── types/            # TypeScript types
 │   ├── App.tsx           # Root component
 │   └── main.tsx          # Entry point
-├── .eslintrc.js          # ESLint config
+├── eslint.config.js      # ESLint flat config
 ├── .prettierrc           # Prettier config
 ├── .prettierignore       # Prettier ignore rules
 ├── .gitignore            # Git ignore rules
+├── .bun-version          # Pinned Bun version
+├── bun.lock              # Committed Bun lockfile
 ├── index.html            # HTML template
 ├── package.json          # Dependencies and scripts
+├── postcss.config.js     # PostCSS (@tailwindcss/postcss)
 ├── tsconfig.json         # TypeScript config
 ├── vite.config.ts        # Vite bundler config
+├── vitest.config.ts      # Vitest config
 ├── README.md             # Frontend docs
 └── TESTING.md            # This file
 ```
@@ -342,7 +354,7 @@ apps/web/
 
 ```bash
 # Measure build time
-time npm run build
+time bun run build
 
 # Expected: < 2 seconds for production build
 ```
@@ -353,10 +365,10 @@ time npm run build
 # After build, check sizes
 ls -lh dist/assets/
 
-# Typical sizes:
+# Typical sizes (Tailwind v4 / Vite 8):
 # - HTML: < 1 KB
-# - CSS: ~9 KB (gzip: ~2 KB)
-# - JS: ~200 KB (gzip: ~63 KB)
+# - CSS: ~55 KB (gzip: ~10 KB)
+# - JS:  ~627 KB (gzip: ~182 KB)
 ```
 
 ### Lighthouse Score Goals
@@ -371,51 +383,54 @@ ls -lh dist/assets/
 1. **Always validate before committing**:
 
    ```bash
-   npm run validate
+   bun run validate
    ```
 
 2. **Use ESLint auto-fix for simple issues**:
 
    ```bash
-   npm run lint:fix
+   bun run lint:fix
    ```
 
 3. **Format code automatically**:
 
    ```bash
-   npm run format
+   bun run format
    ```
 
 4. **Check types frequently**:
 
    ```bash
-   npm run type-check
+   bun run type-check
    ```
 
 5. **Test in production mode before deploying**:
 
    ```bash
-   npm run build && npm run preview
+   bun run build && bun run preview
    ```
 
 ## Troubleshooting Checklist
 
-- [ ] Node.js version >= 18
-- [ ] npm install completed successfully
-- [ ] No TypeScript errors (`npm run type-check`)
-- [ ] No ESLint errors (`npm run lint`)
-- [ ] Code is formatted (`npm run format:check`)
-- [ ] Build succeeds (`npm run build`)
+- [ ] `bun --version` matches `.bun-version`
+- [ ] bun install completed successfully
+- [ ] No TypeScript errors (`bun run type-check`)
+- [ ] No ESLint errors (`bun run lint`)
+- [ ] Code is formatted (`bun run format:check`)
+- [ ] Build succeeds (`bun run build`)
 - [ ] dist/ directory exists
 - [ ] Browser console has no errors
 - [ ] API endpoints return data
 
 ## Resources
 
-- [Vite Documentation](https://vitejs.dev/)
+- [Bun Documentation](https://bun.sh/docs)
+- [Vite Documentation](https://vite.dev/)
+- [Vitest Documentation](https://vitest.dev/)
 - [React Documentation](https://react.dev/)
 - [TypeScript Documentation](https://www.typescriptlang.org/)
 - [TanStack Query Documentation](https://tanstack.com/query)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 - [ESLint Documentation](https://eslint.org/)
 - [Prettier Documentation](https://prettier.io/)
 
@@ -427,5 +442,5 @@ For issues or questions:
 - Create a new issue with:
   - Steps to reproduce
   - Error messages
-  - Browser/Node versions
+  - Browser and Bun versions
   - Build logs

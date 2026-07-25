@@ -2,7 +2,7 @@
 #
 # PostToolUse hook — auto-format files right after Claude edits them.
 #   • Go files          : gofmt -w  +  goimports -w
-#   • apps/web TS/TSX/CSS : prettier --write  (web-local binary)
+#   • apps/web TS/TSX/CSS : prettier --write  (the version apps/web/bun.lock pinned)
 #
 # Reads the hook payload (JSON) on stdin, formats the edited file, and always
 # exits 0 so it never blocks the session. Missing tools are silently skipped.
@@ -26,8 +26,7 @@ case "$file" in
     fi
     ;;
   *apps/web/*.ts | *apps/web/*.tsx | *apps/web/*.css)
-    prettier="$(hook_repo_root)/apps/web/node_modules/.bin/prettier"
-    [ -x "$prettier" ] && "$prettier" --write "$file" >/dev/null 2>&1 || true
+    hook_web_run prettier --write "$file" >/dev/null 2>&1 || true
     ;;
 esac
 

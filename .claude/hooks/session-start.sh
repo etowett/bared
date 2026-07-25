@@ -15,10 +15,12 @@ branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 dirty="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
 
 missing=""
-for tool in go golangci-lint node; do
+# bun, not node: apps/web/.bun-version pins the web toolchain and there is no
+# .nvmrc — `make web-validate` and every web script run through Bun.
+for tool in go golangci-lint bun; do
   command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
 done
-[ -x apps/web/node_modules/.bin/eslint ] || missing="$missing apps/web/node_modules(npm --prefix apps/web ci)"
+[ -x apps/web/node_modules/.bin/eslint ] || missing="$missing apps/web/node_modules(bun install --cwd apps/web)"
 
 printf 'BareD · branch %s · %s uncommitted file(s)\n' "$branch" "$dirty"
 case "$branch" in

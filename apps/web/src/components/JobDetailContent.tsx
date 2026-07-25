@@ -180,7 +180,7 @@ export function JobDetailContent({ job, compact: _compact = false }: JobDetailCo
                   <span className={cn('shrink-0 font-semibold', getLogLevelClass(log.level))}>
                     [{log.level.toUpperCase()}]
                   </span>
-                  <span className="flex-1 break-words">{log.message}</span>
+                  <span className="flex-1 wrap-break-word">{log.message}</span>
                 </div>
               ))
             )}

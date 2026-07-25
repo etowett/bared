@@ -7,7 +7,7 @@ export const Route = createFileRoute('/')({
   component: OverviewPage,
 })
 
-function OverviewPage() {
+export function OverviewPage() {
   const { data: dashboard, isLoading, isError, error, refetch } = useDashboard()
 
   if (isLoading) {

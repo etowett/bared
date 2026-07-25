@@ -1,18 +1,24 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1
 #
 # Stage 1: Build frontend
-FROM node:24-alpine AS frontend-builder
+#
+# Pinned to the same Bun as apps/web/.bun-version so the image, CI, and local
+# dev all build the dashboard with one toolchain. The oven/bun images ship no
+# real Node, but they do put a `node` -> bun shim on PATH
+# (/usr/local/bun-node-fallback-bin/node) and `bun run` injects one of its own,
+# so the `#!/usr/bin/env node` shebangs on tsc/vite resolve fine.
+FROM oven/bun:1.3.5-alpine AS frontend-builder
 
 WORKDIR /app/web
 
 # Copy frontend files and build
 COPY apps/web/ ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --fund=false && \
-    npm run build
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile && \
+    bun run build
 
 # Stage 2: Build Go backend
-FROM golang:1.26.4-alpine AS backend-builder
+FROM golang:1.26.5-alpine AS backend-builder
 
 # Install build dependencies
 # Note: under some buildx/QEMU setups, apk trigger scripts can fail with

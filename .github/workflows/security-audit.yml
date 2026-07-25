@@ -1,0 +1,90 @@
+name: Security Audit
+
+# Why this exists.
+#
+# Dependabot's `bun` ecosystem supports *version* updates but NOT automated
+# security updates (see the support matrix in GitHub's docs, and the caveat
+# noted in .github/dependabot.yml). Before the Bun migration the frontend was an
+# npm/package-lock.json project, so Dependabot raised security PRs for it
+# automatically — alerts #45-#49 came from exactly that path. After the move to
+# bun.lock those PRs stop arriving, which would leave the dashboard's
+# dependencies with no scheduled vulnerability check at all.
+#
+# This job restores that coverage. `bun audit` queries the npm advisory database
+# directly, so it does not depend on GitHub's ecosystem support at all. The Go
+# half is covered by govulncheck, which is call-graph aware and so only reports
+# advisories BareD can actually reach.
+#
+# A finding fails the run, which surfaces as a red scheduled workflow. Fixing it
+# is still a manual PR — this replaces the notification, not the auto-fix.
+
+on:
+  schedule:
+    # Fridays 06:00 UTC. Dependabot occupies Mon-Thu (see dependabot.yml), so
+    # audit findings land after that week's update PRs rather than competing
+    # with them.
+    - cron: "0 6 * * 5"
+  workflow_dispatch:
+  # Also run when a lockfile or this workflow changes, so a dependency PR can
+  # never introduce a known-vulnerable package without saying so.
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/web/bun.lock"
+      - "apps/web/package.json"
+      - "apps/api/go.mod"
+      - "apps/api/go.sum"
+      - ".github/workflows/security-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Audit Web Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/web/.bun-version
+
+      - name: Install dependencies
+        working-directory: apps/web
+        run: bun install --frozen-lockfile
+
+      # Exits non-zero when an advisory at or above the level is present.
+      # Threshold is `high` to match what Dependabot used to open PRs for; drop
+      # it to `moderate` if you want a tighter net.
+      - name: Audit
+        working-directory: apps/web
+        run: bun audit --audit-level=high
+
+  go:
+    name: Audit Go Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      # internal/web/dist is gitignored and go:embed needs it to exist for the
+      # package to load — same placeholder the test/lint jobs in ci.yml create.
+      - name: Create placeholder web dist
+        run: |
+          mkdir -p apps/api/internal/web/dist
+          echo "placeholder" > apps/api/internal/web/dist/.placeholder
+
+      - name: Run govulncheck
+        working-directory: apps/api
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

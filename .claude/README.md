@@ -86,7 +86,7 @@ shared, not duplicated. Tested by `scripts/test-agent-hooks.sh`, which CI runs.
 | `ensure-newline.sh` | PostToolUse (Edit/Write) | appends a missing trailing newline |
 | `lint-on-stop.sh` | Stop | advisory `gofmt -l` + `go vet` + golangci-lint + eslint over the diff |
 | `typecheck-on-stop.sh` | Stop | advisory `tsc --noEmit` when web TS changed |
-| `lib.sh` | — | shared payload parsing and repo-root detection |
+| `lib.sh` | — | shared payload parsing, repo-root detection, and `hook_web_run` (runs `apps/web`'s lockfile-installed tools) |
 
 Only the two `guard-*` hooks can block. Everything else always exits 0, so a hook can never trap a
 session in a loop.
@@ -100,6 +100,29 @@ session in a loop.
   `settings.json` or it won't reach teammates or Codex.
 - **`../.mcp.json`** — the MCP server set, currently **Context7** for up-to-date library docs.
   `enableAllProjectMcpServers` is on, so it loads automatically. Mirrored to `.codex/config.toml`.
+  Its `npx` launcher is unrelated to the web toolchain below.
+
+### The web toolchain is Bun
+
+`apps/web` is a **Bun** project — version pinned in `apps/web/.bun-version`, lockfile `apps/web/bun.lock`,
+no `package-lock.json` and no `.nvmrc`. The allowlisted forms, and the ones the subagents and `/gate`
+are told to use:
+
+| Do | Not |
+|---|---|
+| `bun install --cwd apps/web` | `npm --prefix apps/web install` |
+| `bun install --frozen-lockfile --cwd apps/web` | `npm --prefix apps/web ci` |
+| `bun run --cwd apps/web <script>` | `bun --cwd apps/web run <script>` |
+
+**`--cwd` goes after the subcommand.** Put it before and Bun 1.3.5 treats the rest as a filename:
+`bun --cwd apps/web run lint` prints the help menu and exits **0** having run nothing (a silent false
+pass), and `bun --cwd apps/web install` fails with `Script not found "install"`.
+
+The hooks keep calling `apps/web/node_modules/.bin/*` — `bun install` writes those shims exactly like
+npm did. But they carry a `#!/usr/bin/env node` shebang, and Node is no longer a declared dependency
+of this repo, so `hook_web_run` in `hooks/lib.sh` runs them under Bun when `node` is absent instead of
+reporting `env: node: No such file or directory` as a lint error. It never shells out to `bunx`, which
+could fetch a version other than the one in the lockfile.
 
 ## Recommended workflow
 

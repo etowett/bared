@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -16,6 +16,14 @@ import { PasswordInput } from './PasswordInput'
 import { CronBuilder } from './CronBuilder'
 import { useStorages } from '../../hooks/useConfig'
 import type { TargetConfig, TargetConfigRequest } from '../../types'
+
+type DatabaseType = 'mysql' | 'postgres' | 'redis'
+
+const DEFAULT_PORTS: Record<DatabaseType, number> = {
+  mysql: 3306,
+  postgres: 5432,
+  redis: 6379,
+}
 
 interface TargetFormProps {
   open: boolean
@@ -53,16 +61,11 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Update port when type changes
-  useEffect(() => {
-    if (formData.type === 'mysql') {
-      setFormData((prev) => ({ ...prev, port: 3306 }))
-    } else if (formData.type === 'postgres') {
-      setFormData((prev) => ({ ...prev, port: 5432 }))
-    } else if (formData.type === 'redis') {
-      setFormData((prev) => ({ ...prev, port: 6379 }))
-    }
-  }, [formData.type])
+  // Switching the database type resets the port to that engine's default.
+  const handleTypeChange = (value: string) => {
+    const type = value as DatabaseType
+    setFormData((prev) => ({ ...prev, type, port: DEFAULT_PORTS[type] ?? prev.port }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -174,13 +177,7 @@ export function TargetForm({ open, onOpenChange, target, onSubmit }: TargetFormP
             <Label htmlFor="type">
               Database Type <span className="text-red-500">*</span>
             </Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, type: value as 'mysql' | 'postgres' | 'redis' })
-              }
-              disabled={isEdit}
-            >
+            <Select value={formData.type} onValueChange={handleTypeChange} disabled={isEdit}>
               <SelectTrigger id="type">
                 <SelectValue />
               </SelectTrigger>

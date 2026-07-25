@@ -19,7 +19,7 @@ export const Route = createFileRoute('/restore')({
   component: RestorePage,
 })
 
-function RestorePage() {
+export function RestorePage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')

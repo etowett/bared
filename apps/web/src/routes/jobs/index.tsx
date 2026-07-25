@@ -32,7 +32,7 @@ export const Route = createFileRoute('/jobs/')({
   component: UnifiedJobsPage,
 })
 
-function UnifiedJobsPage() {
+export function UnifiedJobsPage() {
   const navigate = useNavigate()
   const search = Route.useSearch() as JobsSearch
 

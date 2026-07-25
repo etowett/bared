@@ -256,7 +256,7 @@ sudo systemctl start bared
 **Docker Container**
 
 ```dockerfile
-FROM golang:1.26.4-alpine
+FROM golang:1.26.5-alpine
 WORKDIR /app
 COPY . .
 RUN go build -o brd ./cmd/brd

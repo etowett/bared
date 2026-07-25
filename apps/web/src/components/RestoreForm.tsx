@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AlertTriangle, Info } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTriggerRestore } from '../hooks/useJobs'
 import { useRestoreTargets } from '../hooks/useRestoreTargets'
@@ -63,8 +63,8 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
   const [backupPath, setBackupPath] = useState<string>('')
   const [dryRun, setDryRun] = useState<boolean>(false)
   const [showConfirm, setShowConfirm] = useState<boolean>(false)
-  const [showSuggestions, setShowSuggestions] = useState<boolean>(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState<boolean>(false)
+  const [pathHistory, setPathHistory] = useState<string[]>(loadBackupPathHistory)
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
@@ -76,22 +76,15 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
     (t: RestoreTarget) => t.name === selectedTarget
   )
 
-  // Load and filter suggestions based on input
-  useEffect(() => {
-    if (!backupPath.trim()) {
-      setSuggestions([])
-      setShowSuggestions(false)
-      return
-    }
+  // Suggestions are derived from the typed path, never stored in state.
+  const suggestions = useMemo(() => {
+    if (!backupPath.trim()) return []
+    return pathHistory.filter((path) => path.toLowerCase().includes(backupPath.toLowerCase()))
+  }, [backupPath, pathHistory])
 
-    const history = loadBackupPathHistory()
-    const filtered = history.filter((path) => path.toLowerCase().includes(backupPath.toLowerCase()))
-    // Don't show suggestions if the input exactly matches a suggestion (user selected it)
-    const exactMatch = filtered.some((path) => path === backupPath)
-    setSuggestions(filtered)
-    setShowSuggestions(filtered.length > 0 && !exactMatch)
-    setSelectedIndex(-1)
-  }, [backupPath])
+  // Don't show suggestions if the input exactly matches a suggestion (user selected it)
+  const exactMatch = suggestions.some((path) => path === backupPath)
+  const showSuggestions = !suggestionsDismissed && suggestions.length > 0 && !exactMatch
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -110,12 +103,12 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
         if (selectedIndex >= 0) {
           e.preventDefault()
           setBackupPath(suggestions[selectedIndex])
-          setShowSuggestions(false)
+          setSuggestionsDismissed(true)
           setSelectedIndex(-1)
         }
         break
       case 'Escape':
-        setShowSuggestions(false)
+        setSuggestionsDismissed(true)
         setSelectedIndex(-1)
         break
     }
@@ -123,7 +116,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
   const handleSuggestionClick = (suggestion: string) => {
     setBackupPath(suggestion)
-    setShowSuggestions(false)
+    setSuggestionsDismissed(true)
     setSelectedIndex(-1)
     inputRef.current?.focus()
   }
@@ -137,7 +130,7 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
         inputRef.current &&
         !inputRef.current.contains(event.target as Node)
       ) {
-        setShowSuggestions(false)
+        setSuggestionsDismissed(true)
       }
     }
 
@@ -176,11 +169,12 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
       )
 
       saveBackupPath(backupPath)
+      setPathHistory(loadBackupPathHistory())
 
       setBackupPath('')
       setDryRun(false)
       setShowConfirm(false)
-      setShowSuggestions(false)
+      setSuggestionsDismissed(true)
 
       if (onSuccess) onSuccess()
     } catch (error) {
@@ -245,13 +239,13 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
               id="backup-path"
               type="text"
               value={backupPath}
-              onChange={(e) => setBackupPath(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                if (suggestions.length > 0) {
-                  setShowSuggestions(true)
-                }
+              onChange={(e) => {
+                setBackupPath(e.target.value)
+                setSuggestionsDismissed(false)
+                setSelectedIndex(-1)
               }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setSuggestionsDismissed(false)}
               placeholder="e.g., backupd/athena_local_db/athena-postgres-2025-12-03T06-28-21Z.tar.gz or 'latest'"
               required
               autoComplete="off"

@@ -29,7 +29,7 @@ export const Route = createFileRoute('/config/import')({
   component: ConfigImportPage,
 })
 
-function ConfigImportPage() {
+export function ConfigImportPage() {
   const [yamlContent, setYamlContent] = useState('')
   const [conflictMode, setConflictMode] = useState<'override' | 'skip'>('override')
   const [result, setResult] = useState<ConfigImportResponse | null>(null)

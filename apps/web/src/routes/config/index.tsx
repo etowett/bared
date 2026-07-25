@@ -31,7 +31,7 @@ export const Route = createFileRoute('/config/')({
   component: ConfigDashboardPage,
 })
 
-function ConfigDashboardPage() {
+export function ConfigDashboardPage() {
   const { data: storagesData, isLoading: storagesLoading, error: storagesError } = useStorages()
   const { data: notifiersData, isLoading: notifiersLoading, error: notifiersError } = useNotifiers()
   const { data: targetsData, isLoading: targetsLoading, error: targetsError } = useTargetsConfig()

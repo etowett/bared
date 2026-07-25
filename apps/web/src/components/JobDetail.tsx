@@ -14,7 +14,7 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4 shrink-0">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle>Job Details</DialogTitle>
             <div className="flex items-center gap-2">
