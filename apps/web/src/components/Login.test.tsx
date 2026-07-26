@@ -1,13 +1,18 @@
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import * as apiClient from '../api/client'
+import { login as loginRequest } from '../api/client'
+import { useAuthStore } from '../stores/auth'
 import { render, screen, waitFor } from '../test/utils'
 import { Login } from './Login'
 
 // Mock the API client
 vi.mock('../api/client', () => ({
-  setAuth: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+  fetchCurrentUser: vi.fn(),
 }))
+
+const mockLogin = vi.mocked(loginRequest)
 
 describe('Login Component', () => {
   const mockOnLogin = vi.fn()
@@ -16,6 +21,7 @@ describe('Login Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     globalThis.fetch = mockFetch
+    useAuthStore.setState({ status: 'unknown', username: null })
   })
 
   it('renders login form with username and password fields', () => {
@@ -42,9 +48,9 @@ describe('Login Component', () => {
     expect(passwordInput).toHaveValue('testpass')
   })
 
-  it('handles successful login', async () => {
+  it('logs in through the login endpoint', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: true })
+    mockLogin.mockResolvedValueOnce({ username: 'admin' })
 
     render(<Login onLogin={mockOnLogin} />)
 
@@ -53,22 +59,18 @@ describe('Login Component', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(apiClient.setAuth).toHaveBeenCalledWith('admin', 'password')
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/dashboard',
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: expect.stringContaining('Basic'),
-          }),
-        })
-      )
+      expect(mockLogin).toHaveBeenCalledWith('admin', 'password')
       expect(mockOnLogin).toHaveBeenCalled()
     })
+
+    // The credential probe against /api/dashboard is gone.
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().status).toBe('authenticated')
   })
 
   it('handles invalid credentials', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: false })
+    mockLogin.mockRejectedValueOnce(new Error('Invalid username or password'))
 
     render(<Login onLogin={mockOnLogin} />)
 
@@ -88,7 +90,7 @@ describe('Login Component', () => {
 
   it('handles network errors', async () => {
     const user = userEvent.setup()
-    mockFetch.mockRejectedValueOnce(new Error('Network error'))
+    mockLogin.mockRejectedValueOnce(new Error('Failed to connect to server'))
 
     render(<Login onLogin={mockOnLogin} />)
 
@@ -104,8 +106,8 @@ describe('Login Component', () => {
 
   it('shows loading state during authentication', async () => {
     const user = userEvent.setup()
-    let resolveLogin: (value: { ok: boolean }) => void
-    mockFetch.mockReturnValueOnce(
+    let resolveLogin: (value: { username: string }) => void
+    mockLogin.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveLogin = resolve
       })
@@ -126,7 +128,7 @@ describe('Login Component', () => {
     expect(screen.getByLabelText(/password/i)).toBeDisabled()
 
     // Resolve the login
-    resolveLogin!({ ok: true })
+    resolveLogin!({ username: 'testuser' })
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
@@ -146,7 +148,7 @@ describe('Login Component', () => {
 
   it('clears error message when starting a new login attempt', async () => {
     const user = userEvent.setup()
-    mockFetch.mockResolvedValueOnce({ ok: false })
+    mockLogin.mockRejectedValueOnce(new Error('Invalid username or password'))
 
     render(<Login onLogin={mockOnLogin} />)
 
@@ -160,7 +162,7 @@ describe('Login Component', () => {
     })
 
     // Second login attempt - error should be cleared
-    mockFetch.mockResolvedValueOnce({ ok: true })
+    mockLogin.mockResolvedValueOnce({ username: 'correctuser' })
     await user.type(screen.getByLabelText(/username/i), 'correctuser')
     await user.type(screen.getByLabelText(/password/i), 'correctpass')
     await user.click(screen.getByRole('button', { name: /sign in/i }))

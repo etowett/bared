@@ -1051,7 +1051,40 @@ func (s *Server) withRateLimit(next http.HandlerFunc) http.HandlerFunc {
 }
 ```
 
-**5. SQL injection prevention** (for future direct DB queries):
+**5. HTTP API authentication** (`internal/api`):
+
+Two mechanisms, both handled by `authMiddleware` (cookie first, then Basic):
+
+- **Session cookie** — the dashboard. `POST /api/login` issues an opaque token
+  from `crypto/rand`, stored in `sessionStore` (in-memory, `session.go`), and
+  returns it in an `httpOnly; SameSite=Strict; Path=/` cookie. Nothing is
+  derived from the password, so the cookie is not password-recoverable — but it
+  *is* a bearer credential until it expires or is revoked. **Never log a session
+  token.**
+- **HTTP Basic** — CLI and API clients (`internal/client`). Credentials are
+  compared with `crypto/subtle.ConstantTimeCompare`; a plain `==` leaks length
+  and prefix information through timing, and previously let a server with no
+  credentials configured authenticate `Basic ":"`.
+
+Rules when touching this area:
+
+- **`Secure` on cookies is conditional** (`isSecureRequest`) — real TLS or the
+  explicit `--http-secure-cookies`. Never infer it from `X-Forwarded-Proto`
+  (client-controlled), and never hardcode it: the daemon is normally run on
+  plain HTTP over a LAN, where a `Secure` cookie is silently dropped.
+- **Cookies mean CSRF.** Unsafe methods authenticated by cookie go through
+  `csrfMiddleware`, which requires a same-origin or allowlisted `Origin`. CORS
+  headers are *not* access control — `corsMiddleware` only advertises, it never
+  rejects.
+- **Origin comparisons go through `canonicalOrigin`** (`origin.go`). Never
+  string-prefix an origin: `evil-localhost` matches `localhost` under a prefix
+  check.
+- **Auth is checked once per connection, not per message.** A WebSocket
+  authenticated at the handshake would otherwise outlive its session, so
+  `handleStreamJobLogs` selects on the session's `Done()` channel and logout /
+  TTL expiry closes it. Any future long-lived connection must do the same.
+
+**6. SQL injection prevention** (for future direct DB queries):
 
 ```go
 // ❌ BAD - Never concatenate SQL

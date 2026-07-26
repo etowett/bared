@@ -36,13 +36,44 @@ brd daemon --config bared.yml \
   --http-pass secure-password
 ```
 
-### Basic Authentication
+### Authentication
 
-All API endpoints (except `/api/health`) require HTTP Basic Authentication:
+Every endpoint except `/api/health`, `/api/login`, and `/api/logout` requires
+authentication. Two mechanisms are accepted:
+
+**HTTP Basic Auth** — for CLI and API clients:
 
 ```bash
 curl -u admin:password http://localhost:8080/api/dashboard
 ```
+
+**Session cookie** — what the web dashboard uses. `POST /api/login` validates the
+credentials and returns an `httpOnly`, `SameSite=Strict` cookie holding an opaque
+server-issued token:
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8080/api/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"password"}'
+
+curl -b cookies.txt http://localhost:8080/api/me
+curl -b cookies.txt -X POST http://localhost:8080/api/logout
+```
+
+The cookie exists because a browser cannot set an `Authorization` header on a
+WebSocket handshake, and because an `httpOnly` cookie is not readable by
+JavaScript — an XSS payload has no credential to steal.
+
+Notes for cookie-authenticated clients:
+
+- **CSRF:** state-changing requests (`POST`/`PUT`/`PATCH`/`DELETE`) must carry an
+  `Origin` header matching the server, or one passed via `--http-allowed-origin`.
+  Basic-auth clients are exempt.
+- **`Secure`:** set automatically over TLS. Behind a TLS-terminating proxy, pass
+  `--http-secure-cookies` — `X-Forwarded-Proto` is deliberately not trusted.
+- **Lifetime:** sessions last `--http-session-ttl` (default 12h) and do not
+  survive a daemon restart. `POST /api/logout` revokes immediately, which also
+  closes that session's live log streams.
 
 ### Common Endpoints
 

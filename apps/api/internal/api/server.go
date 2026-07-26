@@ -26,20 +26,62 @@ type Server struct {
 	configService *configservice.Service
 	configLoader  *configservice.Loader
 	reloadChan    chan struct{}
+
+	// Dashboard session auth
+	sessions       *sessionStore
+	sessionTTL     time.Duration
+	allowedOrigins []string
+	secureCookies  bool
+}
+
+// ServerOptions configures a Server. It replaced a positional constructor that
+// had grown to eight parameters.
+type ServerOptions struct {
+	Addr          string
+	AuthUser      string
+	AuthPass      string
+	JobManager    *jobs.Manager
+	Config        *config.Config
+	ConfigService *configservice.Service
+	ConfigLoader  *configservice.Loader
+	ReloadChan    chan struct{}
+
+	// SessionTTL is the absolute lifetime of a dashboard session. Zero means
+	// defaultSessionTTL.
+	SessionTTL time.Duration
+
+	// AllowedOrigins are extra origins permitted for CORS, CSRF, and the
+	// WebSocket handshake. Same-origin is always allowed; this exists for the
+	// Vite dev server and for reverse-proxy deployments.
+	AllowedOrigins []string
+
+	// SecureCookies forces the Secure attribute on the session cookie for
+	// operators terminating TLS in front of the daemon. It is opt-in because
+	// X-Forwarded-Proto is client-controlled and cannot be trusted, and because
+	// a Secure cookie on a plain-HTTP install would silently break login.
+	SecureCookies bool
 }
 
 // NewServer creates a new API server
-func NewServer(addr, authUser, authPass string, jobManager *jobs.Manager, cfg *config.Config,
-	configService *configservice.Service, configLoader *configservice.Loader, reloadChan chan struct{}) *Server {
+func NewServer(opts ServerOptions) *Server {
+	ttl := opts.SessionTTL
+	if ttl <= 0 {
+		ttl = defaultSessionTTL
+	}
+
 	return &Server{
-		addr:          addr,
-		authUser:      authUser,
-		authPass:      authPass,
-		jobManager:    jobManager,
-		cfg:           cfg,
-		configService: configService,
-		configLoader:  configLoader,
-		reloadChan:    reloadChan,
+		addr:           opts.Addr,
+		authUser:       opts.AuthUser,
+		authPass:       opts.AuthPass,
+		jobManager:     opts.JobManager,
+		cfg:            opts.Config,
+		configService:  opts.ConfigService,
+		configLoader:   opts.ConfigLoader,
+		reloadChan:     opts.ReloadChan,
+		sessions:       newSessionStore(ttl),
+		sessionTTL:     ttl,
+		allowedOrigins: normaliseAllowedOrigins(opts.AllowedOrigins),
+		secureCookies:  opts.SecureCookies,
 	}
 }
 
@@ -56,9 +98,18 @@ func (s *Server) Start() error {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Reap expired sessions so an absolute TTL also reaches live WebSockets,
+	// which are only authenticated at the handshake.
+	s.sessions.startSweeper(sessionSweepInterval)
+
 	logger.InfoS("Starting HTTP server",
 		"component", "api",
 		"address", s.addr)
+	if !s.secureCookies {
+		logger.WarnS("Session cookies are not marked Secure; serve the dashboard over TLS "+
+			"or pass --http-secure-cookies when terminating TLS in front of the daemon",
+			"component", "api")
+	}
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server error: %w", err)
 	}
@@ -68,6 +119,8 @@ func (s *Server) Start() error {
 
 // Shutdown gracefully shuts down the HTTP server
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.sessions.stopSweeper()
+
 	if s.httpServer != nil {
 		logger := util.GetLogger()
 		logger.InfoS("Shutting down HTTP server",
@@ -82,14 +135,24 @@ func (s *Server) setupRoutes() chi.Router {
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(corsMiddleware)
+	r.Use(s.corsMiddleware)
 
 	// Health check (no auth required)
 	r.Get("/api/health", s.handleHealth)
 
+	// Session endpoints. Login and logout are unauthenticated by definition —
+	// login establishes the session, and logout must stay usable with an
+	// already-expired one so the browser can clear its cookie.
+	r.Post("/api/login", s.handleLogin)
+	r.Post("/api/logout", s.handleLogout)
+
 	// Authenticated routes
 	r.Group(func(r chi.Router) {
-		r.Use(s.basicAuthMiddleware)
+		r.Use(s.authMiddleware)
+		// Order matters: csrfMiddleware reads the identity authMiddleware attaches.
+		r.Use(s.csrfMiddleware)
+
+		r.Get("/api/me", s.handleMe)
 
 		r.Get("/api/dashboard", s.handleDashboard)
 		r.Get("/api/targets", s.handleListTargets)

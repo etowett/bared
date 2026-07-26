@@ -26,7 +26,9 @@ BareD provides real-time job log streaming via **WebSocket protocol (RFC 6455)**
 **Important Notes**:
 - ✅ **WebSocket is the ONLY supported protocol** for real-time streaming
 - ❌ **Server-Sent Events (SSE) is NOT supported**
-- 🔒 Authentication required via HTTP Basic Auth
+- 🔒 Authentication required — session cookie (browsers) or HTTP Basic Auth (other clients)
+- 🌐 The handshake `Origin` must be same-origin or allowlisted via `--http-allowed-origin`
+- ⏱️ The stream closes when its session is logged out or expires
 - 📡 Automatic connection upgrade from HTTP to WebSocket
 - 🔄 Supports reconnection (implement client-side)
 
@@ -57,22 +59,23 @@ wss://[host]:[port]/api/jobs/{job-id}/logs/stream
 ### Requirements
 
 1. Valid job ID (job must exist)
-2. HTTP Basic Authentication credentials
+2. Credentials — a session cookie (browsers) or HTTP Basic Auth (other clients)
 3. WebSocket client supporting RFC 6455
 
 ---
 
 ## Authentication
 
-WebSocket connections require HTTP Basic Authentication. Pass credentials during the connection upgrade:
+The handshake is a normal HTTP request, and it is authenticated the same way
+every other endpoint is.
 
-### Authorization Header
+### From a browser: the session cookie
 
-```
-Authorization: Basic <base64(username:password)>
-```
+Browsers **cannot set headers on a WebSocket handshake**, so the dashboard relies
+on the session cookie from `POST /api/login`, which the browser attaches
+automatically to a same-origin handshake. No client-side work is needed.
 
-**Example**:
+### From a CLI or backend client: Basic auth
 
 ```bash
 # Encode credentials
@@ -83,6 +86,20 @@ echo -n "admin:password" | base64
 websocat -H "Authorization: Basic YWRtaW46cGFzc3dvcmQ=" \
   ws://localhost:8080/api/jobs/job-123/logs/stream
 ```
+
+### Origin checking
+
+If the handshake carries an `Origin` header, it must be same-origin or listed in
+`--http-allowed-origin`; otherwise the upgrade is refused. Clients that send no
+`Origin` (CLI tools) are unaffected. This blocks cross-site WebSocket hijacking,
+where a hostile page opens a stream using the cookie the browser attaches for it.
+
+### Session lifetime
+
+A cookie-authenticated stream is closed by the server when its session is logged
+out or reaches `--http-session-ttl`. Clients should treat an unexpected close
+with code `1008` (policy violation) as "log in again", not as a transient error
+to reconnect through.
 
 ### Failed Authentication
 
@@ -184,9 +201,8 @@ websocat -H "Authorization: Basic $(echo -n admin:password | base64)" \
 // Get job ID from somewhere
 const jobId = 'job-123'
 
-// Get auth credentials
-const username = 'admin'
-const password = 'password'
+// No credentials here: the httpOnly session cookie set by POST /api/login rides
+// along on the handshake automatically.
 
 // Create WebSocket URL
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -199,10 +215,6 @@ const ws = new WebSocket(wsUrl)
 // Handle connection open
 ws.onopen = () => {
   console.log('Connected to log stream')
-
-  // Send auth as first message (alternative to header in browser)
-  const auth = btoa(`${username}:${password}`)
-  ws.send(JSON.stringify({ type: 'auth', token: `Basic ${auth}` }))
 }
 
 // Handle incoming messages

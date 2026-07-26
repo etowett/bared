@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, HardDrive } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import { setAuth } from '../api/client'
+import { useAuthStore } from '@/stores/auth'
 
 interface LoginProps {
   onLogin: () => void
@@ -16,6 +16,7 @@ export function Login({ onLogin }: LoginProps) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const signIn = useAuthStore((state) => state.signIn)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -23,23 +24,12 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true)
 
     try {
-      // Test authentication by calling health endpoint
-      const response = await fetch('/api/dashboard', {
-        headers: {
-          Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-        },
-      })
-
-      if (response.ok) {
-        setAuth(username, password)
-        onLogin()
-      } else {
-        setError('Invalid username or password')
-        setUsername('')
-        setPassword('')
-      }
-    } catch {
-      setError('Failed to connect to server')
+      await signIn(username, password)
+      onLogin()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect to server')
+      setUsername('')
+      setPassword('')
     } finally {
       setLoading(false)
     }

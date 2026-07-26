@@ -216,9 +216,12 @@ bun run preview
 ### 4. Integration Test with Go Backend
 
 ```bash
-# Terminal 1: Start Go backend
+# Terminal 1: Start Go backend.
+# --http-allowed-origin lets the Vite dev server (a different origin) log in and
+# open the log-stream WebSocket.
 cd ..
-make run-daemon --http :8080 --http-user admin --http-pass changeme
+make run-daemon --http :8080 --http-user admin --http-pass changeme \
+  --http-allowed-origin http://localhost:5173
 
 # Terminal 2: Start React dev server (proxies to Go)
 cd apps/web

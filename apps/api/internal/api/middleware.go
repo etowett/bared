@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -8,17 +9,80 @@ import (
 	"bared/internal/util"
 )
 
-// basicAuthMiddleware handles HTTP Basic Authentication
-func (s *Server) basicAuthMiddleware(next http.Handler) http.Handler {
+// authContext is the authenticated identity attached to a request.
+type authContext struct {
+	username string
+
+	// sess is the dashboard session backing this request, or nil when the
+	// request authenticated with Basic auth (CLI/API clients). Handlers that
+	// hold a connection open — the WebSocket log stream — select on its Done
+	// channel so revocation and expiry reach already-established connections.
+	sess *session
+}
+
+type ctxKey int
+
+const authCtxKey ctxKey = iota
+
+func withAuth(ctx context.Context, auth *authContext) context.Context {
+	return context.WithValue(ctx, authCtxKey, auth)
+}
+
+// authFromContext returns the identity attached by authMiddleware.
+func authFromContext(ctx context.Context) (*authContext, bool) {
+	auth, ok := ctx.Value(authCtxKey).(*authContext)
+	return auth, ok && auth != nil
+}
+
+// authMiddleware authenticates a request by session cookie, falling back to
+// HTTP Basic Auth.
+//
+// The cookie is what the dashboard uses: the browser attaches it automatically,
+// including on the WebSocket handshake, which is the header the browser cannot
+// set. Basic auth stays first-class for CLI and API clients (see
+// internal/client).
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if !ok || user != s.authUser || pass != s.authPass {
-			w.Header().Set("WWW-Authenticate", `Basic realm="BareD API"`)
-			respondError(w, http.StatusUnauthorized, "Authentication required")
+		staleCookie := false
+
+		if token := sessionTokenFromRequest(r); token != "" {
+			if sess, ok := s.sessions.Validate(token); ok {
+				ctx := withAuth(r.Context(), &authContext{username: sess.username, sess: sess})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+			staleCookie = true
+		}
+
+		if user, pass, ok := r.BasicAuth(); ok && s.credentialsValid(user, pass) {
+			ctx := withAuth(r.Context(), &authContext{username: user})
+			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
-		next.ServeHTTP(w, r)
+
+		if staleCookie {
+			// Stop the browser re-sending a session we no longer honour.
+			clearSessionCookie(w, r, s.secureCookies)
+		}
+
+		if !isBrowserRequest(r) {
+			// Only offer Basic to non-browser clients. Sending it to the SPA
+			// makes a failed XHR pop the browser's native credential dialog,
+			// which this app's login form is meant to replace.
+			w.Header().Set("WWW-Authenticate", `Basic realm="BareD API"`)
+		}
+
+		respondError(w, http.StatusUnauthorized, "Authentication required")
 	})
+}
+
+// isBrowserRequest reports whether a request came from a browser. Fetch
+// metadata headers are sent by every browser that can run this dashboard and by
+// no CLI client.
+func isBrowserRequest(r *http.Request) bool {
+	return r.Header.Get("Sec-Fetch-Mode") != "" ||
+		r.Header.Get("Sec-Fetch-Site") != "" ||
+		sessionTokenFromRequest(r) != ""
 }
 
 // loggingMiddleware logs HTTP requests
@@ -53,15 +117,32 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// corsMiddleware adds CORS headers for development
-func corsMiddleware(next http.Handler) http.Handler {
+// corsMiddleware echoes CORS headers for explicitly allowed origins.
+//
+// This emits headers and nothing more — it is not an access control. A browser
+// consults CORS before letting a *script* read a response; it does not stop the
+// request from being made, so CORS can never stand in for CSRF protection. That
+// job belongs to csrfMiddleware.
+//
+// The previous wildcard ("Access-Control-Allow-Origin: *") is gone: it is
+// incompatible with credentialed requests and advertised the API to every page
+// on the internet. The dashboard is served from this same binary and the Vite
+// dev server proxies /api, so both are same-origin and need no CORS at all.
+func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		origin := r.Header.Get("Origin")
+		if origin != "" && s.originAllowed(origin, r.Host) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
+		// Origin varies the response even when it isn't allowed, so caches
+		// must not serve one origin's response to another.
+		w.Header().Add("Vary", "Origin")
 
 		// Handle preflight requests
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}

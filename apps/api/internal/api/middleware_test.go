@@ -13,7 +13,7 @@ import (
 	"bared/internal/testutil/fixtures"
 )
 
-func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
+func TestAuthMiddleware_ValidCredentials(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
@@ -26,7 +26,7 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("success"))
 	}))
@@ -41,7 +41,7 @@ func TestBasicAuthMiddleware_ValidCredentials(t *testing.T) {
 	assert.Equal(t, "success", rr.Body.String())
 }
 
-func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
+func TestAuthMiddleware_InvalidCredentials(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
@@ -78,7 +78,7 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			handler := server.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
@@ -94,7 +94,7 @@ func TestBasicAuthMiddleware_InvalidCredentials(t *testing.T) {
 	}
 }
 
-func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
+func TestAuthMiddleware_MissingAuth(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
@@ -107,7 +107,7 @@ func TestBasicAuthMiddleware_MissingAuth(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -161,36 +161,79 @@ func TestLoggingMiddleware_CapturesStatusCode(t *testing.T) {
 	}
 }
 
-func TestCorsMiddleware(t *testing.T) {
-	handler := corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+func TestCorsMiddleware_SameOriginIsEchoed(t *testing.T) {
+	server := &Server{}
+	handler := server.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("cors enabled"))
 	}))
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Host = "dashboard.local:8080"
+	req.Header.Set("Origin", "http://dashboard.local:8080")
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://dashboard.local:8080", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", rr.Header().Get("Access-Control-Allow-Credentials"))
 	assert.Equal(t, "GET, POST, PUT, PATCH, DELETE, OPTIONS", rr.Header().Get("Access-Control-Allow-Methods"))
 	assert.Equal(t, "Content-Type, Authorization", rr.Header().Get("Access-Control-Allow-Headers"))
+	assert.Contains(t, rr.Header().Values("Vary"), "Origin")
 	assert.Equal(t, "cors enabled", rr.Body.String())
 }
 
+// The wildcard is gone: an unknown origin gets no CORS grant at all.
+func TestCorsMiddleware_ForeignOriginNotEchoed(t *testing.T) {
+	server := &Server{}
+	handler := server.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Host = "dashboard.local:8080"
+	req.Header.Set("Origin", "https://evil.example")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Empty(t, rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Empty(t, rr.Header().Get("Access-Control-Allow-Credentials"))
+	assert.Contains(t, rr.Header().Values("Vary"), "Origin")
+}
+
+func TestCorsMiddleware_AllowlistedOrigin(t *testing.T) {
+	server := &Server{allowedOrigins: normaliseAllowedOrigins([]string{"http://localhost:5173"})}
+	handler := server.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:5173")
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	assert.Equal(t, "http://localhost:5173", rr.Header().Get("Access-Control-Allow-Origin"))
+}
+
 func TestCorsMiddleware_PreflightRequest(t *testing.T) {
-	handler := corsMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	server := &Server{}
+	handler := server.corsMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatal("Handler should not be called for OPTIONS request")
 	}))
 
 	req := httptest.NewRequest("OPTIONS", "/api/test", nil)
+	req.Host = "dashboard.local:8080"
+	req.Header.Set("Origin", "http://dashboard.local:8080")
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://dashboard.local:8080", rr.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestResponseWriter_WriteHeader(t *testing.T) {
@@ -223,7 +266,10 @@ func TestRespondSuccess(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "operation completed")
 }
 
-func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
+// A server with no credentials configured must not authenticate anyone. The
+// previous implementation compared with == against the empty configured values,
+// so "Basic <base64 of ':'>" authenticated successfully.
+func TestAuthMiddleware_EmptyCredentialsRejected(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
@@ -236,7 +282,7 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -246,7 +292,7 @@ func TestBasicAuthMiddleware_EmptyCredentials(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
 
 func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
@@ -269,7 +315,8 @@ func TestLoggingMiddleware_DifferentMethods(t *testing.T) {
 }
 
 func TestCorsMiddleware_DifferentOrigins(t *testing.T) {
-	handler := corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := &Server{}
+	handler := server.corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -282,18 +329,19 @@ func TestCorsMiddleware_DifferentOrigins(t *testing.T) {
 	for _, origin := range origins {
 		t.Run(origin, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/api/test", nil)
+			req.Host = "localhost:8080"
 			req.Header.Set("Origin", origin)
 			rr := httptest.NewRecorder()
 
 			handler.ServeHTTP(rr, req)
 
-			// Should allow all origins (*)
-			assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+			// None of these is the request host, and none is allowlisted.
+			assert.Empty(t, rr.Header().Get("Access-Control-Allow-Origin"))
 		})
 	}
 }
 
-func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
+func TestAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
@@ -306,7 +354,7 @@ func TestBasicAuthMiddleware_CaseInsensitiveUsername(t *testing.T) {
 		cfg:        cfg,
 	}
 
-	handler := server.basicAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := server.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -341,13 +389,15 @@ func TestMiddlewareChaining(t *testing.T) {
 	})
 
 	// Apply middlewares in order: cors -> logging -> auth -> handler
-	handler := corsMiddleware(
+	handler := server.corsMiddleware(
 		loggingMiddleware(
-			server.basicAuthMiddleware(finalHandler),
+			server.authMiddleware(finalHandler),
 		),
 	)
 
 	req := httptest.NewRequest("GET", "/api/test", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:8080")
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte("admin:secret")))
 	rr := httptest.NewRecorder()
 
@@ -355,5 +405,5 @@ func TestMiddlewareChaining(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "success", rr.Body.String())
-	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:8080", rr.Header().Get("Access-Control-Allow-Origin"))
 }

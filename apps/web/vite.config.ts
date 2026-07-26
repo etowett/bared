@@ -19,6 +19,9 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
+        // The job log stream is a WebSocket; without this the dev server never
+        // upgrades it.
+        ws: true,
       },
     },
   },

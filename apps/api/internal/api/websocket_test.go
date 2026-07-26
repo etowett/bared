@@ -329,21 +329,41 @@ func TestLogEntryToResponse_DifferentLevels(t *testing.T) {
 	}
 }
 
-func TestWebSocketUpgrader_AllowsAllOrigins(t *testing.T) {
-	// Test that upgrader allows all origins
-	req := httptest.NewRequest("GET", "/ws", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+// The upgrader used to accept every origin. Now that the handshake
+// authenticates with a cookie the browser attaches automatically, that would be
+// a cross-site WebSocket hijacking vector.
+func TestWebSocketUpgrader_CheckOrigin(t *testing.T) {
+	server := &Server{allowedOrigins: normaliseAllowedOrigins([]string{"http://localhost:5173"})}
+	checkOrigin := server.upgrader().CheckOrigin
 
-	allowed := upgrader.CheckOrigin(req)
-	assert.True(t, allowed, "Should allow localhost:3000")
+	tests := []struct {
+		name    string
+		origin  string
+		allowed bool
+	}{
+		{name: "same origin", origin: "http://localhost:8080", allowed: true},
+		{name: "same origin over TLS behind a proxy", origin: "https://localhost:8080", allowed: true},
+		{name: "allowlisted dev server", origin: "http://localhost:5173", allowed: true},
+		{name: "no origin (non-browser client)", origin: "", allowed: true},
+		{name: "foreign origin", origin: "https://evil.example", allowed: false},
+		{name: "lookalike host", origin: "http://evil-localhost:8080", allowed: false},
+		{name: "same host, different port", origin: "http://localhost:8081", allowed: false},
+		{name: "allowlist is not a prefix match", origin: "http://localhost:51730", allowed: false},
+		{name: "opaque origin", origin: "null", allowed: false},
+		{name: "unsupported scheme", origin: "file://localhost:8080", allowed: false},
+	}
 
-	req.Header.Set("Origin", "https://example.com")
-	allowed = upgrader.CheckOrigin(req)
-	assert.True(t, allowed, "Should allow example.com")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/ws", nil)
+			req.Host = "localhost:8080"
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
 
-	req.Header.Set("Origin", "http://malicious.com")
-	allowed = upgrader.CheckOrigin(req)
-	assert.True(t, allowed, "Currently allows all origins")
+			assert.Equal(t, tt.allowed, checkOrigin(req))
+		})
+	}
 }
 
 func TestHandleStreamJobLogs_MultipleClients(t *testing.T) {

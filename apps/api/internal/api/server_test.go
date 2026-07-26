@@ -21,7 +21,7 @@ func TestNewServer(t *testing.T) {
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	require.NotNil(t, server)
 	assert.Equal(t, "localhost:8080", server.addr)
@@ -38,7 +38,7 @@ func TestNewServer_NoAuth(t *testing.T) {
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
 
-	server := NewServer("localhost:8080", "", "", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", JobManager: mgr, Config: cfg})
 
 	require.NotNil(t, server)
 	assert.Empty(t, server.authUser)
@@ -50,7 +50,7 @@ func TestSetupRoutes(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
@@ -118,7 +118,7 @@ func TestSetupRoutes_WithAuth(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
@@ -172,7 +172,7 @@ func TestRouting_Jobs(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
@@ -244,7 +244,7 @@ func TestShutdown_NoServer(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	// Should not error when httpServer is nil
 	ctx := context.Background()
@@ -258,7 +258,7 @@ func TestShutdown_WithServer(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:0", "admin", "secret", mgr, cfg, nil, nil, nil) // Use port 0 for any available port
+	server := NewServer(ServerOptions{Addr: "localhost:0", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg}) // Use port 0 for any available port
 
 	// Create httpServer without actually listening
 	r := server.setupRoutes()
@@ -294,7 +294,7 @@ func TestServer_RoutingIntegration(t *testing.T) {
 	}
 
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
@@ -362,17 +362,19 @@ func TestServer_CORSHeaders(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
-	// Test CORS headers are set on API routes
+	// CORS is granted to the request's own origin, never to a wildcard.
 	req := httptest.NewRequest("GET", "/api/health", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:8080")
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
 
-	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:8080", rr.Header().Get("Access-Control-Allow-Origin"))
 	assert.Contains(t, rr.Header().Get("Access-Control-Allow-Methods"), "GET")
 }
 
@@ -381,16 +383,18 @@ func TestServer_OptionsRequest(t *testing.T) {
 		Targets: []*config.Target{fixtures.MySQLTarget()},
 	}
 	mgr := jobs.NewManager(cfg, nil, nil, 2, 10)
-	server := NewServer("localhost:8080", "admin", "secret", mgr, cfg, nil, nil, nil)
+	server := NewServer(ServerOptions{Addr: "localhost:8080", AuthUser: "admin", AuthPass: "secret", JobManager: mgr, Config: cfg})
 
 	r := server.setupRoutes()
 
 	// Test OPTIONS (preflight) request
 	req := httptest.NewRequest("OPTIONS", "/api/dashboard", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:8080")
 	rr := httptest.NewRecorder()
 
 	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Equal(t, "*", rr.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:8080", rr.Header().Get("Access-Control-Allow-Origin"))
 }
