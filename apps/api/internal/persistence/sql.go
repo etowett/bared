@@ -567,7 +567,12 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs
 		if errorStr.Valid {
 			job.Error = util.RedactSecrets(errorStr.String)
 		}
-		decodeJobResult(&job, resultJSON)
+		// Listing is on the hot path — the dashboard polls it every few seconds
+		// — so the per-row json.Unmarshal only happens for callers that read
+		// the result back.
+		if filter.WithResults {
+			decodeJobResult(&job, resultJSON)
+		}
 
 		result = append(result, &job)
 	}

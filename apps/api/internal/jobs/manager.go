@@ -28,6 +28,11 @@ type Manager struct {
 	cfg           *config.Config
 	store         JobStore
 	configService *configservice.Service
+
+	// startedAt is when this manager was created. Without a store it is the
+	// horizon of everything the daemon knows: the in-memory map starts empty,
+	// so nothing before it can be counted. See CoversWindow.
+	startedAt time.Time
 }
 
 // NewManager creates a new job manager
@@ -42,6 +47,7 @@ func NewManager(cfg *config.Config, store JobStore, configService *configservice
 		cfg:           cfg,
 		store:         store,
 		configService: configService,
+		startedAt:     time.Now(),
 	}
 }
 
@@ -629,7 +635,29 @@ func jobMatchesFilter(job *Job, filter JobFilter) bool {
 //   - If filter.Limit is 0, no global limit is applied (legacy behavior), but DB fetch is capped (default 1000).
 //   - If filter.Limit > 0, limit/offset are applied AFTER merging+sorting (global pagination),
 //     and the DB fetch limit is increased to reduce the chance of under-filling due to de-duplication.
+//
+// A store read failure is logged and the in-memory jobs are returned on their
+// own. Callers that summarise history — where a short answer and a complete one
+// look identical — must use ListJobsFilteredE instead and handle the error.
 func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job {
+	list, err := m.ListJobsFilteredE(ctx, filter)
+	if err != nil {
+		util.GetLogger().ErrorS("Failed to fetch jobs from database",
+			"component", "job_manager",
+			"error", err)
+	}
+	return list
+}
+
+// ListJobsFilteredE is ListJobsFiltered with the store read failure surfaced.
+//
+// The returned slice is still usable when err is non-nil — it holds the jobs
+// still in memory — but it is missing everything that only exists in the store.
+// Treat it as a partial sample: reporting "no failures" or "never backed up"
+// from it is a claim the daemon cannot support.
+func (m *Manager) ListJobsFilteredE(ctx context.Context, filter JobFilter) ([]*Job, error) {
+	var storeErr error
+
 	// Snapshot in-memory jobs matching filter
 	m.mu.RLock()
 	memJobs := make([]*Job, 0, len(m.jobs))
@@ -660,10 +688,9 @@ func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job
 
 		dbJobs, err := m.store.ListJobs(ctx, dbFilter)
 		if err != nil {
-			// Log error but continue with in-memory jobs
-			util.GetLogger().ErrorS("Failed to fetch jobs from database",
-				"component", "job_manager",
-				"error", err)
+			// Continue with in-memory jobs, but tell the caller the sample is
+			// incomplete so it can refuse to answer rather than answer wrongly.
+			storeErr = fmt.Errorf("list jobs from store: %w", err)
 		} else {
 			for _, dbJob := range dbJobs {
 				if _, exists := jobMap[dbJob.ID]; !exists {
@@ -690,7 +717,7 @@ func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job
 		offset = 0
 	}
 	if offset >= len(jobs) {
-		return []*Job{}
+		return []*Job{}, storeErr
 	}
 	if offset > 0 {
 		jobs = jobs[offset:]
@@ -698,7 +725,7 @@ func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job
 	if filter.Limit > 0 && filter.Limit < len(jobs) {
 		jobs = jobs[:filter.Limit]
 	}
-	return jobs
+	return jobs, storeErr
 }
 
 func maxInt(a, b int) int {
@@ -744,6 +771,20 @@ func (m *Manager) CancelJob(jobID JobID) error {
 // longer than that horizon would be answered from a truncated sample.
 func (m *Manager) HasPersistence() bool {
 	return m.store != nil
+}
+
+// CoversWindow reports whether job history spans the whole of the window
+// ending at now, and so can be summarised without silent truncation.
+//
+// With a store, history outlives the process. Without one it begins when the
+// manager was created: a daemon restarted twenty minutes ago holds twenty
+// minutes of jobs, and a "24h success rate: 100%" computed from them is the
+// same lie as one computed from a truncated page.
+func (m *Manager) CoversWindow(window time.Duration, now time.Time) bool {
+	if m.HasPersistence() {
+		return true
+	}
+	return !m.startedAt.After(now.Add(-window))
 }
 
 // IsTargetRunning checks if a target has a running job

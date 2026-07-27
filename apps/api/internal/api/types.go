@@ -96,13 +96,22 @@ type TargetSummary struct {
 	Schedule      string  `json:"schedule,omitempty"`
 	IsRunning     bool    `json:"is_running"`
 
-	// LastBackupStatus is the outcome of the most recent finished backup job:
-	// "success", "failed", or "never" when the target has no backup history.
-	// Cancelled jobs are neither, and are ignored.
+	// LastBackupStatus is the outcome of the most recent finished backup job —
+	// the one that finished last, which is not always the one created last.
+	// Cancelled jobs are neither a success nor a failure and are ignored.
+	//
+	// "success" | "failed" — the target has history and this is its outcome.
+	// "never"             — the target has no backup history, and the daemon
+	//                       could see all of it.
+	// "unknown"           — the daemon could not establish this target's
+	//                       history: the job store was unreachable, or the scan
+	//                       hit its row cap first. Render it as a warning, not
+	//                       as a new or healthy target.
 	LastBackupStatus string `json:"last_backup_status"`
 
 	// ConsecutiveFailures counts failed backup jobs since the last successful
-	// one (all of them, when there has never been a success).
+	// one (all of them, when there has never been a success). It is 0 when
+	// LastBackupStatus is "unknown" — nothing was counted.
 	ConsecutiveFailures int `json:"consecutive_failures"`
 
 	// LastBackupBytes is the artifact size recorded by the most recent
@@ -114,10 +123,16 @@ type TargetSummary struct {
 	// job ran. Nil when the job's timestamps are incomplete.
 	LastBackupDurationSeconds *float64 `json:"last_backup_duration_seconds,omitempty"`
 
-	// Overdue is true when the target has a schedule and the run due after its
-	// last successful backup has already passed. It stays false for targets
-	// with no schedule and for targets with no job history at all, because
-	// nothing records when such a target was first configured.
+	// Overdue is true when the target has a schedule and two of its fires have
+	// passed since the last successful backup. The second fire is a grace
+	// period: a backup is "due" from the moment its slot opens until it
+	// finishes, so flagging the first one would mark a healthy target late for
+	// the whole duration of its own run.
+	//
+	// It stays false for targets with a job in flight (IsRunning says that
+	// better), for targets with no schedule, for targets with no job history at
+	// all — nothing records when such a target was first configured — and
+	// whenever the history behind it could not be read.
 	Overdue bool `json:"overdue"`
 }
 
@@ -144,17 +159,21 @@ type DashboardResponse struct {
 
 	// SuccessRate24h is the percentage (0-100) of backup jobs finishing in the
 	// last 24 hours that succeeded. Nil when no backup job finished in the
-	// window — a rate over an empty sample is not 0%.
+	// window — a rate over an empty sample is not 0% — and nil whenever the
+	// history behind it cannot cover the window: the job store was unreachable,
+	// the scan hit its row cap, or the daemon has no store and has been up for
+	// less than 24 hours.
 	SuccessRate24h *float64 `json:"success_rate_24h,omitempty"`
 
-	// SuccessRate7d is the same figure over 7 days. It is nil unless job
-	// history is persisted: without a store, history lives only in memory and
-	// is pruned well inside 7 days, so the sample would be silently truncated.
+	// SuccessRate7d is the same figure over 7 days, under the same rules. A
+	// daemon without a job store effectively never reports it: in-memory
+	// history is pruned well inside 7 days.
 	SuccessRate7d *float64 `json:"success_rate_7d,omitempty"`
 
 	// FailedJobs24h counts backup jobs that failed in the last 24 hours. Zero
 	// is a real answer and is serialized; nil means the count could not be
-	// established and is omitted.
+	// established — under the same conditions that make SuccessRate24h nil —
+	// and is omitted.
 	FailedJobs24h *int `json:"failed_jobs_24h,omitempty"`
 }
 

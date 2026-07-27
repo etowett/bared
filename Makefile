@@ -65,7 +65,7 @@ GO_PKGS = $(shell cd $(API_DIR) && go list ./...)
 #               improves; never lower it to turn a red gate green.
 COVERAGE_OUT = $(CURDIR)/coverage.out
 COVERAGE_EXCLUDE ?= /testutil/
-COVERAGE_THRESHOLD ?= 42.5
+COVERAGE_THRESHOLD ?= 43.2
 
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).

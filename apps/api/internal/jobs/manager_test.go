@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -591,4 +592,51 @@ func TestManager_EmptyManagerOperations(t *testing.T) {
 
 	// Cleanup should not panic
 	mgr.CleanupOldJobs(1 * time.Hour)
+}
+
+// unreadableStore is a JobStore whose listing always fails — a daemon whose job
+// database has gone away.
+type unreadableStore struct {
+	JobStore
+	err error
+}
+
+func (s *unreadableStore) ListJobs(context.Context, JobFilter) ([]*Job, error) {
+	return nil, s.err
+}
+
+func TestManager_ListJobsFilteredE_SurfacesStoreFailure(t *testing.T) {
+	cfg := &config.Config{Targets: []*config.Target{fixtures.MySQLTarget()}}
+	storeErr := errors.New("database is locked")
+	mgr := NewManager(cfg, &unreadableStore{err: storeErr}, nil, 2, 100)
+
+	inMemory := NewJob(JobTypeBackup, "mysql-prod", true)
+	mgr.mu.Lock()
+	mgr.jobs[inMemory.ID] = inMemory
+	mgr.mu.Unlock()
+
+	list, err := mgr.ListJobsFilteredE(context.Background(), JobFilter{Type: JobTypeBackup})
+
+	require.Error(t, err, "a caller summarising history must be able to tell the sample is short")
+	assert.ErrorIs(t, err, storeErr)
+	assert.Len(t, list, 1, "the jobs still in memory are returned alongside the error")
+
+	// The legacy entry point keeps swallowing it, for callers that only render
+	// the rows they were handed.
+	assert.Len(t, mgr.ListJobsFiltered(context.Background(), JobFilter{Type: JobTypeBackup}), 1)
+}
+
+func TestManager_CoversWindow(t *testing.T) {
+	cfg := &config.Config{Targets: []*config.Target{fixtures.MySQLTarget()}}
+	now := time.Now()
+
+	withStore := NewManager(cfg, &unreadableStore{err: errors.New("unused")}, nil, 2, 100)
+	assert.True(t, withStore.CoversWindow(7*24*time.Hour, now),
+		"persisted history outlives the process")
+
+	fresh := NewManager(cfg, nil, nil, 2, 100)
+	assert.False(t, fresh.CoversWindow(24*time.Hour, now),
+		"a just-started daemon with no store has not observed the last 24 hours")
+	assert.True(t, fresh.CoversWindow(time.Millisecond, now.Add(time.Second)),
+		"a window the process has been up for is answerable")
 }

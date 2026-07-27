@@ -58,9 +58,15 @@ func nextScheduledRun(cronExpr string) *string {
 // back to the static config when the database is unavailable.
 func (s *Server) resolveTargets(ctx context.Context) []*config.Target {
 	if s.configService != nil {
-		if dbTargets, err := s.configService.ListTargets(ctx); err == nil {
+		dbTargets, err := s.configService.ListTargets(ctx)
+		if err == nil {
 			return dbTargets
 		}
+		// The fallback feeds the health view, so a silent swap to a stale set
+		// of targets would be invisible to the operator watching it.
+		util.GetLogger().ErrorS("Failed to read targets from config store, falling back to static config",
+			"component", "api",
+			"error", err)
 	}
 	return s.cfg.Targets
 }
@@ -68,24 +74,31 @@ func (s *Server) resolveTargets(ctx context.Context) []*config.Target {
 // buildTargetSummaries renders targets with their scheduling and health rollup.
 // Both /api/targets and /api/dashboard go through here so the two endpoints
 // cannot disagree about a target's state.
-func (s *Server) buildTargetSummaries(targets []*config.Target, health map[string]*targetHealth, now time.Time) []TargetSummary {
+//
+// A target missing from the sample reports "never" only when the sample is
+// complete. Otherwise it reports "unknown": a target whose history was cut off
+// by the row cap, or lost with the job store, is not a brand-new target, and
+// rendering it as one turns an alarming state into a reassuring one.
+func (s *Server) buildTargetSummaries(targets []*config.Target, history historySample, now time.Time) []TargetSummary {
+	health := computeTargetHealth(history.jobs)
 	summaries := make([]TargetSummary, 0, len(targets))
 
 	for _, target := range targets {
 		entry := health[target.Name]
+		running := s.jobManager.IsTargetRunning(target.Name)
 
 		summary := TargetSummary{
 			Name:             target.Name,
 			Type:             target.Conn.Type,
 			Database:         target.Conn.Database,
 			Schedule:         target.Schedule,
-			IsRunning:        s.jobManager.IsTargetRunning(target.Name),
+			IsRunning:        running,
 			NextScheduled:    nextScheduledRun(target.Schedule),
 			LastBackupStatus: backupOutcomeNever,
-			Overdue:          isOverdue(target.Schedule, entry, now),
 		}
 
-		if entry != nil {
+		switch {
+		case entry != nil:
 			summary.LastBackupStatus = entry.outcome
 			summary.ConsecutiveFailures = entry.consecutiveFailures
 			summary.LastBackupBytes = entry.lastSuccessBytes
@@ -95,6 +108,14 @@ func (s *Server) buildTargetSummaries(targets []*config.Target, health map[strin
 				lastBackup := entry.lastSuccessAt.Format(time.RFC3339)
 				summary.LastBackup = &lastBackup
 			}
+
+			// With the store unreachable, a missing last success means "not
+			// since this process started", not "not for two days" — measuring
+			// lateness from it would invent an alarm.
+			summary.Overdue = !history.degraded && isOverdue(target.Schedule, entry, running, now)
+
+		case !history.complete():
+			summary.LastBackupStatus = backupOutcomeUnknown
 		}
 
 		summaries = append(summaries, summary)
@@ -104,13 +125,23 @@ func (s *Server) buildTargetSummaries(targets []*config.Target, health map[strin
 }
 
 // backupHistory fetches the backup jobs the rollups are derived from, newest
-// first, and reports whether the fetch hit dashboardHistoryLimit.
-func (s *Server) backupHistory(ctx context.Context) (history []*jobs.Job, truncated bool) {
-	history = s.jobManager.ListJobsFiltered(ctx, jobs.JobFilter{
+// first, along with what the fetch could not cover.
+func (s *Server) backupHistory(ctx context.Context) historySample {
+	history, err := s.jobManager.ListJobsFilteredE(ctx, jobs.JobFilter{
 		Type:  jobs.JobTypeBackup,
 		Limit: dashboardHistoryLimit,
+		// The rollups report the artifact size of the last successful backup,
+		// which only exists in the persisted result.
+		WithResults: true,
 	})
-	return history, len(history) >= dashboardHistoryLimit
+	if err != nil {
+		util.GetLogger().ErrorS("Backup history is incomplete: job store read failed",
+			"component", "api",
+			"error", err)
+		return historySample{jobs: history, degraded: true}
+	}
+
+	return historySample{jobs: history, truncated: len(history) >= dashboardHistoryLimit}
 }
 
 // jobToResponse converts a job to a response with schedule information
@@ -153,8 +184,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	targets := s.resolveTargets(ctx)
-	history, _ := s.backupHistory(ctx)
-	summaries := s.buildTargetSummaries(targets, computeTargetHealth(history), time.Now())
+	summaries := s.buildTargetSummaries(targets, s.backupHistory(ctx), time.Now())
 
 	respondJSON(w, http.StatusOK, ListTargetsResponse{
 		Targets: summaries,
@@ -517,8 +547,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 
 	targets := s.resolveTargets(ctx)
-	history, truncated := s.backupHistory(ctx)
-	summaries := s.buildTargetSummaries(targets, computeTargetHealth(history), now)
+	history := s.backupHistory(ctx)
+	summaries := s.buildTargetSummaries(targets, history, now)
 
 	// Get job counts
 	allJobs := s.jobManager.ListJobs(ctx)
@@ -535,14 +565,17 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		ActiveJobs: activeJobs,
 		TotalJobs:  len(allJobs),
 	}
-	resp.SuccessRate24h, resp.FailedJobs24h = backupWindowStats(history, truncated, window24h, now)
 
-	// Without a job store, history is in-memory only and is pruned long before
-	// 7 days elapse, so a 7-day rate would be computed over a window the data
-	// does not cover. Omit it rather than publish a figure that flatters or
-	// alarms for no reason.
-	if s.jobManager.HasPersistence() {
-		resp.SuccessRate7d, _ = backupWindowStats(history, truncated, window7d, now)
+	// Without a job store, history is in-memory only: it starts when the daemon
+	// starts and is pruned long before 7 days elapse, so a rate over a window
+	// the process has not been up for would be computed from whatever handful
+	// of jobs it has seen. Omit any such window rather than publish a figure
+	// that flatters or alarms for no reason.
+	if s.jobManager.CoversWindow(window24h, now) {
+		resp.SuccessRate24h, resp.FailedJobs24h = backupWindowStats(history, window24h, now)
+	}
+	if s.jobManager.CoversWindow(window7d, now) {
+		resp.SuccessRate7d, _ = backupWindowStats(history, window7d, now)
 	}
 
 	respondJSON(w, http.StatusOK, resp)
