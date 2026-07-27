@@ -11,7 +11,7 @@ This document explains all the development tools, configurations, and supporting
 | `Makefile` | Build automation with 30+ commands |
 | `.gitignore` | Git ignore patterns for build artifacts, configs, logs |
 | `Dockerfile` | Multi-stage Docker build with database clients |
-| `docker-compose.yml` | Development stack (MySQL, PostgreSQL, Redis, MinIO) |
+| `docker-compose.yml` | Development stack (MySQL, PostgreSQL, Redis, RustFS) |
 | `.golangci.yml` | Linter configuration with security checks |
 
 ### Documentation
@@ -142,7 +142,7 @@ Complete development stack with:
 - **MySQL 8.0**: Test database
 - **PostgreSQL 15**: Test database
 - **Redis 7**: Test database
-- **MinIO**: S3-compatible storage for testing
+- **RustFS**: S3-compatible storage for testing (API on `:9000`, console on `:9001`)
 
 Usage:
 
@@ -161,6 +161,37 @@ docker-compose down
 
 # Clean up volumes
 docker-compose down -v
+```
+
+#### RustFS (S3 testing)
+
+`compose.yml` runs [RustFS](https://rustfs.com) — an S3-compatible store — for exercising the
+`type: s3` storage backend locally. Default credentials are `bared` / `baredbared`
+(`RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`), and the image is pinned rather than tracking
+`:latest`, since RustFS has not cut a 1.0.0 yet.
+
+BareD does **not** create buckets — `Validate()` does a `HeadBucket` and fails if it is missing.
+Create one first in the console at <http://localhost:9001>, then point a storage at it:
+
+```yaml
+storages:
+  rustfs:
+    type: s3
+    bucket: bared-backups
+    region: us-east-1            # RustFS has no regions, but SigV4 needs one
+    access_key_id: bared
+    secret_access_key: baredbared
+    endpoint_url: http://localhost:9000   # http://rustfs:9000 from inside the compose network
+```
+
+A custom `endpoint_url` switches the AWS SDK to path-style addressing automatically.
+
+If something else on your machine already owns 9000/9001, override the host ports in a root `.env`
+(gitignored) — the container ports do not change:
+
+```bash
+RUSTFS_HOST_PORT=9010
+RUSTFS_CONSOLE_HOST_PORT=9011
 ```
 
 ## 🔍 Linter Configuration

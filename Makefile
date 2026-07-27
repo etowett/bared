@@ -68,6 +68,13 @@ COVERAGE_THRESHOLD ?= 32.0
 # - Local dev `run-daemon` enables CGO so sqlite persistence works with github.com/mattn/go-sqlite3.
 CGO ?= 0
 
+# Origin the Vite dev server (`make web-dev`) serves the dashboard from. The dev
+# server proxies /api with changeOrigin, which rewrites Host but not Origin, so a
+# POST from :5173 is not same-origin to the daemon on :8080 and the CSRF check
+# rejects it with 403. The `run-daemon*` targets allowlist it; nothing else does,
+# so a production daemon still refuses cross-site writes by default.
+WEB_DEV_ORIGIN ?= http://localhost:5173
+
 # On recent macOS versions, `go test -race` can emit noisy (but harmless) ld warnings like:
 #   "malformed LC_DYSYMTAB ..."
 # This is an Apple ld/toolchain issue; suppress warnings for test binaries on Darwin.
@@ -138,7 +145,7 @@ test-unit:
 test-integration:
 	@echo "Running integration tests (requires Docker)..."
 	@echo "Starting services..."
-	docker-compose up -d mysql postgres redis minio
+	docker-compose up -d mysql postgres redis rustfs
 	@echo "Waiting for services to be ready..."
 	sleep 15
 	$(GO) test -v -race -tags=integration $(GO_PKGS)
@@ -242,7 +249,8 @@ run-daemon: web-build web-sync-dist build
 	./${BIN_DIR}/${BINARY_NAME} daemon \
 		--http :8080 \
 		--http-user admin \
-		--http-pass changeme
+		--http-pass changeme \
+		--http-allowed-origin ${WEB_DEV_ORIGIN}
 
 # Run the daemon without rebuilding the web UI (faster for backend-only development).
 # Compiles rather than `go run` so the daemon still starts with the repo root as
@@ -254,7 +262,8 @@ run-daemon-fast:
 	./${BIN_DIR}/${BINARY_NAME} daemon \
 		--http :8080 \
 		--http-user admin \
-		--http-pass changeme
+		--http-pass changeme \
+		--http-allowed-origin ${WEB_DEV_ORIGIN}
 
 # Development setup
 dev:
@@ -550,16 +559,16 @@ compose-clean-all:
 	docker compose down -v --remove-orphans
 	@echo "Full cleanup complete"
 
-# Start only database services (mysql, postgres, redis, minio)
+# Start only database services (mysql, postgres, redis, rustfs)
 compose-services-up:
 	@echo "Starting database services only..."
-	docker compose up -d mysql postgres redis minio
+	docker compose up -d mysql postgres redis rustfs
 	@echo "Database services started"
 
 # Stop only database services
 compose-services-down:
 	@echo "Stopping database services..."
-	docker compose stop mysql postgres redis minio
+	docker compose stop mysql postgres redis rustfs
 	@echo "Database services stopped"
 
 # Execute command in bared container (usage: make compose-exec CMD="brd list")

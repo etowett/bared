@@ -13,17 +13,28 @@ services:
       - REDIS_PASSWORD=testpass
     ports:
       - "8080:8080"  # HTTP API and Web UI
+    # --http-allowed-origin covers the Vite dev server: it proxies /api with
+    # changeOrigin, which rewrites Host but not Origin, so a POST from :5173 is
+    # not same-origin to the daemon and the CSRF check rejects it. Drop the flag
+    # when serving the embedded UI from :8080 — that path is already same-origin.
     command: >
       daemon
       --config /etc/bared/bared.yml
       --http :8080
       --http-user admin
       --http-pass changeme
+      --http-allowed-origin http://localhost:5173
     depends_on:
-      - mysql
-      - postgres
-      - redis
-      - minio
+      # postgres:
+      #   condition: service_started
+      # redis:
+      #   condition: service_started
+      # mysql:
+      #   condition: service_started
+      rustfs:
+        # RustFS has a readiness endpoint, so wait for a store that can actually
+        # serve a PUT rather than one that has merely been created.
+        condition: service_healthy
     networks:
       - bared-network
     restart: unless-stopped
@@ -35,70 +46,88 @@ services:
       retries: 3
       start_period: 10s
 
-  # MySQL for testing
-  mysql:
-    image: mysql:8.4
-    container_name: bared-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: testpass
-      MYSQL_DATABASE: testdb
-      MYSQL_USER: backup
-      MYSQL_PASSWORD: testpass
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - bared-network
+  # # MySQL for testing
+  # mysql:
+  #   image: mysql:8.4
+  #   container_name: bared-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: testpass
+  #     MYSQL_DATABASE: testdb
+  #     MYSQL_USER: backup
+  #     MYSQL_PASSWORD: testpass
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #   networks:
+  #     - bared-network
 
-  # PostgreSQL for testing
-  postgres:
-    image: postgres:18-alpine
-    container_name: bared-postgres
-    environment:
-      POSTGRES_PASSWORD: testpass
-      POSTGRES_USER: backup
-      POSTGRES_DB: testdb
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - bared-network
+  # # PostgreSQL for testing
+  # postgres:
+  #   image: postgres:18-alpine
+  #   container_name: bared-postgres
+  #   environment:
+  #     POSTGRES_PASSWORD: testpass
+  #     POSTGRES_USER: backup
+  #     POSTGRES_DB: testdb
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - bared-network
 
-  # Redis for testing
-  redis:
-    image: redis:8-alpine
-    container_name: bared-redis
-    command: redis-server --requirepass testpass
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    networks:
-      - bared-network
+  # # Redis for testing
+  # redis:
+  #   image: redis:8-alpine
+  #   container_name: bared-redis
+  #   command: redis-server --requirepass testpass
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - bared-network
 
-  # MinIO (S3-compatible storage) for testing
-  minio:
-    image: minio/minio:latest
-    container_name: bared-minio
-    command: server /data --console-address ":9001"
+  # RustFS (S3-compatible storage) for testing the `type: s3` backend
+  rustfs:
+    # Pinned to a tag rather than :latest. RustFS has not cut a 1.0.0 yet, so
+    # the image can move meaningfully between releases; bump this deliberately.
+    image: rustfs/rustfs:1.0.0-beta.11
+    container_name: bared-rustfs
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      # RustFS speaks the S3 API; these are the key pair a `type: s3` storage
+      # signs with (access_key_id / secret_access_key in your config.yml).
+      # Local development credentials only — a real deployment generates its own.
+      RUSTFS_ACCESS_KEY: "${RUSTFS_ACCESS_KEY:-bared}"
+      RUSTFS_SECRET_KEY: "${RUSTFS_SECRET_KEY:-baredbared}"
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_VOLUMES: /data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      # Host ports overridable via a root .env to dodge local conflicts — other
+      # projects run RustFS/MinIO on 9000 too.
+      - "${RUSTFS_HOST_PORT:-9100}:9000"                  # S3 API
+      - "${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"          # Web console — create the bucket here before the first backup
     volumes:
-      - minio-data:/data
+      - rustfs-data:/data
+    healthcheck:
+      # RustFS's own readiness endpoint; `bared` waits on it (depends_on above).
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     networks:
       - bared-network
+    restart: unless-stopped
 
 volumes:
   mysql-data:
   postgres-data:
   redis-data:
-  minio-data:
+  rustfs-data:
   backups:
   tracker:
 
