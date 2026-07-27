@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main]
 
+# Supersede in-flight PR runs, but never cancel a push to main: a main push feeds
+# auto-release.yml, and killing that halfway can skip a release or leave the tag
+# state inconsistent. `head_ref` is set only for pull_request, so PR runs group by
+# source branch while push runs group by ref — `github.ref` alone would lump every
+# PR under refs/pull/N/merge.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   pull-requests: read

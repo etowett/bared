@@ -20,6 +20,11 @@ on:
       - "Makefile"
       - ".github/workflows/web-ci.yml"
 
+# See the note in ci.yml: cancel superseded PR runs only, never a push to main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   pull-requests: read

@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+
+# auto-release, release and docker share one `release` group so two releases can
+# never interleave. Never cancel: aborting mid-flight can leave a tag with no
+# release behind it, or a release with no image. Queueing is the cheaper failure.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: read

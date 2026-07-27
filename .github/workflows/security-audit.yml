@@ -36,6 +36,12 @@ on:
       - "apps/api/go.sum"
       - ".github/workflows/security-audit.yml"
 
+# See the note in ci.yml: cancel superseded PR runs only. Scheduled runs group by
+# refs/heads/main and are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 

@@ -6,6 +6,12 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+# Shared with auto-release.yml and docker.yml — see the note there. Serialise the
+# release chain; never cancel a half-published release.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 

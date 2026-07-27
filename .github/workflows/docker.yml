@@ -7,6 +7,12 @@ on:
       - completed
   workflow_dispatch:
 
+# Shared with auto-release.yml and release.yml — see the note there. Serialise the
+# release chain; never cancel a half-pushed image.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
