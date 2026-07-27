@@ -196,6 +196,75 @@ func TestValidate(t *testing.T) {
 			errContains: "host is required",
 		},
 		{
+			// Host key verification needs something to authenticate *with*;
+			// an sftp entry with neither is a config error, not a runtime one.
+			name: "sftp storage with neither password nor private key",
+			config: &Config{
+				DefaultStorage: "sftp",
+				Storages: map[string]*Storage{
+					"sftp": {
+						Type:     "sftp",
+						Host:     "backup.example.com",
+						Port:     22,
+						Username: "user",
+						Path:     "/backups",
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "password or private_key_path is required",
+		},
+		{
+			name: "sftp storage authenticated by private key alone",
+			config: &Config{
+				DefaultStorage: "sftp",
+				Storages: map[string]*Storage{
+					"sftp": {
+						Type:           "sftp",
+						Host:           "backup.example.com",
+						Port:           22,
+						Username:       "user",
+						Path:           "/backups",
+						PrivateKeyPath: "/etc/bared/id_ed25519",
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{
+						Type: "mysql", Host: "localhost", Port: 3306, User: "root", Database: "db",
+					}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			// Pinning a key and then disabling verification means the pin is
+			// silently ignored — refuse the ambiguity instead.
+			name: "sftp storage pinning a fingerprint while skipping verification",
+			config: &Config{
+				DefaultStorage: "sftp",
+				Storages: map[string]*Storage{
+					"sftp": {
+						Type:                      "sftp",
+						Host:                      "backup.example.com",
+						Port:                      22,
+						Username:                  "user",
+						Password:                  "pass",
+						Path:                      "/backups",
+						HostKeyFingerprint:        "SHA256:n3s1XbGVUUdN3iVCQwPq3rXMcTMVLh1nZOtCG0Y5yPo",
+						InsecureSkipHostKeyVerify: true,
+					},
+				},
+				Targets: []*Target{
+					{Name: "test", Conn: &Connection{Type: "mysql", Database: "db"}},
+				},
+			},
+			wantErr:     true,
+			errContains: "mutually exclusive",
+		},
+		{
 			name: "negative keep value",
 			config: &Config{
 				DefaultStorage: "local",

@@ -167,10 +167,12 @@ func TestGetHandler_SPAFallback(t *testing.T) {
 
 			handler.ServeHTTP(rr, req)
 
-			// Should handle SPA routes
-			// Either serve index.html (200), return 404 if not built,
-			// or 500 if dist exists but index.html is missing (e.g. CI placeholder)
-			assert.True(t, rr.Code == http.StatusOK || rr.Code == http.StatusNotFound || rr.Code == http.StatusInternalServerError)
+			// Two outcomes only: index.html when the UI was embedded, or the
+			// "Web UI not built" 404 when it was not. A 500 used to be
+			// possible when dist existed but held no index.html — now the
+			// tracked .gitkeep makes that the normal backend-only build, and
+			// GetHandler detects it up front.
+			assert.Contains(t, []int{http.StatusOK, http.StatusNotFound}, rr.Code)
 		})
 	}
 }
@@ -204,12 +206,14 @@ func TestGetHandler_DevModeMessage(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	// If dist directory doesn't exist (dev mode), should have helpful message
+	// On a backend-only build (dist holds nothing but its .gitkeep) the message
+	// has to name a command that actually exists in this repo — the old one
+	// said "cd web && npm install", which is neither the right path nor the
+	// right package manager.
 	if rr.Code == http.StatusNotFound {
 		body := rr.Body.String()
 		assert.Contains(t, body, "Web UI not built")
-		assert.Contains(t, body, "npm")
-		assert.Contains(t, body, "build")
+		assert.Contains(t, body, "make build-with-web")
 	}
 }
 

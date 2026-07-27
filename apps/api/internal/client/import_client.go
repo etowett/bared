@@ -415,7 +415,24 @@ func storageToAPIRequest(storage *config.Storage) api.StorageRequest {
 		if storage.Username != "" {
 			req.Config["username"] = storage.Username
 		}
+		// Host key settings must survive the import or a verified SFTP backend
+		// silently reverts to the ~/.ssh/known_hosts default on the daemon's
+		// host — and a key-only config would be rejected outright for having no
+		// credentials.
+		if storage.KnownHostsPath != "" {
+			req.Config["known_hosts_path"] = storage.KnownHostsPath
+		}
+		if storage.HostKeyFingerprint != "" {
+			req.Config["host_key_fingerprint"] = storage.HostKeyFingerprint
+		}
+		if storage.PrivateKeyPath != "" {
+			req.Config["private_key_path"] = storage.PrivateKeyPath
+		}
+		if storage.InsecureSkipHostKeyVerify {
+			req.Config["insecure_skip_host_key_verify"] = true
+		}
 		req.Password = storage.Password
+		req.PrivateKeyPassphrase = storage.PrivateKeyPassphrase
 	}
 
 	return req

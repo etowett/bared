@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+// dist is tracked with a .gitkeep so this pattern always matches — go:embed
+// fails the build outright when it matches nothing, which used to make
+// `go build ./...` fail on a fresh clone. The real assets are produced by the
+// frontend build and stay gitignored.
+//
 //go:embed all:dist
 var distFiles embed.FS
 
@@ -18,12 +23,14 @@ func GetHandler() http.Handler {
 	// Get the dist subdirectory from the embedded filesystem
 	dist, err := fs.Sub(distFiles, "dist")
 	if err != nil {
-		// If dist doesn't exist (development), return a simple handler
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-			//nolint:errcheck // Error writing to response writer is not critical
-			_, _ = w.Write([]byte("Web UI not built. Run: cd web && npm install && npm run build"))
-		})
+		return webUINotBuiltHandler()
+	}
+
+	// The directory now always exists (see above), so its emptiness is what
+	// distinguishes a backend-only build from one with the UI embedded.
+	// Without this check every dashboard route would answer 500.
+	if _, err := fs.Stat(dist, "index.html"); err != nil {
+		return webUINotBuiltHandler()
 	}
 
 	// Create file server once
@@ -33,6 +40,16 @@ func GetHandler() http.Handler {
 		fileServer: fileServer,
 		fileSystem: dist,
 	}
+}
+
+// webUINotBuiltHandler answers dashboard routes when the binary was built
+// without the frontend assets.
+func webUINotBuiltHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		//nolint:errcheck // Error writing to response writer is not critical
+		_, _ = w.Write([]byte("Web UI not built. Run: make build-with-web (or cd apps/web && bun run build)"))
+	})
 }
 
 // spaHandler implements http.Handler to serve a SPA with fallback to index.html

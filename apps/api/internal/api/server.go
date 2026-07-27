@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -32,6 +33,15 @@ type Server struct {
 	sessionTTL     time.Duration
 	allowedOrigins []string
 	secureCookies  bool
+
+	// Brute-force protection for the one unauthenticated endpoint that checks
+	// a password.
+	loginLimiter   *ipRateLimiter
+	trustedProxies []netip.Prefix
+
+	// failedLoginDelay is a field rather than a constant only so tests can
+	// zero it; nothing configures it at runtime.
+	failedLoginDelay time.Duration
 }
 
 // ServerOptions configures a Server. It replaced a positional constructor that
@@ -60,6 +70,14 @@ type ServerOptions struct {
 	// X-Forwarded-Proto is client-controlled and cannot be trusted, and because
 	// a Secure cookie on a plain-HTTP install would silently break login.
 	SecureCookies bool
+
+	// TrustedProxies are the addresses or CIDRs whose X-Forwarded-For header
+	// may be believed when attributing a login attempt to an IP. Empty — the
+	// default — means the header is ignored entirely and only the immediate
+	// peer counts. It is opt-in for the same reason SecureCookies is: the
+	// header is client-controlled, and believing it would let an attacker mint
+	// a fresh identity per request and stroll past the per-IP limiter.
+	TrustedProxies []string
 }
 
 // NewServer creates a new API server
@@ -82,6 +100,10 @@ func NewServer(opts ServerOptions) *Server {
 		sessionTTL:     ttl,
 		allowedOrigins: normaliseAllowedOrigins(opts.AllowedOrigins),
 		secureCookies:  opts.SecureCookies,
+		loginLimiter:   newLoginRateLimiter(),
+		trustedProxies: parseTrustedProxies(opts.TrustedProxies),
+
+		failedLoginDelay: failedLoginDelay,
 	}
 }
 
@@ -102,6 +124,9 @@ func (s *Server) Start() error {
 	// which are only authenticated at the handshake.
 	s.sessions.startSweeper(sessionSweepInterval)
 
+	// Reap idle login buckets so the per-IP map stays bounded.
+	s.loginLimiter.startSweeper(loginLimiterSweepInterval)
+
 	logger.InfoS("Starting HTTP server",
 		"component", "api",
 		"address", s.addr)
@@ -120,6 +145,7 @@ func (s *Server) Start() error {
 // Shutdown gracefully shuts down the HTTP server
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.sessions.stopSweeper()
+	s.loginLimiter.stopSweeper()
 
 	if s.httpServer != nil {
 		logger := util.GetLogger()

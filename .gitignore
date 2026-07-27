@@ -55,6 +55,15 @@ logs/
 dist/
 build/
 
+# ...except the embed target. apps/api/internal/web/embed.go declares
+# `//go:embed all:dist`, and go:embed fails the build outright when the pattern
+# matches nothing — so a fresh clone could not run `go build ./...` until the
+# web UI had been built. The directory and its .gitkeep are tracked; everything
+# else the frontend build drops in there stays ignored.
+!apps/api/internal/web/dist/
+apps/api/internal/web/dist/*
+!apps/api/internal/web/dist/.gitkeep
+
 # Temporary files
 tmp/
 temp/

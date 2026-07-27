@@ -10,6 +10,9 @@ type StorageRequest struct {
 	Config          map[string]interface{} `json:"config"` // Type-specific fields
 	SecretAccessKey string                 `json:"secret_access_key,omitempty"`
 	Password        string                 `json:"password,omitempty"`
+	// PrivateKeyPassphrase decrypts an SFTP private key. Like the other
+	// secrets it is carried outside Config so it is never echoed back.
+	PrivateKeyPassphrase string `json:"private_key_passphrase,omitempty"`
 }
 
 // StorageResponse represents storage in API responses

@@ -38,6 +38,13 @@ func ValidateStorage(storage *config.Storage) error {
 		if storage.Username == "" {
 			return fmt.Errorf("sftp storage requires username")
 		}
+		if storage.Password == "" && storage.PrivateKeyPath == "" {
+			return fmt.Errorf("sftp storage requires password or private_key_path")
+		}
+		if storage.InsecureSkipHostKeyVerify && storage.HostKeyFingerprint != "" {
+			return fmt.Errorf(
+				"sftp storage: insecure_skip_host_key_verify and host_key_fingerprint are mutually exclusive")
+		}
 	default:
 		return fmt.Errorf("unsupported storage type: %s (must be local, s3, or sftp)", storage.Type)
 	}

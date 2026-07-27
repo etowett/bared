@@ -511,6 +511,10 @@ Examples:
 		if err != nil {
 			return fmt.Errorf("failed to get http-secure-cookies flag: %w", err)
 		}
+		trustedProxies, err := cmd.Flags().GetStringArray("http-trusted-proxy")
+		if err != nil {
+			return fmt.Errorf("failed to get http-trusted-proxy flag: %w", err)
+		}
 
 		// Prepare daemon options
 		var opts []daemon.Option
@@ -523,6 +527,7 @@ Examples:
 				daemon.WithSessionTTL(sessionTTL),
 				daemon.WithAllowedOrigins(allowedOrigins),
 				daemon.WithSecureCookies(secureCookies),
+				daemon.WithTrustedProxies(trustedProxies),
 			)
 		}
 
@@ -542,6 +547,9 @@ func init() {
 		"Absolute lifetime of a dashboard login session")
 	daemonCmd.Flags().Bool("http-secure-cookies", false,
 		"Mark session cookies Secure (enable when terminating TLS in front of the daemon)")
+	daemonCmd.Flags().StringArray("http-trusted-proxy", nil,
+		"Address or CIDR whose X-Forwarded-For header may be trusted when rate limiting logins, "+
+			"e.g. 10.0.0.0/8 (repeatable; the header is ignored entirely by default)")
 }
 
 // formatBytes converts bytes to a human-readable format (KB, MB, GB, etc.)

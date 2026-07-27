@@ -16,9 +16,13 @@ const (
 	maxLoginBodyBytes = 4 << 10
 
 	// failedLoginDelay is a small constant penalty on every failed login. It is
-	// not rate limiting — a per-IP limiter is tracked separately — but it takes
-	// the edge off trivial online guessing.
+	// not rate limiting — that is loginLimiter's job — but it takes the edge
+	// off trivial online guessing.
 	failedLoginDelay = 250 * time.Millisecond
+
+	// loginFailureLogThreshold is the consecutive-failure count at which an IP
+	// starts being logged as a suspected brute force rather than a typo.
+	loginFailureLogThreshold = 3
 )
 
 // loginRequest is the POST /api/login body.
@@ -47,9 +51,25 @@ func (s *Server) credentialsValid(user, pass string) bool {
 }
 
 // handleLogin validates credentials and issues a session cookie.
+//
+// This is the only unauthenticated endpoint that checks a password, against a
+// single static credential pair, so it is the whole attack surface for online
+// guessing. A per-IP token bucket is spent before anything else happens —
+// before the body is even read — so a rate-limited attacker costs the daemon a
+// map lookup.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.authUser == "" || s.authPass == "" {
 		respondError(w, http.StatusServiceUnavailable, "Authentication is not configured")
+		return
+	}
+
+	ip := s.clientIP(r)
+	if !s.loginLimiter.Permit(ip) {
+		util.GetLogger().WarnS("Login rate limit exceeded",
+			"component", "api",
+			"ip", ip)
+		w.Header().Set("Retry-After", retryAfterSeconds)
+		respondError(w, http.StatusTooManyRequests, "Too many login attempts. Try again later.")
 		return
 	}
 
@@ -67,12 +87,35 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !s.credentialsValid(req.Username, req.Password) {
+		// The counter is what makes a brute force visible in the log. Neither
+		// half of the presented credential is ever logged — not the password,
+		// and not the username, which for a single-operator daemon is very
+		// nearly as sensitive.
+		if failures := s.loginLimiter.RecordFailure(ip); failures >= loginFailureLogThreshold {
+			util.GetLogger().WarnS("Repeated failed login attempts",
+				"component", "api",
+				"ip", ip,
+				"consecutive_failures", failures)
+		}
+
 		// Deliberately generic: never reveal whether the username or the
 		// password was the wrong half.
-		time.Sleep(failedLoginDelay)
+		//
+		// The penalty is abandoned if the client goes away — an attacker
+		// hanging up immediately should not get to pin a goroutine per guess.
+		delay := time.NewTimer(s.failedLoginDelay)
+		defer delay.Stop()
+		select {
+		case <-delay.C:
+		case <-r.Context().Done():
+			return
+		}
+
 		respondError(w, http.StatusUnauthorized, "Invalid username or password")
 		return
 	}
+
+	s.loginLimiter.RecordSuccess(ip)
 
 	token, err := s.sessions.Issue(req.Username)
 	if err != nil {
