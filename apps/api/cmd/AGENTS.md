@@ -17,7 +17,7 @@ Persistent flag on every command: `-c, --config` (default `bared.yml`). Cobra au
 | `backup` | Back up one target | `--target` (required) |
 | `restore` | Restore a target or restore-target from a backup | `--target` (required), `--backup` (default `latest`), `--dry-run`, `--skip-validation`, `--skip-verify`, `-y/--yes` |
 | `list` | List backups for a target | `--target` (required) |
-| `daemon` | Run scheduler and/or HTTP API | `--http` (e.g. `:8080`), `--http-user`, `--http-pass`, `--http-allowed-origin` (repeatable), `--http-session-ttl` (default `12h`), `--http-secure-cookies` |
+| `daemon` | Run scheduler and/or HTTP API | `--http` (e.g. `:8080`), `--http-user`, `--http-pass`, `--http-allowed-origin` (repeatable), `--http-session-ttl` (default `12h`), `--http-secure-cookies`, `--http-trusted-proxy` (repeatable) |
 | `config import <file>` | Push YAML config into a running daemon's DB via API | `--api-url` (default `http://localhost:8080`), `--user` (req), `--pass` (req), `--mode`, `--dry-run`, `--timeout` (default `30s`), `-y/--yes` |
 
 Usage examples (real, from the source `Long` help and README):
