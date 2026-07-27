@@ -20,6 +20,11 @@ on:
       - "Makefile"
       - ".github/workflows/web-ci.yml"
 
+# See the note in ci.yml: cancel superseded PR runs only, never a push to main.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   pull-requests: read
@@ -28,10 +33,14 @@ jobs:
   validate:
     name: Validate Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
+      # Nothing here pushes, so the token does not need to survive the checkout.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Runs before Setup Bun deliberately: if the two pins disagree, the version
       # this job would install is already ambiguous, so fail before installing.

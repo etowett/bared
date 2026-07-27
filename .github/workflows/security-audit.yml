@@ -36,6 +36,12 @@ on:
       - "apps/api/go.sum"
       - ".github/workflows/security-audit.yml"
 
+# See the note in ci.yml: cancel superseded PR runs only. Scheduled runs group by
+# refs/heads/main and are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -43,10 +49,14 @@ jobs:
   web:
     name: Audit Web Dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
+      # Nothing here pushes, so the token does not need to survive the checkout.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -67,10 +77,13 @@ jobs:
   go:
     name: Audit Go Dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -85,6 +98,9 @@ jobs:
           mkdir -p apps/api/internal/web/dist
           echo "placeholder" > apps/api/internal/web/dist/.placeholder
 
+      # Pinned rather than `@latest`: `latest` re-resolves an unreviewed version
+      # of a tool that runs in CI on every invocation. The advisory database is
+      # fetched at run time, so pinning the scanner does not stale the findings.
       - name: Run govulncheck
         working-directory: apps/api
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...

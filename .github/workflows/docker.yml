@@ -7,6 +7,12 @@ on:
       - completed
   workflow_dispatch:
 
+# Shared with auto-release.yml and release.yml — see the note there. Serialise the
+# release chain; never cancel a half-pushed image.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -18,13 +24,29 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     environment: prod
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    # The repository guard keeps this out of forks, where DOCKERHUB_USERNAME /
+    # DOCKERHUB_TOKEN are empty and docker/login-action fails red.
+    if: github.repository == 'etowett/bared' && (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch')
+    # Higher than the CI jobs because linux/arm64 is built under QEMU with
+    # CGO_ENABLED=1, which is slow. Still bounded: a wedged buildx would
+    # otherwise hold a runner for the six-hour default.
+    timeout-minutes: 60
 
     steps:
+      # Pin the checkout to the commit the Release run was built from. Without a
+      # `ref` this took whatever the default branch HEAD was at the moment the
+      # workflow_run fired, so an image tagged vX.Y.Z could contain commits that
+      # are not in vX.Y.Z. workflow_dispatch carries no workflow_run payload, so
+      # fall back to github.sha — the SHA of the ref the dispatch was aimed at,
+      # which is exactly what the operator selected.
       - name: Checkout code
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
+          # This job pushes an image, not a git ref — Docker Hub auth comes from
+          # login-action, so the git token does not need to survive.
+          persist-credentials: false
 
       - name: Extract version metadata
         id: meta
@@ -35,32 +57,38 @@ jobs:
           BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            git fetch --tags
-            VERSION=$(git tag --sort=-creatordate | head -n 1)
-            if [[ "$VERSION" == v*.*.* ]]; then
-              echo "version=${VERSION}" >> $GITHUB_OUTPUT
-              echo "is_tag=true" >> $GITHUB_OUTPUT
-            else
-              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
-              echo "is_tag=false" >> $GITHUB_OUTPUT
-            fi
+          # Both trigger paths resolve the version from the checked-out commit
+          # rather than from "newest tag anywhere in the repo". The old
+          # workflow_run branch used `git tag --sort=-creatordate | head -n 1`,
+          # which on a busy main could name a tag the checkout does not contain.
+          #
+          # No `git fetch --tags` here: fetch-depth: 0 already fetches
+          # +refs/tags/*, and with persist-credentials: false the checkout leaves
+          # no token behind for a second fetch to authenticate with.
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
+          if [[ "$VERSION" == v*.*.* ]]; then
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
           else
-            VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
-            if [[ "$VERSION" == v*.*.* ]]; then
-              echo "version=${VERSION}" >> $GITHUB_OUTPUT
-              echo "is_tag=true" >> $GITHUB_OUTPUT
-            else
-              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
-              echo "is_tag=false" >> $GITHUB_OUTPUT
-            fi
+            echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+            echo "is_tag=false" >> $GITHUB_OUTPUT
           fi
+
+      # The Dockerfile builds with CGO_ENABLED=1 and no cross-compilation setup,
+      # so linux/arm64 is produced under emulation. This is the same QEMU step
+      # that produced the multi-arch v0.3.0-v0.3.3 images; it was dropped in #38
+      # and arm64 support went with it.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      # SHA-pinned: reads the Docker Hub credentials. See #85.
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -88,7 +116,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
@@ -103,7 +131,8 @@ jobs:
 
       - name: Update Docker Hub description
         if: steps.meta.outputs.is_tag == 'true'
-        uses: peter-evans/dockerhub-description@v5
+        # SHA-pinned: reads the Docker Hub credentials. See #85.
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}

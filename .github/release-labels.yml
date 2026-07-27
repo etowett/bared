@@ -32,3 +32,32 @@
 - name: "javascript"
   color: "168700"
   description: "Pull requests that update javascript code"
+
+# Community labels — GitHub's defaults, restored here because `skip-delete:
+# false` had already removed them from the repo. CONTRIBUTING.md points
+# contributors at the `question` label, and `good first issue` / `help wanted`
+# matter more once the repo is public. Colours and descriptions are GitHub's
+# stock values so recreating them looks identical to the originals.
+- name: "bug"
+  color: "d73a4a"
+  description: "Something isn't working"
+
+- name: "documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "New feature or request"
+
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+- name: "question"
+  color: "d876e3"
+  description: "Further information is requested"

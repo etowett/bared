@@ -17,13 +17,24 @@ jobs:
   sync:
     name: Sync Release Labels
     runs-on: [ubuntu-latest]
+    # GITHUB_TOKEN is always populated, so without this guard a fork syncing its
+    # own main would rewrite the fork's label set from our file.
+    if: github.repository == 'etowett/bared'
+    timeout-minutes: 5
 
     steps:
+      # The labeler authenticates over the API with `github-token`, so the
+      # checkout only needs to supply the yaml file.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
+      # SHA-pinned: this action runs with `issues: write`. A retagged v6 would
+      # inherit that. Dependabot's github-actions ecosystem updates SHA pins and
+      # rewrites the version comment, so this stays current.
       - name: Sync labels
-        uses: crazy-max/ghaction-github-labeler@v6
+        uses: crazy-max/ghaction-github-labeler@548a7c3603594ec17c819e1239f281a3b801ab4d # v6.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           yaml-file: .github/release-labels.yml

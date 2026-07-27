@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+
+# auto-release, release and docker share one `release` group so two releases can
+# never interleave. Never cancel: aborting mid-flight can leave a tag with no
+# release behind it, or a release with no image. Queueing is the cheaper failure.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: read
@@ -12,52 +20,39 @@ jobs:
   create-release:
     name: Create Release Tag
     runs-on: [ubuntu-latest]
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    # The repository guard keeps this out of forks, where secrets.PAT_TOKEN is
+    # empty and every gh call would fail red instead of skipping cleanly.
+    if: ${{ github.repository == 'etowett/bared' && !contains(github.event.head_commit.message, '[skip ci]') }}
+    # Short by design: this job is a handful of gh calls and a tag push. If it
+    # is still running after ten minutes something is stuck, and it is holding
+    # PAT_TOKEN while it waits.
+    timeout-minutes: 10
 
     steps:
+      # DO NOT remove `token:` — the whole release chain depends on it.
+      #
+      # This job pushes a vX.Y.Z tag, and GitHub deliberately does NOT trigger
+      # workflows for refs pushed with the default GITHUB_TOKEN (loop
+      # prevention). release.yml triggers on `push: tags: v*.*.*` and docker.yml
+      # triggers on release.yml completing, so with GITHUB_TOKEN this job mints
+      # orphan tags and neither downstream workflow ever fires.
+      #
+      # PR #36 (f8f9eaa) dropped this line and the breakage went unnoticed for
+      # four months — v0.3.3, v0.3.7 and v0.3.8 are tagged with no Release run
+      # behind them. Restoring PAT_TOKEN here makes the tag push come from a
+      # real user, which does propagate.
+      #
+      # Substitutes, if PAT_TOKEN is ever retired: a GitHub App installation
+      # token, or having this job call release.yml via `gh workflow run`.
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Ensure GitHub CLI (gh) is installed
-        run: |
-          set -euo pipefail
-
-          if command -v gh >/dev/null 2>&1; then
-            gh --version
-            exit 0
-          fi
-
-          case "${{ runner.os }}" in
-            Linux)
-              if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update
-                sudo apt-get install -y --no-install-recommends curl ca-certificates gnupg
-                sudo mkdir -p -m 755 /etc/apt/keyrings
-                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg >/dev/null
-                sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-                echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-                sudo apt-get update
-                sudo apt-get install -y gh
-              elif command -v apk >/dev/null 2>&1; then
-                sudo apk add --no-cache github-cli
-              else
-                echo "No supported package manager found for gh install (apt-get/apk). Install gh on the runner."
-                exit 1
-              fi
-              ;;
-            macOS)
-              brew update
-              brew install gh
-              ;;
-            *)
-              echo "Unsupported runner OS for automatic gh install: ${{ runner.os }}"
-              exit 1
-              ;;
-          esac
-
-          gh --version
+      # `gh` is preinstalled on ubuntu-latest, so there is no bootstrap step
+      # here. Anything that adds an apt key and installs packages inside the one
+      # job that holds PAT_TOKEN needs to earn its place, and this did not.
 
       - name: Get merged PR number
         id: pr
