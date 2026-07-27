@@ -15,7 +15,7 @@ import type { Job } from '@/types'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
-export const Route = createLazyFileRoute('/restore')({
+export const Route = createLazyFileRoute('/restore/')({
   component: RestorePage,
 })
 

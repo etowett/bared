@@ -15,8 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JobsIndexRouteImport } from './routes/jobs/index'
 
-const BackupLazyRouteImport = createFileRoute('/backup')()
-const RestoreLazyRouteImport = createFileRoute('/restore')()
+const BackupIndexLazyRouteImport = createFileRoute('/backup/')()
 const BackupJobsLazyRouteImport = createFileRoute('/backup/jobs')()
 const ConfigIndexLazyRouteImport = createFileRoute('/config/')()
 const ConfigImportLazyRouteImport = createFileRoute('/config/import')()
@@ -27,6 +26,7 @@ const ConfigRestoreTargetsLazyRouteImport = createFileRoute(
 const ConfigStoragesLazyRouteImport = createFileRoute('/config/storages')()
 const ConfigTargetsLazyRouteImport = createFileRoute('/config/targets')()
 const JobsIdLazyRouteImport = createFileRoute('/jobs/$id')()
+const RestoreIndexLazyRouteImport = createFileRoute('/restore/')()
 const RestoreJobsLazyRouteImport = createFileRoute('/restore/jobs')()
 
 const IndexRoute = IndexRouteImport.update({
@@ -34,25 +34,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BackupLazyRoute = BackupLazyRouteImport.update({
-  id: '/backup',
-  path: '/backup',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/backup.lazy').then((d) => d.Route))
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RestoreLazyRoute = RestoreLazyRouteImport.update({
-  id: '/restore',
-  path: '/restore',
+const BackupIndexLazyRoute = BackupIndexLazyRouteImport.update({
+  id: '/backup/',
+  path: '/backup/',
   getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/restore.lazy').then((d) => d.Route))
+} as any).lazy(() => import('./routes/backup/index.lazy').then((d) => d.Route))
 const BackupJobsLazyRoute = BackupJobsLazyRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => BackupLazyRoute,
+  id: '/backup/jobs',
+  path: '/backup/jobs',
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/backup/jobs.lazy').then((d) => d.Route))
 const ConfigIndexLazyRoute = ConfigIndexLazyRouteImport.update({
   id: '/config/',
@@ -103,17 +98,20 @@ const JobsIdLazyRoute = JobsIdLazyRouteImport.update({
   path: '/jobs/$id',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/jobs/$id.lazy').then((d) => d.Route))
+const RestoreIndexLazyRoute = RestoreIndexLazyRouteImport.update({
+  id: '/restore/',
+  path: '/restore/',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/restore/index.lazy').then((d) => d.Route))
 const RestoreJobsLazyRoute = RestoreJobsLazyRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => RestoreLazyRoute,
+  id: '/restore/jobs',
+  path: '/restore/jobs',
+  getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/restore/jobs.lazy').then((d) => d.Route))
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/backup': typeof BackupLazyRouteWithChildren
-  '/restore': typeof RestoreLazyRouteWithChildren
   '/backup/jobs': typeof BackupJobsLazyRoute
   '/config/import': typeof ConfigImportLazyRoute
   '/config/notifiers': typeof ConfigNotifiersLazyRoute
@@ -123,13 +121,13 @@ export interface FileRoutesByFullPath {
   '/jobs/$id': typeof JobsIdLazyRoute
   '/restore/jobs': typeof RestoreJobsLazyRoute
   '/jobs/': typeof JobsIndexRoute
+  '/backup/': typeof BackupIndexLazyRoute
   '/config/': typeof ConfigIndexLazyRoute
+  '/restore/': typeof RestoreIndexLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/backup': typeof BackupLazyRouteWithChildren
-  '/restore': typeof RestoreLazyRouteWithChildren
   '/backup/jobs': typeof BackupJobsLazyRoute
   '/config/import': typeof ConfigImportLazyRoute
   '/config/notifiers': typeof ConfigNotifiersLazyRoute
@@ -139,14 +137,14 @@ export interface FileRoutesByTo {
   '/jobs/$id': typeof JobsIdLazyRoute
   '/restore/jobs': typeof RestoreJobsLazyRoute
   '/jobs': typeof JobsIndexRoute
+  '/backup': typeof BackupIndexLazyRoute
   '/config': typeof ConfigIndexLazyRoute
+  '/restore': typeof RestoreIndexLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/backup': typeof BackupLazyRouteWithChildren
-  '/restore': typeof RestoreLazyRouteWithChildren
   '/backup/jobs': typeof BackupJobsLazyRoute
   '/config/import': typeof ConfigImportLazyRoute
   '/config/notifiers': typeof ConfigNotifiersLazyRoute
@@ -156,15 +154,15 @@ export interface FileRoutesById {
   '/jobs/$id': typeof JobsIdLazyRoute
   '/restore/jobs': typeof RestoreJobsLazyRoute
   '/jobs/': typeof JobsIndexRoute
+  '/backup/': typeof BackupIndexLazyRoute
   '/config/': typeof ConfigIndexLazyRoute
+  '/restore/': typeof RestoreIndexLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
-    | '/backup'
-    | '/restore'
     | '/backup/jobs'
     | '/config/import'
     | '/config/notifiers'
@@ -174,13 +172,13 @@ export interface FileRouteTypes {
     | '/jobs/$id'
     | '/restore/jobs'
     | '/jobs/'
+    | '/backup/'
     | '/config/'
+    | '/restore/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/backup'
-    | '/restore'
     | '/backup/jobs'
     | '/config/import'
     | '/config/notifiers'
@@ -190,13 +188,13 @@ export interface FileRouteTypes {
     | '/jobs/$id'
     | '/restore/jobs'
     | '/jobs'
+    | '/backup'
     | '/config'
+    | '/restore'
   id:
     | '__root__'
     | '/'
     | '/login'
-    | '/backup'
-    | '/restore'
     | '/backup/jobs'
     | '/config/import'
     | '/config/notifiers'
@@ -206,22 +204,26 @@ export interface FileRouteTypes {
     | '/jobs/$id'
     | '/restore/jobs'
     | '/jobs/'
+    | '/backup/'
     | '/config/'
+    | '/restore/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
-  BackupLazyRoute: typeof BackupLazyRouteWithChildren
-  RestoreLazyRoute: typeof RestoreLazyRouteWithChildren
+  BackupJobsLazyRoute: typeof BackupJobsLazyRoute
   ConfigImportLazyRoute: typeof ConfigImportLazyRoute
   ConfigNotifiersLazyRoute: typeof ConfigNotifiersLazyRoute
   ConfigRestoreTargetsLazyRoute: typeof ConfigRestoreTargetsLazyRoute
   ConfigStoragesLazyRoute: typeof ConfigStoragesLazyRoute
   ConfigTargetsLazyRoute: typeof ConfigTargetsLazyRoute
   JobsIdLazyRoute: typeof JobsIdLazyRoute
+  RestoreJobsLazyRoute: typeof RestoreJobsLazyRoute
   JobsIndexRoute: typeof JobsIndexRoute
+  BackupIndexLazyRoute: typeof BackupIndexLazyRoute
   ConfigIndexLazyRoute: typeof ConfigIndexLazyRoute
+  RestoreIndexLazyRoute: typeof RestoreIndexLazyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -233,13 +235,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/backup': {
-      id: '/backup'
-      path: '/backup'
-      fullPath: '/backup'
-      preLoaderRoute: typeof BackupLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -247,19 +242,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/restore': {
-      id: '/restore'
-      path: '/restore'
-      fullPath: '/restore'
-      preLoaderRoute: typeof RestoreLazyRouteImport
+    '/backup/': {
+      id: '/backup/'
+      path: '/backup'
+      fullPath: '/backup/'
+      preLoaderRoute: typeof BackupIndexLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/backup/jobs': {
       id: '/backup/jobs'
-      path: '/jobs'
+      path: '/backup/jobs'
       fullPath: '/backup/jobs'
       preLoaderRoute: typeof BackupJobsLazyRouteImport
-      parentRoute: typeof BackupLazyRoute
+      parentRoute: typeof rootRouteImport
     }
     '/config/': {
       id: '/config/'
@@ -317,53 +312,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JobsIdLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/restore/': {
+      id: '/restore/'
+      path: '/restore'
+      fullPath: '/restore/'
+      preLoaderRoute: typeof RestoreIndexLazyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/restore/jobs': {
       id: '/restore/jobs'
-      path: '/jobs'
+      path: '/restore/jobs'
       fullPath: '/restore/jobs'
       preLoaderRoute: typeof RestoreJobsLazyRouteImport
-      parentRoute: typeof RestoreLazyRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface BackupLazyRouteChildren {
-  BackupJobsLazyRoute: typeof BackupJobsLazyRoute
-}
-
-const BackupLazyRouteChildren: BackupLazyRouteChildren = {
-  BackupJobsLazyRoute: BackupJobsLazyRoute,
-}
-
-const BackupLazyRouteWithChildren = BackupLazyRoute._addFileChildren(
-  BackupLazyRouteChildren,
-)
-
-interface RestoreLazyRouteChildren {
-  RestoreJobsLazyRoute: typeof RestoreJobsLazyRoute
-}
-
-const RestoreLazyRouteChildren: RestoreLazyRouteChildren = {
-  RestoreJobsLazyRoute: RestoreJobsLazyRoute,
-}
-
-const RestoreLazyRouteWithChildren = RestoreLazyRoute._addFileChildren(
-  RestoreLazyRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
-  BackupLazyRoute: BackupLazyRouteWithChildren,
-  RestoreLazyRoute: RestoreLazyRouteWithChildren,
+  BackupJobsLazyRoute: BackupJobsLazyRoute,
   ConfigImportLazyRoute: ConfigImportLazyRoute,
   ConfigNotifiersLazyRoute: ConfigNotifiersLazyRoute,
   ConfigRestoreTargetsLazyRoute: ConfigRestoreTargetsLazyRoute,
   ConfigStoragesLazyRoute: ConfigStoragesLazyRoute,
   ConfigTargetsLazyRoute: ConfigTargetsLazyRoute,
   JobsIdLazyRoute: JobsIdLazyRoute,
+  RestoreJobsLazyRoute: RestoreJobsLazyRoute,
   JobsIndexRoute: JobsIndexRoute,
+  BackupIndexLazyRoute: BackupIndexLazyRoute,
   ConfigIndexLazyRoute: ConfigIndexLazyRoute,
+  RestoreIndexLazyRoute: RestoreIndexLazyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
