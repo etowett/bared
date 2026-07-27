@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createLazyFileRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -23,7 +23,7 @@ import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, HardDrive, Cloud, Server } from 'lucide-react'
 import type { Storage, StorageRequest, ConfigSource } from '@/types'
 
-export const Route = createFileRoute('/config/storages')({
+export const Route = createLazyFileRoute('/config/storages')({
   component: StoragesPage,
 })
 

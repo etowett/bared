@@ -13,7 +13,7 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import type { ConfigSource, MigrateConfigResult, ReloadConfigResult } from '@/types'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 
-export const Route = createFileRoute('/config/')({
+export const Route = createLazyFileRoute('/config/')({
   component: ConfigDashboardPage,
 })
 

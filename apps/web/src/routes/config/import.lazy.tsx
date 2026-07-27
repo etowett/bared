@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useImportConfig } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import type { ConfigImportResponse, ResourceImportSummary } from '@/types'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import {
   AlertCircle,
   AlertTriangle,
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 
-export const Route = createFileRoute('/config/import')({
+export const Route = createLazyFileRoute('/config/import')({
   component: ConfigImportPage,
 })
 

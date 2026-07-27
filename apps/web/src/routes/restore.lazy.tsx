@@ -1,6 +1,6 @@
 import { JobDetail } from '@/components/JobDetail'
 import { JobList } from '@/components/JobList'
-import { TargetList } from '@/components/TargetList'
+import { RestoreForm } from '@/components/RestoreForm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -11,50 +11,26 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useJobs } from '@/hooks/useJobs'
-import { useTargets } from '@/hooks/useTargets'
 import type { Job } from '@/types'
-import { createFileRoute } from '@tanstack/react-router'
+import { createLazyFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
-export const Route = createFileRoute('/backup')({
-  component: BackupPage,
+export const Route = createLazyFileRoute('/restore')({
+  component: RestorePage,
 })
 
-export function BackupPage() {
-  const { data: dashboard } = useTargets()
+export function RestorePage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
-  const [targetSearch, setTargetSearch] = useState<string>('')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
 
   const { data: jobsData, isLoading } = useJobs(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   )
 
-  const targets = useMemo(() => dashboard?.targets || [], [dashboard?.targets])
-
-  // Derive unique db types for filter dropdown
-  const dbTypes = useMemo(() => {
-    const types = new Set(targets.map((t) => t.type))
-    return Array.from(types).sort()
-  }, [targets])
-
-  // Filter targets by search and type
-  const filteredTargets = useMemo(() => {
-    let result = targets
-    if (targetSearch) {
-      result = result.filter((t) => t.name.toLowerCase().includes(targetSearch.toLowerCase()))
-    }
-    if (typeFilter !== 'all') {
-      result = result.filter((t) => t.type === typeFilter)
-    }
-    return result
-  }, [targets, targetSearch, typeFilter])
-
-  // Filter for backup jobs only and by target name
-  const backupJobs = useMemo(() => {
-    let jobs = (jobsData?.jobs || []).filter((job) => job.type === 'backup')
+  // Filter for restore jobs only and by target name
+  const restoreJobs = useMemo(() => {
+    let jobs = (jobsData?.jobs || []).filter((job) => job.type === 'restore')
 
     if (targetFilter) {
       jobs = jobs.filter((job) => job.target.toLowerCase().includes(targetFilter.toLowerCase()))
@@ -66,36 +42,15 @@ export function BackupPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Backup</h2>
+        <h2 className="text-2xl font-semibold">Restore</h2>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <CardTitle>Backup Targets ({filteredTargets.length})</CardTitle>
-          <div className="flex gap-3">
-            <Input
-              placeholder="Search targets..."
-              value={targetSearch}
-              onChange={(e) => setTargetSearch(e.target.value)}
-              className="w-[200px]"
-            />
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {dbTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <CardHeader>
+          <CardTitle>Restore Database</CardTitle>
         </CardHeader>
         <CardContent>
-          <TargetList targets={filteredTargets} />
+          <RestoreForm />
         </CardContent>
       </Card>
 
@@ -103,7 +58,7 @@ export function BackupPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>
-            Backup Job History ({backupJobs.length} Job{backupJobs.length !== 1 ? 's' : ''})
+            Restore Job History ({restoreJobs.length} Job{restoreJobs.length !== 1 ? 's' : ''})
           </CardTitle>
           <div className="flex gap-3">
             <Input
@@ -130,13 +85,13 @@ export function BackupPage() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-6 text-muted-foreground">Loading jobs...</div>
-          ) : backupJobs.length === 0 ? (
+          ) : restoreJobs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              No backup jobs found. {targetFilter && 'Try adjusting your filters.'}
+              No restore jobs found. {targetFilter && 'Try adjusting your filters.'}
             </div>
           ) : (
             <JobList
-              jobs={backupJobs}
+              jobs={restoreJobs}
               onSelectJob={setSelectedJob}
               selectedJobId={selectedJob?.id}
             />
