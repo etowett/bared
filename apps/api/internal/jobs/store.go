@@ -15,9 +15,12 @@ type JobFilter struct {
 
 	// WithResults asks the store to rebuild each row's typed Result from the
 	// persisted JSON. It is off by default because that costs a json.Unmarshal
-	// per row, and the only caller that reads a listed job's Result is the
-	// dashboard rollup — /api/jobs renders none of it. Store implementations
-	// that keep results in memory may ignore this.
+	// per row, and the only listing that reads a job's Result is the health
+	// rollup behind /api/dashboard and /api/targets — /api/jobs renders none of
+	// it. Store implementations that keep results in memory may ignore this.
+	//
+	// A job listed without it carries a nil Result; persisting that job again
+	// must not blank the stored result. See persistence.SQLStore.UpdateJob.
 	WithResults bool
 }
 

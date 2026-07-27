@@ -192,7 +192,7 @@ Get dashboard statistics: job counts, per-target health, and success-rate rollup
 | `consecutive_failures` | Failed backup jobs since the last successful one. `0` when `last_backup_status` is `unknown`. |
 | `last_backup_bytes` | Artifact size recorded by the last successful backup. |
 | `last_backup_duration_seconds` | How long that backup job ran. |
-| `overdue` | Two scheduled fires have passed since the last successful backup. The second fire is a grace period: a backup is due from the moment its slot opens until it finishes, so flagging the first would mark a healthy target late for the whole duration of its own run. Always `false` while `is_running` is true, for targets with no schedule, for targets with no job history at all — nothing records when a target was configured — and whenever the history behind it could not be read. |
+| `overdue` | A scheduled run has come due since the last successful backup, and the grace period on top of it — one schedule period, capped at an hour — has passed too. The grace exists because a backup is due from the moment its slot opens until it finishes, so flagging the instant it comes due would mark a healthy target late for the duration of its own run; the cap stops a daily or yearly target from inheriting a daily or yearly grace. Always `false` while `is_running` is true, for targets with no schedule, for targets with no job history at all — nothing records when a target was configured — and whenever the history behind it could not be read. |
 
 **Absent fields are unknown, not zero.** Every optional field above is omitted
 when the daemon cannot establish it. Clients must render an omitted value as
@@ -210,9 +210,9 @@ Several fields are deliberately conservative:
   counts are computed from a bounded scan of backup history. Whenever that scan
   cannot cover the window — the job store was unreachable, the scan hit its row
   cap after the window started, or the daemon has no store and has been up for
-  less than the window — the figure is omitted. Without a job store,
-  `success_rate_7d` is effectively never reported: in-memory history is pruned
-  every 72 hours.
+  less than the window, or longer than the daemon keeps in-memory history — the
+  figure is omitted. Without a job store, `success_rate_7d` is never reported:
+  in-memory history is pruned at 72 hours, whatever the uptime.
 - **`unknown` is not `never`.** When the daemon cannot read a target's history
   it says so. Reporting a target it cannot see as one that has never been backed
   up would turn a persistence outage into a dashboard full of healthy, brand-new

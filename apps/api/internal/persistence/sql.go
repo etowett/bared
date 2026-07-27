@@ -426,23 +426,27 @@ func (s *SQLStore) CreateJob(ctx context.Context, job *jobs.Job) error {
 }
 
 func (s *SQLStore) UpdateJob(ctx context.Context, job *jobs.Job) error {
-	// Serialize result if present
-	var resultJSON []byte
+	// A nil Result is written as NULL and COALESCEd away below rather than
+	// blanking the column. Jobs only ever gain a result, never lose one, and a
+	// job read back without one — ListJobs skips decoding unless the caller
+	// asked for it — must not erase the size a backup recorded when it is
+	// updated later.
+	var resultJSON any
 	if job.Result != nil {
-		var err error
-		resultJSON, err = json.Marshal(job.Result)
+		encoded, err := json.Marshal(job.Result)
 		if err != nil {
 			return fmt.Errorf("failed to marshal result: %w", err)
 		}
+		resultJSON = string(encoded)
 	}
 
 	query := `
 		UPDATE jobs
-		SET status=?, started_at=?, completed_at=?, result_json=?, error=?
+		SET status=?, started_at=?, completed_at=?, result_json=COALESCE(?, result_json), error=?
 		WHERE id=?
 	`
 	_, err := s.db.ExecContext(ctx, query,
-		job.Status, job.StartedAt, job.CompletedAt, string(resultJSON), job.Error, job.ID)
+		job.Status, job.StartedAt, job.CompletedAt, resultJSON, job.Error, job.ID)
 	return err
 }
 

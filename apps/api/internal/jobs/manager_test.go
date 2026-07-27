@@ -639,4 +639,15 @@ func TestManager_CoversWindow(t *testing.T) {
 		"a just-started daemon with no store has not observed the last 24 hours")
 	assert.True(t, fresh.CoversWindow(time.Millisecond, now.Add(time.Second)),
 		"a window the process has been up for is answerable")
+
+	// Uptime is not enough: CleanupOldJobs deletes the far end of in-memory
+	// history, so a long-running storeless daemon still cannot answer for a
+	// window longer than the pruning horizon.
+	old := NewManager(cfg, nil, nil, 2, 100)
+	old.startedAt = now.Add(-30 * 24 * time.Hour)
+	old.StartCleanupRoutine(time.Hour, 72*time.Hour)
+
+	assert.True(t, old.CoversWindow(24*time.Hour, now), "24h sits inside the 72h horizon")
+	assert.False(t, old.CoversWindow(7*24*time.Hour, now),
+		"7 days of history was pruned at 72 hours, however long the process has been up")
 }
