@@ -47,8 +47,24 @@ const field = {
 
 function renderForm(notifier?: Notifier) {
   const onSubmit = vi.fn().mockResolvedValue(undefined)
-  render(<NotifierForm open onOpenChange={vi.fn()} notifier={notifier} onSubmit={onSubmit} />)
-  return { onSubmit, user: userEvent.setup() }
+  const onOpenChange = vi.fn()
+  const form = (open: boolean, current?: Notifier) => (
+    <NotifierForm open={open} onOpenChange={onOpenChange} notifier={current} onSubmit={onSubmit} />
+  )
+
+  // The page mounts this dialog once, closed and with no notifier, then only
+  // toggles `open` (#126). Mounting it the same way here keeps the fields
+  // honest: state must be derived when the dialog opens, not when it mounts.
+  const { rerender } = render(form(false, undefined))
+  rerender(form(true, notifier))
+
+  /** Closes the dialog and opens it again for `next` — what the page does. */
+  const reopenWith = (next?: Notifier) => {
+    rerender(form(false, next))
+    rerender(form(true, next))
+  }
+
+  return { onSubmit, reopenWith, user: userEvent.setup() }
 }
 
 async function selectOption(user: User, comboboxName: RegExp, optionLabel: string) {
@@ -99,6 +115,16 @@ const existingEmailNotifier: Notifier = {
     smtp_use_tls: true,
     smtp_password: '***REDACTED***',
   },
+  enabled: true,
+  created_at: '',
+  updated_at: '',
+}
+
+const existingSlackNotifier: Notifier = {
+  name: 'alerts',
+  type: 'slack',
+  on_success: false,
+  config: { url: 'https://hooks.slack.com/services/T/B/x', channel: '#backups' },
   enabled: true,
   created_at: '',
   updated_at: '',
@@ -264,6 +290,21 @@ describe('NotifierForm', () => {
 
     await user.click(screen.getByRole('button', { name: /^update$/i }))
 
+    // #126: the untouched edit must round-trip the stored settings, not the
+    // blanks a never-initialized form would have sent.
+    expect(submitted(onSubmit)).toEqual({
+      name: 'ops-mail',
+      type: 'email',
+      on_success: true,
+      config: {
+        smtp_host: 'smtp.example.com',
+        smtp_port: 465,
+        smtp_username: 'mailer@example.com',
+        smtp_from: 'backups@example.com',
+        smtp_to: ['admin@example.com', 'oncall@example.com'],
+        smtp_use_tls: true,
+      },
+    })
     expect(submitted(onSubmit)).not.toHaveProperty('smtp_password')
   })
 
@@ -284,18 +325,39 @@ describe('NotifierForm', () => {
   })
 
   it('pre-fills an existing Slack notifier from config.url', () => {
-    renderForm({
-      name: 'alerts',
-      type: 'slack',
-      on_success: false,
-      config: { url: 'https://hooks.slack.com/services/T/B/x', channel: '#backups' },
-      enabled: true,
-      created_at: '',
-      updated_at: '',
-    })
+    renderForm(existingSlackNotifier)
 
     expect(field.slackUrl()).toHaveValue('https://hooks.slack.com/services/T/B/x')
     expect(field.channel()).toHaveValue('#backups')
+  })
+
+  // #126: the dialog stays mounted and only `notifier` changes, so state that is
+  // seeded once on mount leaks the previously edited channel into the next one.
+  it('shows the second notifier, not the first, when editing two in a row', () => {
+    const { reopenWith } = renderForm(existingEmailNotifier)
+    expect(field.smtpHost()).toHaveValue('smtp.example.com')
+
+    reopenWith(existingSlackNotifier)
+
+    expect(field.name()).toHaveValue('alerts')
+    expect(field.slackUrl()).toHaveValue('https://hooks.slack.com/services/T/B/x')
+    expect(field.channel()).toHaveValue('#backups')
+    expect(screen.getByRole('checkbox', { name: /notify on success/i })).not.toBeChecked()
+    // The email branch is gone entirely, so none of its values can bleed through.
+    expect(screen.queryByLabelText(/^smtp host \*$/i)).not.toBeInTheDocument()
+  })
+
+  it('opens a clean form when create follows an edit', () => {
+    const { reopenWith } = renderForm(existingEmailNotifier)
+
+    reopenWith(undefined)
+
+    expect(screen.getByRole('heading', { name: /create notifier/i })).toBeInTheDocument()
+    expect(field.name()).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: /^type \*$/i })).toHaveTextContent('Slack')
+    expect(field.slackUrl()).toHaveValue('')
+    expect(field.channel()).toHaveValue('')
+    expect(screen.getByRole('checkbox', { name: /notify on success/i })).not.toBeChecked()
   })
 
   it('pre-fills webhook method and auth from the nested webhook_auth object', () => {
