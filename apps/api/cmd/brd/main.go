@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bared/internal/app"
-	"bared/internal/config"
-	"bared/internal/daemon"
-	"bared/internal/util"
-	"bared/internal/version"
+	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/daemon"
+	"github.com/etowett/bared/apps/api/internal/util"
+	"github.com/etowett/bared/apps/api/internal/version"
 )
 
 var (

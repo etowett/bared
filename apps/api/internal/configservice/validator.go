@@ -3,7 +3,7 @@ package configservice
 import (
 	"fmt"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // ValidateStorage validates a storage configuration

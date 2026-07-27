@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"bared/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/jobs"
 
 	_ "github.com/mattn/go-sqlite3"
 )

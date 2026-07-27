@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // sshDialTimeout bounds the TCP connect and SSH handshake so an unreachable

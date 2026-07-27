@@ -3,7 +3,7 @@ package database
 import (
 	"fmt"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // NewDumper creates a new Dumper based on the target configuration

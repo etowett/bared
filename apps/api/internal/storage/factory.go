@@ -4,7 +4,7 @@ package storage
 import (
 	"fmt"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // New creates a new storage backend based on the configuration

@@ -12,8 +12,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // defaultKnownHostsPath is consulted when known_hosts_path is not configured.

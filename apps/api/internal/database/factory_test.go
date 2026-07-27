@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/config"
-	"bared/internal/testutil/fixtures"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
 )
 
 func TestNewDumper(t *testing.T) {

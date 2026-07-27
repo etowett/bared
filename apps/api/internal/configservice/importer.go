@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // ImportFromYAML imports YAML configuration into the database

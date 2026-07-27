@@ -9,11 +9,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"bared/internal/config"
-	"bared/internal/configservice"
-	"bared/internal/jobs"
-	"bared/internal/util"
-	"bared/internal/web"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/configservice"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/util"
+	"github.com/etowett/bared/apps/api/internal/web"
 )
 
 // Server represents the HTTP API server

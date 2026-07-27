@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"bared/internal/jobs"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/util"
 
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )

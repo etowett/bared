@@ -1,4 +1,4 @@
-module bared
+module github.com/etowett/bared/apps/api
 
 go 1.26.5
 

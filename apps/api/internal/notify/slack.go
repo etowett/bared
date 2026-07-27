@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // Slack implements Notifier for Slack webhooks

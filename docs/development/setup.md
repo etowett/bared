@@ -40,7 +40,8 @@ make validate
 
 Each deployable app lives under `apps/`; the repo root holds project-level concerns only.
 The Go module is rooted at `apps/api/` — run Go commands from there (or `go -C apps/api …`).
-Its module name is still `bared`, so import paths are unchanged (`bared/internal/storage`).
+Its module path is `github.com/etowett/bared/apps/api`, so imports look like
+`github.com/etowett/bared/apps/api/internal/storage`.
 
 ```
 bared/
@@ -338,7 +339,7 @@ package database
 import (
     "context"
     "io"
-    "bared/internal/config"
+    "github.com/etowett/bared/apps/api/internal/config"
 )
 
 type MongoDB struct {

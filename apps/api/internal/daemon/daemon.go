@@ -13,14 +13,14 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"bared/internal/api"
-	"bared/internal/config"
-	"bared/internal/configservice"
-	"bared/internal/encryption"
-	"bared/internal/jobs"
-	"bared/internal/notify"
-	"bared/internal/persistence"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/api"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/configservice"
+	"github.com/etowett/bared/apps/api/internal/encryption"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/notify"
+	"github.com/etowett/bared/apps/api/internal/persistence"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // Daemon represents the backup daemon

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // Email implements Notifier for SMTP email notifications

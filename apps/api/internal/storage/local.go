@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // Local implements Storage for local filesystem

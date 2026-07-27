@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/compress"
-	"bared/internal/config"
-	"bared/internal/testutil/fixtures"
+	"github.com/etowett/bared/apps/api/internal/compress"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
 )
 
 func TestRestoreTargetWithOptions_DryRun(t *testing.T) {

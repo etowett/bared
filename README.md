@@ -54,12 +54,21 @@ and treat the encryption key as the sensitive material it is.
 ### Installation
 
 ```bash
-# Build the binary
+# Install the latest release with Go
+go install github.com/etowett/bared/apps/api/cmd/brd@latest
+
+# Or build from a clone (embeds the web dashboard)
 make build
 
 # Or manually with Go (the module lives in apps/api)
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 ```
+
+> Two caveats with `go install`: it builds without the release ldflags, so `brd --version`
+> reports `dev`; and because the module is rooted at `apps/api/`, Go only treats
+> `apps/api/vX.Y.Z` tags as releases — the repo tags `vX.Y.Z`, so `@latest` resolves to the
+> tip of `main` rather than the last release. For a stamped, released build use `make build`,
+> a release binary, or the Docker image.
 
 ### Configuration
 

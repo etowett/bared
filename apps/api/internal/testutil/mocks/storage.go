@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"bared/internal/storage"
+	"github.com/etowett/bared/apps/api/internal/storage"
 )
 
 // MockStorage is a mock implementation of the storage.Storage interface

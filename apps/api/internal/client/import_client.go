@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"bared/internal/api"
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/api"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // ImportClient provides HTTP API client for config import operations

@@ -34,7 +34,7 @@ import (
     "fmt"
     "io"
     "path/filepath"
-    "bared/internal/config"
+    "github.com/etowett/bared/apps/api/internal/config"
     // Import Azure SDK
 )
 

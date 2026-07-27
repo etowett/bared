@@ -6,8 +6,8 @@ import (
 	"io"
 	"time"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // MySQL implements Dumper and Restorer for MySQL/MariaDB databases

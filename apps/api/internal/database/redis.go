@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // Redis implements Dumper and Restorer for Redis databases

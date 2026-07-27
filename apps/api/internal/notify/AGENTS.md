@@ -21,7 +21,7 @@ import (
     "encoding/json"
     "fmt"
     "net/http"
-    "bared/internal/config"
+    "github.com/etowett/bared/apps/api/internal/config"
 )
 
 type Discord struct {

@@ -37,8 +37,9 @@ AGENTS.md                                  ← you are here: overview, workflow,
 **Rule of thumb:** touching `apps/api/internal/storage/` → read `apps/api/internal/storage/AGENTS.md` **and** `apps/api/internal/AGENTS.md`.
 Touching `apps/web/` → read `apps/web/AGENTS.md`. A full-stack change → read both backend and frontend guides.
 
-**The module is still `bared`.** `go.mod` sits at `apps/api/`, so every import path is unchanged
-(`bared/internal/storage`, `bared/cmd/brd`). Run Go commands from `apps/api/` — or just use the
+**The module path is `github.com/etowett/bared/apps/api`.** `go.mod` sits at `apps/api/`, so imports
+look like `github.com/etowett/bared/apps/api/internal/storage` and
+`github.com/etowett/bared/apps/api/cmd/brd`. Run Go commands from `apps/api/` — or just use the
 root `Makefile`, which already does.
 
 Changing the **agent tooling itself** (skills, commands, subagents, hooks, permissions) is a separate
@@ -76,7 +77,7 @@ WebSocket, SQLite for job/config persistence. The web UI is embedded into the bi
 ### Key files to know
 
 ```
-apps/api/go.mod                                # module root (module name: bared)
+apps/api/go.mod                                # module root (github.com/etowett/bared/apps/api)
 apps/api/cmd/brd/main.go                       # CLI entry point (Cobra commands)
 apps/api/internal/app/                         # high-level backup/restore orchestration
 apps/api/internal/api/server.go                # HTTP API + WebSocket server

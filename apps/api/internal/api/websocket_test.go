@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/config"
-	"bared/internal/jobs"
-	"bared/internal/testutil/fixtures"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
 )
 
 func TestHandleStreamJobLogs_JobNotFound(t *testing.T) {

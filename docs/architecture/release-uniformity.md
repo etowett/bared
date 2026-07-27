@@ -63,9 +63,9 @@ BUILD_DATE: 2025-12-04T10:30:45Z (RFC3339)
 **LDFLAGS** (identical across all methods):
 
 ```bash
--X bared/internal/version.Version=${VERSION}
--X bared/internal/version.Commit=${COMMIT}
--X bared/internal/version.BuildDate=${BUILD_DATE}
+-X github.com/etowett/bared/apps/api/internal/version.Version=${VERSION}
+-X github.com/etowett/bared/apps/api/internal/version.Commit=${COMMIT}
+-X github.com/etowett/bared/apps/api/internal/version.BuildDate=${BUILD_DATE}
 ```
 
 ### ✅ Static Compilation (CGO)
@@ -93,7 +93,7 @@ Docker Dockerfile:
 
 ```bash
 CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo \
-  -ldflags "-extldflags '-static' -X bared/internal/version.Version=... " \
+  -ldflags "-extldflags '-static' -X github.com/etowett/bared/apps/api/internal/version.Version=... " \
   -o brd ./cmd/brd
 ```
 
@@ -101,7 +101,7 @@ Binary Release (.github/workflows/release.yml):
 
 ```bash
 CGO_ENABLED=0 GOOS=<platform> GOARCH=<arch> go build \
-  -ldflags "-X bared/internal/version.Version=..." \
+  -ldflags "-X github.com/etowett/bared/apps/api/internal/version.Version=..." \
   -o dist/brd-<platform>-<arch> ./cmd/brd
 ```
 
@@ -109,7 +109,7 @@ Local Build (Makefile):
 
 ```bash
 CGO_ENABLED=0 go build \
-  -ldflags "-X bared/internal/version.Version=..." \
+  -ldflags "-X github.com/etowett/bared/apps/api/internal/version.Version=..." \
   -o bin/brd ./cmd/brd
 ```
 

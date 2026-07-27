@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"bared/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/jobs"
 )
 
 // ErrorResponse represents an API error

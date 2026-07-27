@@ -11,11 +11,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/robfig/cron/v3"
 
-	"bared/internal/app"
-	"bared/internal/config"
-	"bared/internal/jobs"
-	"bared/internal/util"
-	"bared/internal/version"
+	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/util"
+	"github.com/etowett/bared/apps/api/internal/version"
 )
 
 // calculateNextRun calculates the next execution time for a cron expression

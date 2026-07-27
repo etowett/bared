@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/app"
-	"bared/internal/config"
-	"bared/internal/jobs"
-	"bared/internal/testutil/fixtures"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 func init() {

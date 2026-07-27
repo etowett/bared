@@ -4,8 +4,8 @@
 all: build
 
 # Application directories. The repo is a monorepo: each deployable app lives
-# under apps/. The Go module root is apps/api (module name is still `bared`, so
-# import paths are unchanged); the dashboard is a separate Bun project.
+# under apps/. The Go module root is apps/api (module path
+# `github.com/etowett/bared/apps/api`); the dashboard is a separate Bun project.
 API_DIR=apps/api
 WEB_DIR=apps/web
 
@@ -25,7 +25,7 @@ BIN_DIR=bin
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-LDFLAGS=-ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_TIME}"
+LDFLAGS=-ldflags "-X github.com/etowett/bared/apps/api/internal/version.Version=${VERSION} -X github.com/etowett/bared/apps/api/internal/version.Commit=${COMMIT} -X github.com/etowett/bared/apps/api/internal/version.BuildDate=${BUILD_TIME}"
 
 # Docker build variables
 DOCKER_IMAGE ?= ektowett/bared
