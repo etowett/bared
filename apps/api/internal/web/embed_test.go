@@ -206,12 +206,14 @@ func TestGetHandler_DevModeMessage(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	// If dist directory doesn't exist (dev mode), should have helpful message
+	// On a backend-only build (dist holds nothing but its .gitkeep) the message
+	// has to name a command that actually exists in this repo — the old one
+	// said "cd web && npm install", which is neither the right path nor the
+	// right package manager.
 	if rr.Code == http.StatusNotFound {
 		body := rr.Body.String()
 		assert.Contains(t, body, "Web UI not built")
-		assert.Contains(t, body, "npm")
-		assert.Contains(t, body, "build")
+		assert.Contains(t, body, "make build-with-web")
 	}
 }
 
