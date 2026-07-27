@@ -189,6 +189,7 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 | Integration tests | `make test-integration` (needs `make setup-test-env`) |
 | Coverage | `make coverage` |
 | **Backend verify gate** (fmt+vet+lint+test+coverage) | **`make pre-commit`** |
+| Check the coverage ratchet only | `make coverage-check` |
 | Frontend dev server | `make web-dev` (or `cd apps/web && bun run dev`) |
 | Frontend lint | `make web-lint` |
 | **Frontend verify gate** (types+lint+fmt+tests) | **`make web-validate`** |
@@ -199,10 +200,13 @@ Run from the repo root. `make help` lists everything; the high-value targets:
 > **`make validate` is not the verify gate** — it builds and validates
 > `examples/config.example.yml`, nothing more. The gate is `make pre-commit`.
 
-> **Known gap:** `make pre-commit`'s last step, `coverage-check`, currently fails — the repo sits at
-> ~27% against a 75% threshold, and `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` have
-> no tests at all. Everything before it (`fmt` → `vet` → `lint` → `test-unit`) must pass. Don't try
-> to close a 48-point coverage gap as a side quest; raising it is tracked separately.
+> **Coverage is a ratchet, not an aspiration.** `coverage-check` compares against
+> `COVERAGE_THRESHOLD` in the `Makefile` — set just below the real measured number, with
+> `internal/testutil/...` excluded because test helpers aren't production statements. CI enforces the
+> same number. It only ever moves **up**: if the gate goes red, add tests for what you changed;
+> never lower the threshold. When a change lifts coverage meaningfully, raise the threshold in the
+> same PR. `internal/storage`, `internal/api` and `internal/notify` are the highest-value places to
+> add tests — low coverage and they handle credentials, external I/O and path handling.
 
 > Hooks in `.claude/hooks/` run under both Claude Code and Codex: files are auto-formatted on save,
 > secrets and direct-to-`main` commits are blocked, and a Stop hook surfaces lint/type errors.

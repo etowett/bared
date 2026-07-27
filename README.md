@@ -35,10 +35,10 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What you should weigh before relying on it:**
 
-- **Test coverage is roughly 27% against the project's own 75% threshold.** There
-  are 43 test files across 16 packages, but `cmd/brd`, `internal/client` and
-  `internal/configservice` have no tests at all. See
-  [issue #53](https://github.com/etowett/bared/issues/53).
+- **Test coverage is roughly 35%.** There are 43 test files across 16 packages, but
+  `cmd/brd`, `internal/client` and `internal/configservice` have no tests at all, and
+  `internal/storage`, `internal/api` and `internal/notify` sit in the 20s. CI enforces a
+  ratchet (`make coverage-check`) so the number can only go up, but it is low today.
 - Known security limitations are documented in [SECURITY.md](SECURITY.md) — read
   it before deploying. They include SFTP host key verification and encryption key
   storage.
