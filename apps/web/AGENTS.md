@@ -756,6 +756,32 @@ the eager file owns `validateSearch` and exports the `JobsSearch` type, the lazy
 The router in `App.tsx` sets `defaultPendingComponent` so a slow chunk fetch shows a fallback rather
 than a blank outlet.
 
+**Table state lives in the URL, not `useState`.** Every job table — `/jobs`, `/backup`,
+`/backup/jobs`, `/restore`, `/restore/jobs` — renders
+[`components/JobHistoryTable.tsx`](./src/components/JobHistoryTable.tsx) and takes its filter, page,
+page size, sort and density from search params validated by `validateJobSearch` in
+[`lib/job-search.ts`](./src/lib/job-search.ts). A filtered view is then a link somebody can paste
+into an incident channel, and it survives a reload. `validateJobSearch` **whitelists** every value:
+the daemon answers an unknown `status` with an empty list and HTTP 200, which would read as "no
+jobs" rather than "bad link". Declare every field optional — TanStack derives what a
+`<Link to="/backup">` must supply from that type, and a required `page` would force every
+breadcrumb in the app to spell out a page number.
+
+Filtering and paging happen **server-side**; sorting cannot, because `GET /api/jobs` has no sort
+parameter (#141). The table sorts the page it already holds and says so in a caption — do not
+present that as a global sort. The `target` filter is a `Select` of known names rather than a text
+box because the API matches `target` exactly; a partial name would silently return nothing.
+
+`components/ui/table.tsx` carries the primitives: `SortableTableHead` (writes `aria-sort` on the
+`<th>` and puts a real `<button>` inside it), `TableDensityToggle`, and a `priority` prop on
+`TableHead`/`TableCell` that hides a column below a breakpoint. A hidden column must never be the
+only place a value appears — `JobList` folds the hidden `Created` value into the row's first cell.
+
+**Vitest ordering gotcha:** opening a Radix `Select` mounts `react-remove-scroll`, which injects a
+stylesheet that RTL's cleanup does not remove. Every later `getByRole(…, { name })` in that file
+then pays for it in `getComputedStyle` — a 100ms query becomes a 25s one. Keep Select-driven tests
+last in a file (see `routes/jobs/search-params.test.tsx`).
+
 **Confirming a destructive action**: call `useConfirm()` from
 [`src/contexts/ConfirmContext.tsx`](./src/contexts/ConfirmContext.tsx). It returns a single
 function; there is nothing to render.
