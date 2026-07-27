@@ -22,12 +22,17 @@ jobs:
     # .goreleaser.yml hardcodes `owner: etowett`, so a fork tagging its own
     # release would fail in GoReleaser rather than skip.
     if: github.repository == 'etowett/bared'
+    timeout-minutes: 30
 
     steps:
+      # GoReleaser publishes over the GitHub API with GITHUB_TOKEN and uses git
+      # read-only (`changelog.use: github-native`, no brews/scoop tap pushes),
+      # so nothing in this job needs a pushable git remote.
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7

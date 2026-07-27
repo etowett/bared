@@ -49,10 +49,14 @@ jobs:
   web:
     name: Audit Web Dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
+      # Nothing here pushes, so the token does not need to survive the checkout.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -73,10 +77,13 @@ jobs:
   go:
     name: Audit Go Dependencies
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7

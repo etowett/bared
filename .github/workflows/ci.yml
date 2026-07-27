@@ -23,10 +23,18 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    # Sized generously against observed runtime: this is here to kill a hang
+    # before it burns six hours of the default, not to police a slow run.
+    timeout-minutes: 20
 
     steps:
+      # persist-credentials: false — nothing in this job pushes, so there is no
+      # reason to leave the token in .git/config where any build step, test or
+      # transitive dependency can read it.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -60,10 +68,13 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -91,10 +102,13 @@ jobs:
   agent-config:
     name: Agent Config
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # .claude/ is canonical and .codex/ mirrors it; without this the Codex
       # setup rots silently. See .claude/AGENTS.md for the sync map.
@@ -111,10 +125,13 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     needs: [test, lint]
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7

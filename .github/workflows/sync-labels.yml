@@ -20,10 +20,15 @@ jobs:
     # GITHUB_TOKEN is always populated, so without this guard a fork syncing its
     # own main would rewrite the fork's label set from our file.
     if: github.repository == 'etowett/bared'
+    timeout-minutes: 5
 
     steps:
+      # The labeler authenticates over the API with `github-token`, so the
+      # checkout only needs to supply the yaml file.
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # SHA-pinned: this action runs with `issues: write`. A retagged v6 would
       # inherit that. Dependabot's github-actions ecosystem updates SHA pins and

@@ -27,6 +27,10 @@ jobs:
     # The repository guard keeps this out of forks, where DOCKERHUB_USERNAME /
     # DOCKERHUB_TOKEN are empty and docker/login-action fails red.
     if: github.repository == 'etowett/bared' && (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch')
+    # Higher than the CI jobs because linux/arm64 is built under QEMU with
+    # CGO_ENABLED=1, which is slow. Still bounded: a wedged buildx would
+    # otherwise hold a runner for the six-hour default.
+    timeout-minutes: 60
 
     steps:
       # Pin the checkout to the commit the Release run was built from. Without a
@@ -40,6 +44,9 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
+          # This job pushes an image, not a git ref — Docker Hub auth comes from
+          # login-action, so the git token does not need to survive.
+          persist-credentials: false
 
       - name: Extract version metadata
         id: meta
@@ -54,7 +61,10 @@ jobs:
           # rather than from "newest tag anywhere in the repo". The old
           # workflow_run branch used `git tag --sort=-creatordate | head -n 1`,
           # which on a busy main could name a tag the checkout does not contain.
-          git fetch --tags --force
+          #
+          # No `git fetch --tags` here: fetch-depth: 0 already fetches
+          # +refs/tags/*, and with persist-credentials: false the checkout leaves
+          # no token behind for a second fetch to authenticate with.
           VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
           if [[ "$VERSION" == v*.*.* ]]; then
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
