@@ -29,6 +29,12 @@ func (s *Service) ImportFromYAML(ctx context.Context, yamlConfig *config.Config)
 	if len(yamlConfig.Storages) > 0 {
 		logger.InfoS("Importing storages", "count", len(yamlConfig.Storages))
 		for name, storage := range yamlConfig.Storages {
+			// The name is the YAML map key; the decoder does not populate the
+			// struct field from it. Without this every migration of a
+			// real config fails ValidateStorage with "storage name is
+			// required" — see importStorages in cmd/brd/config_import.go,
+			// which has done this all along.
+			storage.Name = name
 			if err := ValidateStorage(storage); err != nil {
 				return fmt.Errorf("storage %s validation failed: %w", name, err)
 			}

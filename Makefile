@@ -65,7 +65,7 @@ GO_PKGS = $(shell cd $(API_DIR) && go list ./...)
 #               improves; never lower it to turn a red gate green.
 COVERAGE_OUT = $(CURDIR)/coverage.out
 COVERAGE_EXCLUDE ?= /testutil/
-COVERAGE_THRESHOLD ?= 34.0
+COVERAGE_THRESHOLD ?= 40.0
 
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).
@@ -149,12 +149,12 @@ test-unit:
 test-integration:
 	@echo "Running integration tests (requires Docker)..."
 	@echo "Starting services..."
-	docker-compose up -d mysql postgres redis rustfs
+	docker compose --profile databases up -d mysql postgres redis rustfs
 	@echo "Waiting for services to be ready..."
 	sleep 15
 	$(GO) test -v -race -tags=integration $(GO_PKGS)
 	@echo "Stopping services..."
-	docker-compose down
+	docker compose --profile databases down
 
 # Run end-to-end tests
 test-e2e:
@@ -563,17 +563,19 @@ compose-clean-all:
 	docker compose down -v --remove-orphans
 	@echo "Full cleanup complete"
 
-# Start only database services (mysql, postgres, redis, rustfs)
+# Start only the backing services (mysql, postgres, redis, rustfs).
+# The three databases live behind the `databases` compose profile so they stay
+# out of the default stack; naming them is not enough to select them.
 compose-services-up:
-	@echo "Starting database services only..."
-	docker compose up -d mysql postgres redis rustfs
-	@echo "Database services started"
+	@echo "Starting backing services only..."
+	docker compose --profile databases up -d mysql postgres redis rustfs
+	@echo "Backing services started"
 
-# Stop only database services
+# Stop only the backing services
 compose-services-down:
-	@echo "Stopping database services..."
-	docker compose stop mysql postgres redis rustfs
-	@echo "Database services stopped"
+	@echo "Stopping backing services..."
+	docker compose --profile databases stop mysql postgres redis rustfs
+	@echo "Backing services stopped"
 
 # Execute command in bared container (usage: make compose-exec CMD="brd list")
 compose-exec:

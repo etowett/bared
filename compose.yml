@@ -46,48 +46,57 @@ services:
       retries: 3
       start_period: 10s
 
-  # # MySQL for testing
-  # mysql:
-  #   image: mysql:8.4
-  #   container_name: bared-mysql
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: testpass
-  #     MYSQL_DATABASE: testdb
-  #     MYSQL_USER: backup
-  #     MYSQL_PASSWORD: testpass
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mysql-data:/var/lib/mysql
-  #   networks:
-  #     - bared-network
+  # The three test databases sit behind the `databases` profile, so the default
+  # stack stays just the daemon plus storage while `make test-integration` and
+  # `make compose-services-up` can still bring them up with
+  # `docker compose --profile databases up -d`. Commenting them out instead left
+  # those targets calling for services the file no longer declared.
 
-  # # PostgreSQL for testing
-  # postgres:
-  #   image: postgres:18-alpine
-  #   container_name: bared-postgres
-  #   environment:
-  #     POSTGRES_PASSWORD: testpass
-  #     POSTGRES_USER: backup
-  #     POSTGRES_DB: testdb
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
-  #   networks:
-  #     - bared-network
+  # MySQL for testing
+  mysql:
+    image: mysql:8.4
+    container_name: bared-mysql
+    profiles: [databases]
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass
+      MYSQL_DATABASE: testdb
+      MYSQL_USER: backup
+      MYSQL_PASSWORD: testpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - bared-network
 
-  # # Redis for testing
-  # redis:
-  #   image: redis:8-alpine
-  #   container_name: bared-redis
-  #   command: redis-server --requirepass testpass
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis-data:/data
-  #   networks:
-  #     - bared-network
+  # PostgreSQL for testing
+  postgres:
+    image: postgres:18-alpine
+    container_name: bared-postgres
+    profiles: [databases]
+    environment:
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_USER: backup
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - bared-network
+
+  # Redis for testing
+  redis:
+    image: redis:8-alpine
+    container_name: bared-redis
+    profiles: [databases]
+    command: redis-server --requirepass testpass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - bared-network
 
   # RustFS (S3-compatible storage) for testing the `type: s3` backend
   rustfs:
