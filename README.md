@@ -19,9 +19,11 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 
 ## Project status
 
-BareD is **pre-1.0** (latest release `v0.4.0`) and the version number is meant
-literally: the feature set below is implemented and exercised, but the interfaces
-are not yet frozen and configuration may still change between minor versions.
+BareD is **pre-1.0** and the version number is meant literally: the feature set below
+is implemented and exercised, but the interfaces are not yet frozen and configuration
+may still change between minor versions. For the current version see the
+[latest release](https://github.com/etowett/bared/releases/latest) — this page
+deliberately does not name one, so it cannot go stale.
 
 **What is implemented and working:**
 
@@ -56,27 +58,48 @@ and treat the encryption key as the sensitive material it is.
 ### Installation
 
 ```bash
+# Fastest way to try it — the image ships the dashboard, no toolchain needed
+docker pull ektowett/bared:v0.5.0
+
 # Build from a clone (embeds the web dashboard)
 make build
 
 # Or manually with Go (the module lives in apps/api)
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 
-# Or, from the first release after v0.4.0, install with Go — see the notes below
-go install github.com/etowett/bared/apps/api/cmd/brd@vX.Y.Z
+# Or install the CLI with Go (works from v0.5.0 onward — see the notes below)
+go install github.com/etowett/bared/apps/api/cmd/brd@latest
 ```
 
-> **`go install` does not work for `v0.4.0` or earlier.** `go.mod` lives at `apps/api/`, so
-> the module is `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that
-> subdirectory prefix as versions of it. Every release from now on pushes two tags for the
-> same commit — `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version) —
-> but no `apps/api/*` tag exists yet, so today `@v0.4.0` fails with
-> `unknown revision apps/api/v0.4.0`, and `@latest` quietly resolves to a pseudo-version of
-> `main`'s tip rather than a release. Until the next release ships, use a release binary,
+> **The Docker namespace is not the GitHub namespace.** The image is **`ektowett/bared`**;
+> the repository is `etowett/bared`. `docker pull etowett/bared` fails with
+> *"repository does not exist or may require 'docker login'"* — an easy near-miss.
+>
+> **Pin a tag.** Browse [the published tags](https://hub.docker.com/r/ektowett/bared/tags)
+> and pick one; do not rely on `:latest`, which currently trails several releases behind.
+> Image publication can lag a GitHub release, so the newest image may be older than the
+> newest release — check the [tags page](https://hub.docker.com/r/ektowett/bared/tags)
+> rather than assuming. `v0.5.0` is published for `linux/amd64` and `linux/arm64`.
+>
+> ```bash
+> docker run --rm ektowett/bared:v0.5.0 --version
+> docker run -p 8080:8080 ektowett/bared:v0.5.0 \
+>   daemon --http :8080 --http-user admin --http-pass secret   # dashboard on :8080
+> ```
+
+> **`go install` works from `v0.5.0` onward.** `go.mod` lives at `apps/api/`, so the module is
+> `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that subdirectory
+> prefix as versions of it. Every release pushes two tags for the same commit — `vX.Y.Z`
+> (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version). `apps/api/v0.5.0` was
+> the first of those, so both `@v0.5.0` and `@latest` now resolve to a real release rather
+> than to a pseudo-version of `main`'s tip.
+>
+> **`v0.4.0` and earlier carry no `apps/api/*` tag**, so they remain uninstallable this way:
+> `@v0.4.0` fails with `unknown revision apps/api/v0.4.0`. For those, use a release binary,
 > the Docker image, or `make build`.
 >
-> Once a release carries both tags you write `@vX.Y.Z` — Go adds the `apps/api/` prefix when
-> it looks the tag up; `@apps/api/vX.Y.Z` is rejected as a disallowed version string.
+> You always write the plain version — `@v0.5.0`. Go prepends the `apps/api/` prefix when it
+> looks the tag up; `@apps/api/v0.5.0` is rejected as a disallowed version string.
 
 > **`go install` gives you the CLI and the REST API — but not the web dashboard.**
 > The dashboard is compiled by Bun and embedded at build time; the module tree ships
