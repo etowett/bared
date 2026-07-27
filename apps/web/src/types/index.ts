@@ -145,9 +145,11 @@ export interface WebhookNotifierConfig {
   auth_header_value?: string
 }
 
+export type NotifierType = 'slack' | 'email' | 'webhook'
+
 export interface Notifier {
   name: string
-  type: 'slack' | 'email' | 'webhook'
+  type: NotifierType
   on_success: boolean
   config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic notifier config
   enabled: boolean
@@ -155,11 +157,65 @@ export interface Notifier {
   updated_at: string
 }
 
+/**
+ * Notifier config payloads.
+ *
+ * These key names are the wire contract with the Go API: `requestToNotifier` in
+ * `apps/api/internal/api/config_handlers.go` reads exactly these keys off
+ * `NotifierRequest.Config` and silently drops anything else — which is how the
+ * dashboard shipped sending `webhook_url` for Slack while the API read `url`,
+ * so the notifier saved and then never fired. `notifierToResponse` in the same
+ * file emits the same names back, so these types describe both directions.
+ * Keep them in sync with `config.Notifier` in `apps/api/internal/config/config.go`.
+ */
+export interface SlackNotifierConfigRequest {
+  /** `url` — not `webhook_url`; the API ignores `webhook_url` entirely. */
+  url: string
+  channel: string
+}
+
+export interface EmailNotifierConfigRequest {
+  smtp_host: string
+  /** Decoded as a JSON number (`.(float64)`); never send a string. */
+  smtp_port: number
+  /** `smtp_username` — not `smtp_user`. */
+  smtp_username: string
+  /** `smtp_from` — not `from_email`. */
+  smtp_from: string
+  /** `smtp_to` — a list, not a single `to_email` string. */
+  smtp_to: string[]
+  smtp_use_tls: boolean
+}
+
+export type WebhookAuthType = 'basic' | 'bearer' | 'header'
+
+/**
+ * Nested under `webhook_auth`; the API only builds a `WebhookAuth` — and only
+ * then applies the top-level auth secrets — when this object is present.
+ */
+export interface WebhookAuthRequest {
+  type: WebhookAuthType
+  username?: string
+  header_name?: string
+}
+
+export interface WebhookNotifierConfigRequest {
+  url: string
+  /** `webhook_method` — not `method`. */
+  webhook_method: string
+  webhook_headers?: Record<string, string>
+  webhook_auth?: WebhookAuthRequest
+}
+
+export type NotifierConfigRequest =
+  SlackNotifierConfigRequest | EmailNotifierConfigRequest | WebhookNotifierConfigRequest
+
 export interface NotifierRequest {
   name: string
-  type: 'slack' | 'email' | 'webhook'
+  type: NotifierType
   on_success: boolean
-  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic notifier config
+  config: NotifierConfigRequest
+  // Secrets ride outside `config` so the API never echoes them back.
   smtp_password?: string
   webhook_auth_password?: string
   webhook_auth_token?: string
