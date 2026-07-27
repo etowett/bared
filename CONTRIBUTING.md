@@ -473,6 +473,34 @@ threshold; `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/interna
 have no tests at all. Raising it is tracked separately. Everything *before* that step
 (`fmt` → `vet` → `lint` → `test-unit`) must pass.
 
+## Working with AI Coding Agents
+
+The repository ships shared configuration for Claude Code (`.claude/`) and the Codex
+CLI (`.codex/`) — hooks, subagents, skills and slash commands. See
+[`.claude/README.md`](.claude/README.md) for what's available.
+
+**The tracked config deliberately auto-approves nothing that executes project code.**
+`.claude/settings.json` carries only the `ask` and `deny` lists and the hook
+registrations; the command allow-list is not committed. To opt in:
+
+```bash
+cp .claude/settings.local.json.example .claude/settings.local.json
+```
+
+`.claude/settings.local.json` is gitignored. Codex users can relax the equivalent
+rules in their personal `~/.codex/config.toml`; the tracked
+`.codex/rules/allowlist.rules` prompts for the same commands.
+
+Why: an allow-list entry like `Bash(make:*)` or `Bash(go run:*)` silently approves a
+command whose behaviour is defined by files in the working tree — `Makefile`,
+`scripts/`, `apps/web/package.json` scripts, `go:generate` directives. On a public
+repository, checking out a fork's pull request and opening an agent session to review
+it would give that fork arbitrary code execution on your machine, with no prompt.
+
+**When reviewing a pull request from a fork, review the diff before you run anything** —
+especially changes to `Makefile`, `scripts/`, `apps/web/package.json`, `Dockerfile`,
+and any `go:generate` line. Consider moving your local settings aside first.
+
 ## Reporting Security Issues
 
 **Do not open a public issue for a security vulnerability.** BareD handles database

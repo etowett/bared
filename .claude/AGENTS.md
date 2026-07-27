@@ -32,8 +32,9 @@ the scripts read their payload from stdin and work under both clients.
 
 | Path | What it is |
 |---|---|
-| `settings.json` | Committed, shared: permissions (allow/ask/deny), hook registrations, MCP opt-in |
-| `settings.local.json` | Personal, **gitignored** — your own overrides only |
+| `settings.json` | Committed, shared: `permissions.ask` / `permissions.deny`, hook registrations, MCP opt-in. **No `allow` list** — see `settings.local.json.example` |
+| `settings.local.json` | Personal, **gitignored** — the command allow-list plus your own overrides. Copy from `settings.local.json.example` |
+| `settings.local.json.example` | Committed template for the above; opting in is each maintainer's choice |
 | `agents/*.md` | Subagents, delegated via the Agent/Task tool |
 | `skills/<name>/SKILL.md` | Skills — auto-activate on matching requests or invoke with `/<name>` |
 | `commands/*.md` | Slash commands — explicit, deterministic prompts (`/spec`, `/gate`, `/agents-doctor`) |

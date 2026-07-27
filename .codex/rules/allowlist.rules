@@ -1,6 +1,6 @@
 # BareD command rules for the Codex CLI — mirrors .claude/settings.json.
 #
-#   permissions.allow  ->  decision="allow"
+#   permissions.allow  ->  decision="allow"   (now lives in settings.local.json)
 #   permissions.ask    ->  decision="prompt"
 #   permissions.deny   ->  decision="forbidden"   (commands only; see note below)
 #
@@ -18,18 +18,31 @@
 #      below can be safely narrowed by the "prompt" rules that follow them.
 
 # --- Build, test, and the verify gate ----------------------------------------
-prefix_rule(pattern=["make"], decision="allow")
+# NOTE (see .claude/README.md, "Settings & config"): commands whose behaviour is
+# defined by files in the working tree — Makefile, scripts/, package.json scripts,
+# go:generate — are decision="prompt", not "allow". BareD is public, and a fork's
+# pull request checked out for review must not get silent code execution on a
+# maintainer's machine. Relax these in your personal ~/.codex/config.toml if you
+# want the convenience, and don't when reviewing an untrusted PR.
+prefix_rule(pattern=["make"], decision="prompt",
+            justification="Behaviour comes from the Makefile in the working tree — a fork PR could rewrite it.")
 
-prefix_rule(pattern=["go", ["build", "test", "vet", "run", "list", "version", "env"]], decision="allow")
-prefix_rule(pattern=["go", "mod", ["tidy", "download", "verify", "graph"]], decision="allow")
+prefix_rule(pattern=["go", ["list", "version", "env"]], decision="allow")
+prefix_rule(pattern=["go", ["build", "test", "vet", "run"]], decision="prompt",
+            justification="Executes code from the working tree (tests, go:generate, main).")
+prefix_rule(pattern=["go", "mod", ["verify", "graph"]], decision="allow")
+prefix_rule(pattern=["go", "mod", ["tidy", "download"]], decision="prompt",
+            justification="Fetches modules named by go.mod in the working tree.")
 prefix_rule(pattern=["go", "tool", "cover"], decision="allow")
 prefix_rule(pattern=["gofmt"], decision="allow")
 prefix_rule(pattern=["goimports"], decision="allow")
-prefix_rule(pattern=["golangci-lint"], decision="allow")
+prefix_rule(pattern=["golangci-lint"], decision="prompt",
+            justification="Loads .golangci.yml from the working tree, which can point at custom plugins.")
 
 # The built daemon itself — used by the run-daemon skill for smoke tests.
-prefix_rule(pattern=["./bin/brd"], decision="allow")
-prefix_rule(pattern=["./brd"], decision="allow")
+prefix_rule(pattern=["./bin/brd"], decision="prompt",
+            justification="A locally built binary — its contents come from the working tree.")
+prefix_rule(pattern=["./brd"], decision="prompt")
 
 # --- Web UI -------------------------------------------------------------------
 # Bun, pinned in apps/web/.bun-version. Two gotchas behind the shape of these rules:
@@ -40,23 +53,28 @@ prefix_rule(pattern=["./brd"], decision="allow")
 #     reproducible form (the `npm ci` equivalent). Both are pinned to apps/web here
 #     so that `bun add`/`bun install <pkg>` still needs a prompt — a dependency
 #     change is the human's call.
-prefix_rule(pattern=["bun", "install", "--cwd", "apps/web"], decision="allow")
-prefix_rule(pattern=["bun", "install", "--frozen-lockfile", "--cwd", "apps/web"], decision="allow")
+prefix_rule(pattern=["bun", "install", "--cwd", "apps/web"], decision="prompt",
+            justification="Runs lifecycle scripts from package.json in the working tree.")
+prefix_rule(pattern=["bun", "install", "--frozen-lockfile", "--cwd", "apps/web"], decision="prompt")
 prefix_rule(
     pattern=[
         "bun", "run", "--cwd", "apps/web",
         ["build", "dev", "lint", "lint:fix", "type-check", "validate",
          "format", "format:check", "test:run", "test:coverage"],
     ],
-    decision="allow",
+    decision="prompt",
+    justification="Each of these resolves to a package.json script in the working tree.",
 )
 prefix_rule(pattern=["bun", "--version"], decision="allow")
-prefix_rule(pattern=["bunx", ["prettier", "tsc", "vite", "eslint", "vitest"]], decision="allow")
-prefix_rule(pattern=["bunx", "@tanstack/router-cli", "generate"], decision="allow")
+prefix_rule(pattern=["bunx", ["prettier", "tsc", "vite", "eslint", "vitest"]], decision="prompt",
+            justification="Runs a package resolved from the working tree, with its config.")
+prefix_rule(pattern=["bunx", "@tanstack/router-cli", "generate"], decision="prompt")
 
 # --- Agent tooling ------------------------------------------------------------
-prefix_rule(pattern=["./scripts/agents-doctor.py"], decision="allow")
-prefix_rule(pattern=["python3"], decision="allow")
+prefix_rule(pattern=["./scripts/agents-doctor.py"], decision="prompt",
+            justification="A script in the working tree.")
+prefix_rule(pattern=["python3"], decision="prompt",
+            justification="Arbitrary code execution.")
 
 # --- File search and inspection ----------------------------------------------
 prefix_rule(pattern=["find"], decision="allow")
@@ -87,7 +105,9 @@ prefix_rule(pattern=["gh", "pr", ["view", "list", "diff", "checks", "status"]], 
 prefix_rule(pattern=["gh", "repo", "view"], decision="allow")
 
 # --- Containers ---------------------------------------------------------------
-prefix_rule(pattern=["docker", ["build", "images"]], decision="allow")
+prefix_rule(pattern=["docker", "images"], decision="allow")
+prefix_rule(pattern=["docker", "build"], decision="prompt",
+            justification="Executes the Dockerfile from the working tree.")
 
 # --- Ask first (mirrors permissions.ask) -------------------------------------
 prefix_rule(
