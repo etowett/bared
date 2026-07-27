@@ -36,6 +36,10 @@ vi.mock('sonner', () => ({
 
 // Stub the confirmation prompt but keep the real ConfirmProvider — the test
 // wrapper mounts it, exactly as `__root.tsx` does.
+//
+// The router is *not* stubbed: the wrapper supplies a real one, so the row's
+// primary cell renders a real `<Link>` and the href it produces is the thing
+// under test.
 vi.mock('@/contexts/ConfirmContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/contexts/ConfirmContext')>()),
   useConfirm: () => mockConfirm,
@@ -170,6 +174,68 @@ describe('JobList Component', () => {
     await user.click(row!)
 
     expect(mockOnSelectJob).toHaveBeenCalledWith(job)
+  })
+
+  describe('keyboard access', () => {
+    it('makes the id cell focusable in dialog mode', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob()
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      const trigger = screen.getByRole('button', { name: /job details for 12345678/i })
+      await user.tab()
+      expect(trigger).toHaveFocus()
+    })
+
+    it('opens a job with Enter', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob()
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      screen.getByRole('button', { name: /job details for 12345678/i }).focus()
+      await user.keyboard('{Enter}')
+
+      expect(mockOnSelectJob).toHaveBeenCalledWith(job)
+    })
+
+    it('opens a job with Space', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob()
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      screen.getByRole('button', { name: /job details for 12345678/i }).focus()
+      await user.keyboard(' ')
+
+      expect(mockOnSelectJob).toHaveBeenCalledWith(job)
+    })
+
+    it('uses a real link in navigation mode, so copy-link and new-tab work', () => {
+      const job = createMockJob()
+
+      render(<JobList jobs={[job]} navigationMode />)
+
+      const link = screen.getByRole('link', { name: /job 12345678/i })
+      expect(link).toHaveAttribute('href', `/jobs/${job.id}`)
+    })
+
+    it('keeps the cancel button out of the row control', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob({ status: 'running' })
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      const cancelButton = screen.getByRole('button', { name: /^cancel$/i })
+      // A button nested inside the row's link/button would be invalid HTML and
+      // would swallow the row's own activation.
+      expect(cancelButton.closest('a')).toBeNull()
+      expect(cancelButton.closest('button')).toBe(cancelButton)
+
+      await user.click(cancelButton)
+      expect(mockOnSelectJob).not.toHaveBeenCalled()
+    })
   })
 
   it('highlights selected job row', () => {

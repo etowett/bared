@@ -1,35 +1,84 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { cva, type VariantProps } from 'class-variance-authority'
+import {
+  describeStatus,
+  type JobState,
+  type JobTrigger,
+  type StatusDescriptor,
+  type StatusKind,
+  type StatusTone,
+  type TargetHealth,
+} from '@/lib/status'
+import { cva } from 'class-variance-authority'
+import { CircleDot, type LucideIcon } from 'lucide-react'
 
-const statusBadgeVariants = cva('uppercase text-xs font-semibold border', {
-  variants: {
-    status: {
-      running:
-        'bg-terminal-info/20 text-terminal-cyan border-terminal-info/30 hover:bg-terminal-info/30 dark:bg-terminal-info/10 dark:border-terminal-info/20',
-      idle: 'bg-muted text-muted-foreground border-border hover:bg-muted',
-      queued:
-        'bg-terminal-warning/20 text-terminal-yellow border-terminal-warning/30 hover:bg-terminal-warning/30 dark:bg-terminal-warning/10 dark:border-terminal-warning/20',
-      completed:
-        'bg-terminal-success/20 text-terminal-green border-terminal-success/30 hover:bg-terminal-success/30 dark:bg-terminal-success/10 dark:border-terminal-success/20',
-      failed:
-        'bg-terminal-error/20 text-terminal-red border-terminal-error/30 hover:bg-terminal-error/30 dark:bg-terminal-error/10 dark:border-terminal-error/20',
-      cancelled: 'bg-muted text-muted-foreground border-border hover:bg-muted',
-      cancelling: 'bg-muted text-muted-foreground border-border hover:bg-muted',
+export type { JobState, JobTrigger, StatusTone, TargetHealth }
+
+const toneVariants = cva(
+  'inline-flex items-center gap-1.5 border px-2 py-1 text-[0.6875rem] font-semibold uppercase leading-none tracking-wide',
+  {
+    variants: {
+      tone: {
+        neutral: 'bg-muted text-muted-foreground border-border hover:bg-muted',
+        success: 'bg-success-subtle text-success border-success/25 hover:bg-success-subtle',
+        warning: 'bg-warning-subtle text-warning border-warning/25 hover:bg-warning-subtle',
+        info: 'bg-info-subtle text-info border-info/25 hover:bg-info-subtle',
+        danger: 'bg-danger-subtle text-danger border-danger/25 hover:bg-danger-subtle',
+      },
     },
-  },
-  defaultVariants: { status: 'idle' },
-})
+    defaultVariants: { tone: 'neutral' },
+  }
+)
 
-export interface StatusBadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof statusBadgeVariants> {
-  status: 'running' | 'idle' | 'queued' | 'completed' | 'failed' | 'cancelled' | 'cancelling'
-}
+type BadgeAttributes = Omit<React.HTMLAttributes<HTMLDivElement>, 'children'>
 
-export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
+export type StatusBadgeProps = BadgeAttributes &
+  (
+    | { kind?: 'job'; status: JobState }
+    | { kind: 'enabled'; status: boolean }
+    | { kind: 'trigger'; status: JobTrigger }
+    | { kind: 'target'; status: TargetHealth }
+    | { kind: 'database'; status: string }
+    /** Escape hatch for subjects `describeStatus` does not cover yet. */
+    | { kind: 'custom'; status?: never; tone: StatusTone; label: string; icon?: LucideIcon }
+  )
+
+/**
+ * The one badge for every status in the dashboard.
+ *
+ * It always renders a glyph *and* a word, so no state is carried by colour
+ * alone, and every tint comes from the semantic tokens in `globals.css`.
+ */
+export function StatusBadge({ className, ...props }: StatusBadgeProps) {
+  const {
+    kind,
+    status,
+    tone: customTone,
+    label: customLabel,
+    icon: customIcon,
+    ...rest
+  } = props as BadgeAttributes & {
+    kind?: StatusKind | 'custom'
+    status?: string | boolean
+    tone?: StatusTone
+    label?: string
+    icon?: LucideIcon
+  }
+
+  const descriptor: StatusDescriptor =
+    kind === 'custom'
+      ? { tone: customTone ?? 'neutral', label: customLabel ?? '', icon: customIcon ?? CircleDot }
+      : describeStatus(kind ?? 'job', status ?? '')
+
+  const { tone, label, icon: Icon, spin } = descriptor
+
   return (
-    <Badge className={cn(statusBadgeVariants({ status }), className)} {...props}>
-      {status}
+    <Badge className={cn(toneVariants({ tone }), className)} {...rest}>
+      <Icon
+        aria-hidden="true"
+        className={cn('h-3 w-3 shrink-0', spin && 'motion-safe:animate-spin')}
+      />
+      {label}
     </Badge>
   )
 }

@@ -1,7 +1,9 @@
 import { JobList } from '@/components/JobList'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
 import { Pagination } from '@/components/ui/pagination'
+import { TableSkeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -34,7 +36,7 @@ export function UnifiedJobsPage() {
     return f
   }, [search.page, search.limit, search.status, search.type, search.target])
 
-  const { data, isLoading, isError, error } = useJobs(filters)
+  const { data, isPending, isError, error } = useJobs(filters)
 
   const handlePageChange = (newPage: number) => {
     navigate({
@@ -53,10 +55,13 @@ export function UnifiedJobsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">All Jobs</h2>
+      <PageHeader
+        title="All Jobs"
+        description="Every backup and restore the daemon has run, newest first."
+      />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col gap-4 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>
             {data?.total !== undefined ? (
               <>
@@ -67,20 +72,20 @@ export function UnifiedJobsPage() {
             )}
           </CardTitle>
 
-          {/* Filters */}
-          <div className="flex gap-3">
+          {/* Filters wrap rather than overflow — at 320px they stack. */}
+          <div className="flex flex-wrap gap-3">
             <Input
               placeholder="Filter by target..."
               value={search.target || ''}
               onChange={(e) => handleFilterChange('target', e.target.value)}
-              className="w-[200px]"
+              className="w-full sm:w-[200px]"
             />
 
             <Select
               value={search.type || 'all'}
               onValueChange={(v) => handleFilterChange('type', v)}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[calc(50%-0.375rem)] sm:w-[150px]">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
@@ -94,7 +99,7 @@ export function UnifiedJobsPage() {
               value={search.status || 'all'}
               onValueChange={(v) => handleFilterChange('status', v)}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[calc(50%-0.375rem)] sm:w-[180px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -110,9 +115,9 @@ export function UnifiedJobsPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Loading State */}
-          {isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">Loading jobs...</div>
+          {/* First load holds the table's shape; polls keep the rows on screen. */}
+          {isPending ? (
+            <TableSkeleton rows={6} columns={7} />
           ) : isError ? (
             /* Error State */
             <div className="text-center py-12 text-destructive">

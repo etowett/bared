@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import {
@@ -10,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useConfirm } from '@/contexts/ConfirmContext'
+import { describeTargetHealth } from '@/lib/status'
 import { formatDate } from '@/lib/utils'
 import { describeSchedule, formatNextRun } from '@/utils/cron'
 import { toast } from 'sonner'
@@ -52,7 +52,8 @@ export function TargetList({ targets }: TargetListProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      {/* Same floor as JobList: scroll sideways rather than crush the cells. */}
+      <Table className="min-w-[52rem]">
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
@@ -69,19 +70,32 @@ export function TargetList({ targets }: TargetListProps) {
             <TableRow key={target.name}>
               <TableCell className="font-medium">{target.name}</TableCell>
               <TableCell>
-                <Badge variant="outline">{target.type}</Badge>
+                <StatusBadge kind="database" status={target.type} />
               </TableCell>
               <TableCell className="font-mono text-sm">{target.database}</TableCell>
+              {/*
+                The daemon now reports health, not just liveness (#127), so
+                this cell answers "does this target need me?" instead of
+                "Idle". Targets served by an older daemon fall back to the
+                liveness label rather than a green tick nobody claimed.
+              */}
               <TableCell>
-                <StatusBadge status={target.is_running ? 'running' : 'idle'} />
+                <div className="flex flex-col items-start gap-1">
+                  <StatusBadge kind="target" status={describeTargetHealth(target)} />
+                  {(target.consecutive_failures ?? 0) > 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      {target.consecutive_failures} in a row
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-sm">
                 {target.schedule ? (
                   <div className="flex flex-col gap-0.5">
                     <span>{describeSchedule(target.schedule, target.next_scheduled)}</span>
                     {/* The cron line states the daemon's zone; this one is the
-                          same schedule in the viewer's, which is what someone
-                          actually wants to know. */}
+                        same schedule in the viewer's, which is what someone
+                        actually wants to know. */}
                     {target.next_scheduled && (
                       <span className="text-xs text-muted-foreground">
                         next {formatNextRun(target.next_scheduled)}

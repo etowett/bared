@@ -52,10 +52,14 @@ describe('ThemeToggle Component', () => {
     expect(svg).toBeInTheDocument()
   })
 
-  it('has accessible screen reader text', () => {
+  it('names the icon-only button for assistive tech', () => {
+    // The label names the *action*, not the current state, and replaces the
+    // old visually hidden "Toggle theme" span.
+    ;(window.localStorage.getItem as any).mockReturnValue('light')
+
     render(<ThemeToggle />)
 
-    expect(screen.getByText('Toggle theme')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Switch to dark mode' })).toBeInTheDocument()
   })
 
   it('has title attribute for tooltip', () => {

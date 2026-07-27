@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/ui/page-header'
+import { TableSkeleton } from '@/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-react'
 
 export const Route = createLazyFileRoute('/restore/jobs')({
@@ -34,7 +36,7 @@ export function RestoreJobsPage() {
     return filterObj
   }, [statusFilter])
 
-  const { data: jobsData, isLoading } = useJobs(filters)
+  const { data: jobsData, isPending } = useJobs(filters)
 
   // Filter by target name (client-side)
   const restoreJobs = useMemo(() => {
@@ -49,30 +51,34 @@ export function RestoreJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Restore Job History</h2>
-        <Button asChild variant="outline">
-          <Link to="/restore">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Restore
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Restore', to: '/restore' }, { label: 'Job history' }]}
+        title="Restore Job History"
+        description="Every restore this daemon has attempted, whatever the outcome."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/restore">
+              <ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" />
+              Back to Restore
+            </Link>
+          </Button>
+        }
+      />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col gap-4 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>
             {restoreJobs.length} Restore Job{restoreJobs.length !== 1 ? 's' : ''}
           </CardTitle>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Input
               placeholder="Filter by target..."
               value={targetFilter}
               onChange={(e) => setTargetFilter(e.target.value)}
-              className="w-[200px]"
+              className="w-full sm:w-[200px]"
             />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -87,8 +93,8 @@ export function RestoreJobsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">Loading jobs...</div>
+          {isPending ? (
+            <TableSkeleton rows={5} columns={7} />
           ) : restoreJobs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               No restore jobs found. {targetFilter && 'Try adjusting your filters.'}

@@ -16,6 +16,8 @@ vi.mock('@/api/client', () => ({
   logout: vi.fn(),
   fetchCurrentUser: vi.fn().mockResolvedValue({ username: 'admin' }),
   apiClient: {
+    // The header probes reachability on every page.
+    health: vi.fn().mockResolvedValue({ status: 'ok', version: 'test' }),
     getJobs: vi.fn().mockResolvedValue({
       jobs: [],
       total: 0,

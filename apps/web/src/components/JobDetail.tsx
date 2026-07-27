@@ -24,8 +24,8 @@ export function JobDetail({ job, onClose }: JobDetailProps) {
                   Full Page
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close job details">
+                <X aria-hidden="true" className="h-4 w-4" />
               </Button>
             </div>
           </div>

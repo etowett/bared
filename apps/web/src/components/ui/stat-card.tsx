@@ -16,7 +16,13 @@ export function StatCard({ title, value, className }: StatCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold">{value}</div>
+        {/*
+          Mono for anything the daemon produced. It is the one typographic rule
+          this dashboard keeps: sans frames, mono reports.
+        */}
+        <div className="text-metric font-mono font-semibold tracking-tight tabular-nums">
+          {value}
+        </div>
       </CardContent>
     </Card>
   )
