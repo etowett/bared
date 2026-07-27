@@ -81,7 +81,12 @@ type JobCreatedResponse struct {
 	Message string `json:"message"`
 }
 
-// TargetSummary represents a target's status
+// TargetSummary represents a target's status.
+//
+// Everything below IsRunning is derived from backup job history. Fields that
+// are pointers are genuinely optional: a nil value means "not known", which is
+// not the same as zero. Clients must render an absent value as unknown rather
+// than as 0.
 type TargetSummary struct {
 	Name          string  `json:"name"`
 	Type          string  `json:"type"`
@@ -90,6 +95,30 @@ type TargetSummary struct {
 	NextScheduled *string `json:"next_scheduled,omitempty"`
 	Schedule      string  `json:"schedule,omitempty"`
 	IsRunning     bool    `json:"is_running"`
+
+	// LastBackupStatus is the outcome of the most recent finished backup job:
+	// "success", "failed", or "never" when the target has no backup history.
+	// Cancelled jobs are neither, and are ignored.
+	LastBackupStatus string `json:"last_backup_status"`
+
+	// ConsecutiveFailures counts failed backup jobs since the last successful
+	// one (all of them, when there has never been a success).
+	ConsecutiveFailures int `json:"consecutive_failures"`
+
+	// LastBackupBytes is the artifact size recorded by the most recent
+	// successful backup. Nil when that job's result was not retained — job
+	// rows written before results were persisted carry no size.
+	LastBackupBytes *int64 `json:"last_backup_bytes,omitempty"`
+
+	// LastBackupDurationSeconds is how long the most recent successful backup
+	// job ran. Nil when the job's timestamps are incomplete.
+	LastBackupDurationSeconds *float64 `json:"last_backup_duration_seconds,omitempty"`
+
+	// Overdue is true when the target has a schedule and the run due after its
+	// last successful backup has already passed. It stays false for targets
+	// with no schedule and for targets with no job history at all, because
+	// nothing records when such a target was first configured.
+	Overdue bool `json:"overdue"`
 }
 
 // ListTargetsResponse represents the response for listing targets
@@ -100,10 +129,33 @@ type ListTargetsResponse struct {
 
 // DashboardResponse represents the dashboard summary
 type DashboardResponse struct {
-	Targets      []TargetSummary `json:"targets"`
-	ActiveJobs   int             `json:"active_jobs"`
-	TotalJobs    int             `json:"total_jobs"`
-	TotalStorage int64           `json:"total_storage_bytes,omitempty"`
+	Targets    []TargetSummary `json:"targets"`
+	ActiveJobs int             `json:"active_jobs"`
+	TotalJobs  int             `json:"total_jobs"`
+
+	// TotalStorage is the number of bytes currently held across storage
+	// backends. Nothing tracks that cheaply today — job history records the
+	// size of each backup ever taken, including ones retention has since
+	// deleted, and listing every backend on each dashboard request would be
+	// slow and, for S3, billable. The field is therefore left unset rather
+	// than filled with a number that would be wrong; clients must render its
+	// absence as "unavailable", never as 0.
+	TotalStorage int64 `json:"total_storage_bytes,omitempty"`
+
+	// SuccessRate24h is the percentage (0-100) of backup jobs finishing in the
+	// last 24 hours that succeeded. Nil when no backup job finished in the
+	// window — a rate over an empty sample is not 0%.
+	SuccessRate24h *float64 `json:"success_rate_24h,omitempty"`
+
+	// SuccessRate7d is the same figure over 7 days. It is nil unless job
+	// history is persisted: without a store, history lives only in memory and
+	// is pruned well inside 7 days, so the sample would be silently truncated.
+	SuccessRate7d *float64 `json:"success_rate_7d,omitempty"`
+
+	// FailedJobs24h counts backup jobs that failed in the last 24 hours. Zero
+	// is a real answer and is serialized; nil means the count could not be
+	// established and is omitted.
+	FailedJobs24h *int `json:"failed_jobs_24h,omitempty"`
 }
 
 // RestoreTargetSummary represents a restore target's info

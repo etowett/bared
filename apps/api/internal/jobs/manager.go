@@ -737,6 +737,15 @@ func (m *Manager) CancelJob(jobID JobID) error {
 	return nil
 }
 
+// HasPersistence reports whether job history is written to a durable store.
+//
+// Callers that summarise history over a time window need this: without a store,
+// jobs live only in the in-memory map, which CleanupOldJobs prunes. Any window
+// longer than that horizon would be answered from a truncated sample.
+func (m *Manager) HasPersistence() bool {
+	return m.store != nil
+}
+
 // IsTargetRunning checks if a target has a running job
 func (m *Manager) IsTargetRunning(targetName string) bool {
 	m.mu.RLock()

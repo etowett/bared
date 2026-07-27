@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/etowett/bared/apps/api/internal/app"
 	"github.com/etowett/bared/apps/api/internal/jobs"
 	"github.com/etowett/bared/apps/api/internal/util"
 
@@ -297,6 +298,27 @@ func (s *SQLStore) initSchema() error {
 	return nil
 }
 
+// decodeJobResult rebuilds a job's typed result from the JSON written by
+// UpdateJob. Without this, a job read back after a restart loses the artifact
+// size the backup recorded, and the dashboard has no honest source for it.
+// Only backup results are reconstructed; nothing reads restore results yet.
+func decodeJobResult(job *jobs.Job, resultJSON sql.NullString) {
+	if job.Type != jobs.JobTypeBackup || !resultJSON.Valid || resultJSON.String == "" {
+		return
+	}
+
+	var result app.BackupResult
+	if err := json.Unmarshal([]byte(resultJSON.String), &result); err != nil {
+		util.GetLogger().WarnS("Failed to decode persisted backup result",
+			"component", "persistence",
+			"job_id", job.ID,
+			"error", err)
+		return
+	}
+
+	job.Result = &result
+}
+
 func (s *SQLStore) CreateJob(ctx context.Context, job *jobs.Job) error {
 	query := `INSERT INTO jobs (id, type, target_name, status, created_at, manual) VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := s.db.ExecContext(ctx, query, job.ID, job.Type, job.TargetName, job.Status, job.CreatedAt, job.Manual)
@@ -363,10 +385,7 @@ func (s *SQLStore) GetJob(ctx context.Context, id jobs.JobID) (*jobs.Job, error)
 		job.ScheduledBy = schedule.String
 	}
 
-	// Note: Unmarshalling result is tricky without knowing specific type (BackupResult/RestoreResult).
-	// For now, we might skip it or unmarshal into map[string]interface{}
-	// Or simplistic:
-	// if resultJSON.Valid { ... }
+	decodeJobResult(&job, resultJSON)
 
 	return &job, nil
 }
@@ -443,7 +462,10 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs
 			t := completedAt.Time
 			job.CompletedAt = &t
 		}
-		// Skip full reconstruction for list to save perf
+		if errorStr.Valid {
+			job.Error = errorStr.String
+		}
+		decodeJobResult(&job, resultJSON)
 
 		result = append(result, &job)
 	}
