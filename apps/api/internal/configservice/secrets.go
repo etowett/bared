@@ -33,6 +33,10 @@ func (s *Service) serializeStorage(storage *config.Storage) (string, []Secret, e
 		if storage.Bucket != "" {
 			configMap["bucket"] = storage.Bucket
 		}
+		// Key prefix inside the bucket (#104).
+		if storage.Path != "" {
+			configMap["path"] = storage.Path
+		}
 		if storage.Region != "" {
 			configMap["region"] = storage.Region
 		}
@@ -46,6 +50,11 @@ func (s *Service) serializeStorage(storage *config.Storage) (string, []Secret, e
 	case "sftp":
 		if storage.Host != "" {
 			configMap["host"] = storage.Host
+		}
+		// Remote base directory (#104) — dropping it here sent the backups to
+		// the SSH login directory on the next daemon start.
+		if storage.Path != "" {
+			configMap["path"] = storage.Path
 		}
 		if storage.Port > 0 {
 			configMap["port"] = storage.Port
@@ -111,6 +120,9 @@ func (s *Service) deserializeStorage(name, storageType, configJSON string, keep 
 		if bucket, ok := configMap["bucket"].(string); ok {
 			storage.Bucket = bucket
 		}
+		if path, ok := configMap["path"].(string); ok {
+			storage.Path = path
+		}
 		if region, ok := configMap["region"].(string); ok {
 			storage.Region = region
 		}
@@ -126,6 +138,9 @@ func (s *Service) deserializeStorage(name, storageType, configJSON string, keep 
 	case "sftp":
 		if host, ok := configMap["host"].(string); ok {
 			storage.Host = host
+		}
+		if path, ok := configMap["path"].(string); ok {
+			storage.Path = path
 		}
 		if port, ok := configMap["port"].(float64); ok {
 			storage.Port = int(port)
