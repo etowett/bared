@@ -60,10 +60,68 @@ const field = {
   insecureSkip: () => screen.getByRole('checkbox', { name: /accept any host key/i }),
 }
 
+/**
+ * `password` / `private_key_passphrase` come back from the API as
+ * `***REDACTED***`; echoing either into an input would save it verbatim.
+ */
+const existingSftpStorage: Storage = {
+  name: 'offsite',
+  type: 'sftp',
+  keep: 14,
+  config: {
+    host: 'sftp.example.com',
+    port: 2222,
+    username: 'backup',
+    path: '/backups',
+    known_hosts_path: '/etc/bared/known_hosts',
+    host_key_fingerprint: 'SHA256:abc123',
+    private_key_path: '/etc/bared/id_ed25519',
+    insecure_skip_host_key_verify: false,
+    password: '***REDACTED***',
+    private_key_passphrase: '***REDACTED***',
+  },
+  enabled: true,
+  created_at: '',
+  updated_at: '',
+}
+
+const existingS3Storage: Storage = {
+  name: 'archive',
+  type: 's3',
+  keep: 30,
+  config: {
+    bucket: 'my-bucket',
+    region: 'eu-west-1',
+    access_key_id: 'AKIA',
+    endpoint_url: 'https://minio.internal',
+    path: 'backups/',
+    secret_access_key: '***REDACTED***',
+  },
+  enabled: true,
+  created_at: '',
+  updated_at: '',
+}
+
 function renderForm(storage?: Storage) {
   const onSubmit = vi.fn().mockResolvedValue(undefined)
-  render(<StorageForm open onOpenChange={vi.fn()} storage={storage} onSubmit={onSubmit} />)
-  return { onSubmit, user: userEvent.setup() }
+  const onOpenChange = vi.fn()
+  const form = (open: boolean, current?: Storage) => (
+    <StorageForm open={open} onOpenChange={onOpenChange} storage={current} onSubmit={onSubmit} />
+  )
+
+  // The page mounts this dialog once, closed and with no storage, then only
+  // toggles `open` (#126). Mounting it the same way here keeps the fields
+  // honest: state must be derived when the dialog opens, not when it mounts.
+  const { rerender } = render(form(false, undefined))
+  rerender(form(true, storage))
+
+  /** Closes the dialog and opens it again for `next` — what the page does. */
+  const reopenWith = (next?: Storage) => {
+    rerender(form(false, next))
+    rerender(form(true, next))
+  }
+
+  return { onSubmit, reopenWith, user: userEvent.setup() }
 }
 
 async function selectType(user: User, optionLabel: string) {
@@ -235,7 +293,59 @@ describe('StorageForm', () => {
   })
 
   it('pre-fills an existing SFTP backend without echoing redacted secrets', () => {
-    renderForm({
+    renderForm(existingSftpStorage)
+
+    expect(field.name()).toHaveValue('offsite')
+    expect(field.host()).toHaveValue('sftp.example.com')
+    expect(field.port()).toHaveValue(2222)
+    expect(field.username()).toHaveValue('backup')
+    expect(field.remotePath()).toHaveValue('/backups')
+    expect(field.knownHostsPath()).toHaveValue('/etc/bared/known_hosts')
+    expect(field.hostKeyFingerprint()).toHaveValue('SHA256:abc123')
+    expect(field.privateKeyPath()).toHaveValue('/etc/bared/id_ed25519')
+    // The API returns `***REDACTED***`; echoing it back would save it verbatim.
+    expect(field.password()).toHaveValue('')
+    expect(field.privateKeyPassphrase()).toHaveValue('')
+  })
+
+  // #126: the dialog stays mounted and only `storage` changes, so state that is
+  // seeded once on mount leaks the previously edited backend into the next one.
+  it('shows the second backend, not the first, when editing two in a row', () => {
+    const { reopenWith } = renderForm(existingSftpStorage)
+    expect(field.host()).toHaveValue('sftp.example.com')
+
+    reopenWith(existingS3Storage)
+
+    expect(field.name()).toHaveValue('archive')
+    expect(screen.getByLabelText(/^retention/i)).toHaveValue(30)
+    expect(field.bucket()).toHaveValue('my-bucket')
+    expect(field.region()).toHaveValue('eu-west-1')
+    expect(field.accessKeyId()).toHaveValue('AKIA')
+    expect(field.endpointUrl()).toHaveValue('https://minio.internal')
+    expect(screen.getByLabelText(/^path prefix/i)).toHaveValue('backups/')
+    expect(field.secretAccessKey()).toHaveValue('')
+    // The SFTP branch is gone entirely, so none of its values can bleed through.
+    expect(screen.queryByLabelText(/^host \*$/i)).not.toBeInTheDocument()
+  })
+
+  it('opens a clean form when create follows an edit', () => {
+    const { reopenWith } = renderForm(existingSftpStorage)
+
+    reopenWith(undefined)
+
+    expect(screen.getByRole('heading', { name: /create storage/i })).toBeInTheDocument()
+    expect(field.name()).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: /^type \*$/i })).toHaveTextContent('Local')
+    expect(screen.getByLabelText(/^retention/i)).toHaveValue(7)
+    expect(field.localPath()).toHaveValue('')
+  })
+
+  it('submits the stored config unchanged when an edit is saved untouched', async () => {
+    const { onSubmit, user } = renderForm(existingSftpStorage)
+
+    await user.click(screen.getByRole('button', { name: /^update$/i }))
+
+    expect(submitted(onSubmit)).toEqual({
       name: 'offsite',
       type: 'sftp',
       keep: 14,
@@ -243,26 +353,12 @@ describe('StorageForm', () => {
         host: 'sftp.example.com',
         port: 2222,
         username: 'backup',
+        path: '/backups',
         known_hosts_path: '/etc/bared/known_hosts',
         host_key_fingerprint: 'SHA256:abc123',
         private_key_path: '/etc/bared/id_ed25519',
         insecure_skip_host_key_verify: false,
-        password: '***REDACTED***',
-        private_key_passphrase: '***REDACTED***',
       },
-      enabled: true,
-      created_at: '',
-      updated_at: '',
     })
-
-    expect(field.name()).toHaveValue('offsite')
-    expect(field.host()).toHaveValue('sftp.example.com')
-    expect(field.username()).toHaveValue('backup')
-    expect(field.knownHostsPath()).toHaveValue('/etc/bared/known_hosts')
-    expect(field.hostKeyFingerprint()).toHaveValue('SHA256:abc123')
-    expect(field.privateKeyPath()).toHaveValue('/etc/bared/id_ed25519')
-    // The API returns `***REDACTED***`; echoing it back would save it verbatim.
-    expect(field.password()).toHaveValue('')
-    expect(field.privateKeyPassphrase()).toHaveValue('')
   })
 })
