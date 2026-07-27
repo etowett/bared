@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle, HardDrive } from 'lucide-react'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '@/stores/auth'
 
 interface LoginProps {
@@ -17,6 +17,17 @@ export function Login({ onLogin }: LoginProps) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const signIn = useAuthStore((state) => state.signIn)
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const refocusPassword = useRef(false)
+
+  // The password input is disabled while the request is in flight, so focusing
+  // it from the catch block would be a no-op. Defer until loading is cleared.
+  useEffect(() => {
+    if (loading || !refocusPassword.current) return
+    refocusPassword.current = false
+    passwordRef.current?.focus()
+    passwordRef.current?.select()
+  }, [loading])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -28,8 +39,9 @@ export function Login({ onLogin }: LoginProps) {
       onLogin()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect to server')
-      setUsername('')
-      setPassword('')
+      // Keep what the user typed: a one-character typo should be fixable in
+      // place, and a transient network failure shouldn't cost them both fields.
+      refocusPassword.current = true
     } finally {
       setLoading(false)
     }
@@ -67,6 +79,7 @@ export function Login({ onLogin }: LoginProps) {
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
+              ref={passwordRef}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
