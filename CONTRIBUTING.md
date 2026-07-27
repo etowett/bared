@@ -488,6 +488,7 @@ have no tests at all. Raising it is tracked separately. Everything *before* that
 
 ## License
 
-By contributing to BareD, you agree that your contributions will be licensed under the same license as the project.
+BareD is released under the MIT License. By contributing, you agree that your
+contributions are licensed under the MIT License — see [LICENSE](LICENSE).
 
 Thank you for contributing to BareD!

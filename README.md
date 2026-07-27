@@ -412,8 +412,9 @@ go -C apps/api test ./...
 
 ## License
 
-To be determined
+MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
-Contributions welcome! Please see `CONTRIBUTING.md` and `docs/development/` for implementation details and architecture.
+Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
+[docs/development/](docs/development/) for implementation details.
