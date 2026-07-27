@@ -54,10 +54,9 @@ jobs:
             postgresql-client \
             redis-tools
 
-      - name: Create placeholder web dist
-        run: |
-          mkdir -p apps/api/internal/web/dist
-          echo "placeholder" > apps/api/internal/web/dist/.placeholder
+      # No placeholder dist needed: the .gitkeep under
+      # apps/api/internal/web/dist is tracked (#78), so `//go:embed all:dist`
+      # matches straight out of the checkout.
 
       # The profile is written to the workspace root because that is where the
       # Makefile's COVERAGE_OUT points; the next step reads it from there.
@@ -92,10 +91,9 @@ jobs:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
 
-      - name: Create placeholder dist directory
-        run: |
-          mkdir -p apps/api/internal/web/dist
-          echo "placeholder" > apps/api/internal/web/dist/.placeholder
+      # No placeholder dist needed: the .gitkeep under
+      # apps/api/internal/web/dist is tracked (#78), so `//go:embed all:dist`
+      # matches straight out of the checkout.
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
@@ -177,9 +175,10 @@ jobs:
           bun install --frozen-lockfile
           bun run build
 
-      - name: Copy web dist to embed location
-        run: cp -r apps/web/dist apps/api/internal/web/dist
-
+      # No copy step: apps/api/internal/web/dist now exists in the checkout (the
+      # tracked .gitkeep from #78), so `cp -r apps/web/dist <dir>` would nest a
+      # dist/dist inside it rather than replace it. `make build` runs
+      # `web-sync-dist`, which syncs the assets without clobbering the .gitkeep.
       - name: Build binary with embedded web
         run: make build CGO=1
 

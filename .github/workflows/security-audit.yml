@@ -91,12 +91,9 @@ jobs:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
 
-      # internal/web/dist is gitignored and go:embed needs it to exist for the
-      # package to load — same placeholder the test/lint jobs in ci.yml create.
-      - name: Create placeholder web dist
-        run: |
-          mkdir -p apps/api/internal/web/dist
-          echo "placeholder" > apps/api/internal/web/dist/.placeholder
+      # No placeholder dist needed: the .gitkeep under
+      # apps/api/internal/web/dist is tracked (#78), so `//go:embed all:dist`
+      # matches straight out of the checkout.
 
       # Pinned rather than `@latest`: `latest` re-resolves an unreviewed version
       # of a tool that runs in CI on every invocation. The advisory database is

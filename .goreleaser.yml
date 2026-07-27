@@ -5,11 +5,21 @@ version: 2
 
 project_name: brd
 
+# These hooks are the *only* place the release pipeline builds and embeds
+# the web UI — .github/workflows/release.yml deliberately no longer
+# duplicates them (#115). GoReleaser validates git state *before* running
+# these hooks, so anything that dirties the tree in an earlier pipeline step
+# aborts the release outright.
 before:
   hooks:
     # Build web frontend and sync to embed location
     - sh -c "cd apps/web && bun install --frozen-lockfile && bun run build"
-    - sh -c "mkdir -p apps/api/internal/web && rm -rf apps/api/internal/web/dist && cp -r apps/web/dist apps/api/internal/web/dist"
+    # The .gitkeep under apps/api/internal/web/dist is tracked (#78) so that
+    # `//go:embed all:dist` matches on a fresh clone. `rm -rf` on the
+    # directory deletes it and the copied build output carries no .gitkeep of
+    # its own, which leaves the tree dirty — put it back so this step leaves
+    # the working tree exactly as it found it.
+    - sh -c "mkdir -p apps/api/internal/web && rm -rf apps/api/internal/web/dist && cp -r apps/web/dist apps/api/internal/web/dist && touch apps/api/internal/web/dist/.gitkeep"
     # Tidy dependencies
     - sh -c "cd apps/api && go mod tidy"
 
