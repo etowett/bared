@@ -25,7 +25,9 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What is implemented and working:**
 
-- Backup and restore for MySQL/MariaDB, PostgreSQL and Redis
+- Backup for MySQL/MariaDB, PostgreSQL and Redis; restore for MySQL/MariaDB and
+  PostgreSQL (**Redis restore is not implemented** — it needs a manual RDB file
+  replacement, and `brd restore` will tell you so)
 - Local, S3 (and S3-compatible) and SFTP storage backends
 - Streaming tar.gz compression — no temp files, flat memory use
 - Daemon mode with cron scheduling and signal handling
@@ -35,12 +37,13 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What you should weigh before relying on it:**
 
-- **Test coverage is roughly 40%.** `cmd/brd` has no tests at all, and `internal/storage`
-  and `internal/notify` sit in the 20s. CI enforces a ratchet (`make coverage-check`) so the
-  number can only go up, but it is low today.
+- **Go test coverage is roughly 40%.** There are 51 Go test files across 21 packages, but
+  `cmd/brd` has no tests at all, and `internal/storage` and `internal/notify` sit in the
+  20s. CI enforces a ratchet (`make coverage-check`) so the number can only go up, but it
+  is low today.
 - Known security limitations are documented in [SECURITY.md](SECURITY.md) — read
-  it before deploying. They include SFTP host key verification and encryption key
-  storage.
+  it before deploying. The main one is that an auto-generated encryption key is stored
+  in the same database as the secrets it protects.
 - Restore is destructive by design. Test your restore path on a scratch database
   before you need it in anger.
 - There has been no independent security audit.
@@ -59,8 +62,8 @@ make build
 # Or manually with Go (the module lives in apps/api)
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 
-# Or, from the first release after v0.4.0, install with Go — see the note below
-go install github.com/etowett/bared/apps/api/cmd/brd@latest
+# Or, from the first release after v0.4.0, install with Go — see the notes below
+go install github.com/etowett/bared/apps/api/cmd/brd@vX.Y.Z
 ```
 
 > **`go install` does not work for `v0.4.0` or earlier.** `go.mod` lives at `apps/api/`, so
@@ -68,12 +71,22 @@ go install github.com/etowett/bared/apps/api/cmd/brd@latest
 > subdirectory prefix as versions of it. Every release from now on pushes two tags for the
 > same commit — `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version) —
 > but no `apps/api/*` tag exists yet, so today `@v0.4.0` fails with
-> `unknown revision apps/api/v0.4.0` and `@latest` quietly resolves to a pseudo-version of
+> `unknown revision apps/api/v0.4.0`, and `@latest` quietly resolves to a pseudo-version of
 > `main`'s tip rather than a release. Until the next release ships, use a release binary,
 > the Docker image, or `make build`.
 >
 > Once a release carries both tags you write `@vX.Y.Z` — Go adds the `apps/api/` prefix when
 > it looks the tag up; `@apps/api/vX.Y.Z` is rejected as a disallowed version string.
+
+> **`go install` gives you the CLI and the REST API — but not the web dashboard.**
+> The dashboard is compiled by Bun and embedded at build time; the module tree ships
+> an empty `internal/web/dist/`, so a `go install`ed binary answers `/` with
+> *"Web UI not built"*. For the dashboard use `make build` (or `make build-with-web`),
+> a release binary, or the Docker image — all three embed it.
+
+> **Building from a clone needs Go and Bun.** `apps/api/go.mod` requires **Go 1.26.5+**;
+> the dashboard is built with **Bun** (pinned in `apps/web/.bun-version`). `go install`
+> and the release binaries need neither.
 >
 > A `go install`ed binary reports its version, recovered from the build info the Go toolchain
 > embeds, but not a commit or build date: builds served from the module proxy carry no VCS
@@ -151,6 +164,8 @@ Configure everything via YAML files. Simple and suitable for GitOps workflows.
 
 ```yaml
 # bared.yml
+default_storage: local_disk
+
 storages:
   local_disk:
     type: local
@@ -365,6 +380,15 @@ bared/
 - **PostgreSQL backups**: `pg_dump` and `psql` commands
 - **Redis backups**: `redis-cli` command
 
+### Build Dependencies
+
+Only needed if you build from a clone — `go install`, the release binaries and the
+Docker image need none of these:
+
+- **Go 1.26.5+** (`apps/api/go.mod`)
+- **Bun** (version pinned in `apps/web/.bun-version`) — builds the embedded dashboard
+- A C toolchain: the SQLite driver needs `CGO_ENABLED=1`
+
 ### Go Dependencies
 
 - `gopkg.in/yaml.v3` - YAML configuration parsing
@@ -406,18 +430,19 @@ make test-integration
 make coverage
 ```
 
-Coverage currently sits well below the project's 75% threshold — see
-[Project status](#project-status). New tests are welcome; see
-[docs/development/testing.md](docs/development/testing.md).
+Coverage is enforced as a ratchet, not a target: `make coverage-check` fails below
+`COVERAGE_THRESHOLD` in the `Makefile` (34% today, against ~36% measured), and the
+number only ever moves up. See [Project status](#project-status). New tests are
+welcome; see [docs/development/testing.md](docs/development/testing.md).
 
 ## Security
 
 Found a vulnerability? Report it privately — see [SECURITY.md](SECURITY.md). Do not
 open a public issue for a security problem.
 
-SECURITY.md also documents BareD's known security limitations (SFTP host key
-verification, login rate limiting, encryption key storage) and how to harden a
-deployment. Read it before running BareD against production data.
+SECURITY.md also documents BareD's known security limitations (chiefly encryption key
+storage) and how to harden a deployment. Read it before running BareD against
+production data.
 
 ## License
 

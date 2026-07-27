@@ -63,39 +63,11 @@ public issue asking for contact — again, with no details.
 These are real, currently unfixed, and tracked in public. They are listed here so you
 can make an informed decision rather than discovering them after the fact.
 
-### SFTP host key verification is disabled
-
-**Tracked in [#73](https://github.com/etowett/bared/issues/73).**
-
-The SFTP backend uses `ssh.InsecureIgnoreHostKey()`
-(`apps/api/internal/storage/sftp.go`) and authenticates with a password. It does not
-verify the server's host key, so an attacker positioned on the network path can
-impersonate your SFTP server and capture **both the password and the entire backup
-stream**.
-
-*If you use the SFTP backend:* treat the network path as trusted, or don't use it.
-Restrict SFTP to a private network or a VPN, use a dedicated account with write-only
-access to the backup directory, and enable BareD's backup encryption so an
-intercepted stream is ciphertext. The local and S3 backends are not affected.
-
-### No per-IP rate limiting on the login endpoint
-
-**Tracked in [#88](https://github.com/etowett/bared/issues/88).**
-
-`POST /api/login` is unauthenticated and validates a single static credential pair
-from `--http-user` / `--http-pass`. The only brute-force protection is a constant
-250 ms delay on failure (`apps/api/internal/api/auth_handlers.go`). There is no
-lockout, no per-IP limiter, and no alert on repeated failures.
-
-*Mitigation:* do not expose the BareD HTTP interface to the public internet. Put it
-behind a VPN, an authenticating reverse proxy, or an IP allowlist, and rate-limit at
-that layer. Use a long random password. The request body is bounded and failure
-messages do not distinguish a bad username from a bad password, so enumeration is not
-possible — but online guessing is only slowed, not stopped.
-
 ### The encryption key is stored alongside the data it protects
 
-**Tracked in [#87](https://github.com/etowett/bared/issues/87).**
+**An accepted design trade-off, not a bug** — documented under
+[#87](https://github.com/etowett/bared/issues/87). It is here so you can decide
+whether it is acceptable for your deployment.
 
 When `BARED_ENCRYPTION_KEY` is not set, BareD generates a key and stores it
 base64-encoded, in plaintext, in the **same SQLite database** as the encrypted
@@ -118,16 +90,13 @@ of individual rows — not against someone who has the file.
 > If a key already exists in the database and you *then* set `BARED_ENCRYPTION_KEY`
 > to a different value, previously-encrypted credentials become undecryptable. Set it
 > before first start, or re-enter your secrets after changing it.
->
-> Note also that the error message for a malformed key currently says "64 hex chars".
-> That message is wrong — the value is base64. Tracked in
-> [#87](https://github.com/etowett/bared/issues/87).
 
 ### Not audited
 
-BareD has not had an independent security audit. Test coverage is roughly 27% against
-the project's own 75% threshold
-([#53](https://github.com/etowett/bared/issues/53)), and some packages have no tests.
+BareD has not had an independent security audit. Test coverage is roughly 36% against
+a CI-enforced ratchet of 34% (`make coverage-check`), which only ever moves up.
+`cmd/brd` has no tests, and `internal/notify` — which handles webhook and SMTP
+credentials — is still in the 20s.
 
 ## Deployment hardening
 
@@ -142,6 +111,13 @@ If you are running BareD against production data:
   narrowly.
 - **Least privilege for storage credentials.** Scope S3 keys to a single bucket and
   prefix. Prefer write-only where your provider supports it.
+- **Never set `insecure_skip_host_key_verify` on an SFTP storage.** Host key
+  verification is on by default — `known_hosts_path` (default `~/.ssh/known_hosts`),
+  or pin one key with `host_key_fingerprint`. The insecure flag accepts any host key,
+  which hands an on-path attacker both the SFTP credentials and the backup stream. It
+  exists for throwaway local testing and warns loudly every time it is used.
+- **Prefer key auth for SFTP.** `private_key_path` (with an optional
+  `private_key_passphrase`) avoids putting a reusable password in the config at all.
 - **Keep secrets out of config files.** Use `${ENV_VAR}` expansion in YAML and supply
   values from the environment or a secret store.
 - **Protect the state directory.** The SQLite database holds job history, encrypted
@@ -159,7 +135,7 @@ values, the encryption implementation, dependency vulnerabilities that BareD act
 reaches, and anything that lets a backup be read or altered by a party who should not
 be able to.
 
-**Out of scope:** the three [known limitations](#known-limitations) above (already
+**Out of scope:** the [known limitations](#known-limitations) above (already
 tracked — please comment on the existing issue rather than filing a report),
 vulnerabilities in `mysqldump`/`pg_dump`/`redis-cli` themselves, findings that need
 an already-compromised host or root on the BareD machine, missing hardening headers

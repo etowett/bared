@@ -8,7 +8,7 @@ Replace the web dashboard's "Base64 credentials in `sessionStorage`" auth model 
 session cookie, make WebSocket log streaming authenticate through the same mechanism, and stop the
 WebSocket upgrader from accepting every origin.
 
-Tracking issue: [#46](https://github.com/<owner>/bared/issues/46) — *Web auth: replace Base64 creds in
+Tracking issue: [#46](https://github.com/etowett/bared/issues/46) — *Web auth: replace Base64 creds in
 sessionStorage, fix WebSocket auth, restrict CheckOrigin*. Labelled `release:minor`.
 
 This matters more than the other open web issues (#47 code-splitting, #48 SPA navigation) because BareD

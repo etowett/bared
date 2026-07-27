@@ -42,11 +42,11 @@ Consolidate all documentation from multiple locations into a single, logical str
 | `QUICK-REFERENCE.md` | 8.4 KB | Quick config reference | **Keep** (configuration guide) |
 | `config.*.yml` | Various | Config examples | **Keep** (examples) |
 
-### Plan File (.claude/plans/)
+### Plan File
 
 | File | Size | Purpose | Target Location |
 |------|------|---------|-----------------|
-| `quiet-munching-snowflake.md` | - | Logging/alerting plan | Archive to `docs/architecture/plans/` |
+| Draft logging/alerting plan | - | Logging/alerting plan | Archive to `docs/architecture/plans/` |
 
 ## Previous Implementation (COMPLETED ✅)
 
@@ -234,8 +234,8 @@ git mv RELEASE_UNIFORMITY.md docs/architecture/release-uniformity.md
 git mv docs/WEB_INTERFACE.md docs/user-guide/web-interface.md
 git mv docs/VERSIONING.md docs/operations/versioning.md
 
-# Archive plan file
-cp ~/.claude/plans/quiet-munching-snowflake.md docs/architecture/plans/logging-alerting.md
+# Archive the draft logging/alerting plan
+cp <draft-plan>.md docs/architecture/plans/logging-alerting.md
 
 # Remove old compose.md (will merge content into deployment.md)
 git rm docs/compose.md
@@ -443,7 +443,7 @@ docs/compose.md               → Content merged into docs/operations/deployment
 ### Archives (1 file)
 
 ```bash
-.claude/plans/quiet-munching-snowflake.md → docs/architecture/plans/logging-alerting.md
+draft logging/alerting plan → docs/architecture/plans/logging-alerting.md
 ```
 
 ### Creates (23+ new files)
