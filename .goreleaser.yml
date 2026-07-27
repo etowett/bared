@@ -5,6 +5,29 @@ version: 2
 
 project_name: brd
 
+git:
+  # Every release pushes two tags at the same commit: vX.Y.Z (the release) and
+  # apps/api/vX.Y.Z (the Go module tag — go.mod lives at apps/api/, see #110 and
+  # .github/workflows/auto-release.yml). From a commit that is *not* exactly a
+  # tag, GoReleaser falls back to `git describe`, which returns the module tag,
+  # and `{{ .Version }}` becomes "apps/api/v0.5.0". The "/" then turns
+  # `name_template` into a nested directory, so a local snapshot produced
+  # `dist/brd-apps/api/v0.5.0-SNAPSHOT-<sha>-linux-amd64.tar.gz` instead of a
+  # flat archive name (#120).
+  #
+  # Ignoring the module tags leaves only root vX.Y.Z tags for GoReleaser to pick
+  # as current *and* previous, which is the same restriction the Makefile's
+  # VERSION and auto-release.yml already apply via `git describe --match
+  # 'v[0-9]*'`. Globs are matched with filepath.Match and do work here (verified
+  # against GoReleaser v2.17.0 — #110 predates that support), so this covers
+  # every module tag, not just a hardcoded version.
+  #
+  # release.yml still pins GORELEASER_CURRENT_TAG to github.ref_name. That is
+  # deliberate belt-and-braces: it names the exact tag being released rather
+  # than inferring it, and it is never an ignored tag.
+  ignore_tags:
+    - "apps/api/*"
+
 # These hooks are the *only* place the release pipeline builds and embeds
 # the web UI — .github/workflows/release.yml deliberately no longer
 # duplicates them (#115). GoReleaser validates git state *before* running
