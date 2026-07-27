@@ -19,21 +19,17 @@
 ## Release Type
 
 <!--
-Add the appropriate release label to this PR:
-- release:major - Breaking changes (x.0.0)
-- release:minor - New features (0.x.0)
-- release:patch - Bug fixes, docs, small improvements (0.0.x)
-- release:skip - No release needed (internal changes, WIP)
-
-If no label is added, the default will be a patch release.
+Labelling is a MAINTAINER step — contributors from a fork cannot set labels, and
+you are not expected to. Just tick the box below and a maintainer will apply the
+matching label before merge. If none is applied, a patch release is created.
 -->
 
-**Required:** Add one of the following labels to this PR:
+Which version bump should this get? (A maintainer applies the label.)
 
-- `release:major` - For breaking changes or major new features
-- `release:minor` - For new features and enhancements
-- `release:patch` - For bug fixes, documentation, and small improvements
-- `release:skip` - To skip automatic release (internal changes only)
+- [ ] **Major** (`release:major`) - Breaking change: removed flags/commands, changed config format, breaking behaviour
+- [ ] **Minor** (`release:minor`) - New feature or enhancement, backwards compatible
+- [ ] **Patch** (`release:patch`) - Bug fix, documentation, or small improvement
+- [ ] **None** (`release:skip`) - Internal only, no user impact
 
 ## Testing
 
@@ -53,7 +49,14 @@ If no label is added, the default will be a patch release.
 - [ ] My changes generate no new warnings or errors
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
-- [ ] I have added the appropriate release label (see Release Type above)
+- [ ] I have indicated the release type above
+- [ ] This PR does not contain credentials, real backup data, or `.env` / `bared.yml` / `*.db` files
+
+<!--
+Security: if this PR fixes a vulnerability that has not been publicly reported,
+stop and report it privately first — see SECURITY.md. Do not describe the
+vulnerability here.
+-->
 
 ## Additional Context
 

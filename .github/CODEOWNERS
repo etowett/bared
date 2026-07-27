@@ -1,0 +1,31 @@
+# Code owners for BareD.
+#
+# Owners are requested for review automatically when a PR touches their paths.
+# Later, more specific rules win over earlier ones.
+#
+# BareD currently has a single maintainer, so the catch-all covers everything.
+# The explicit entries below exist to make the sensitive areas visible rather
+# than to route work elsewhere — split them out when there are more maintainers.
+
+# Default owner for everything in the repo.
+*                               @etowett
+
+# Security-sensitive: credential handling, encryption, auth, storage paths.
+/SECURITY.md                    @etowett
+/apps/api/internal/encryption/  @etowett
+/apps/api/internal/storage/     @etowett
+/apps/api/internal/api/         @etowett
+/apps/api/internal/config/      @etowett
+
+# Supply chain and release: CI, container build, release automation, agent config.
+/.github/                       @etowett
+/.goreleaser.yml                @etowett
+/Dockerfile                     @etowett
+/compose.yml                    @etowett
+/.claude/                       @etowett
+/.codex/                        @etowett
+
+# Project governance.
+/LICENSE                        @etowett
+/CODE_OF_CONDUCT.md             @etowett
+/CONTRIBUTING.md                @etowett

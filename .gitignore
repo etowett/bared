@@ -30,10 +30,14 @@ vendor/
 *~
 .DS_Store
 
-# Configuration files with secrets
+# Configuration files with secrets.
+# These patterns are unanchored on purpose — a live config must not slip in at
+# any depth. The one exception is GitHub's issue-template chooser, whose filename
+# is fixed by GitHub and which holds no secrets.
 bared.yml
 config.yml
 *.local.yml
+!.github/ISSUE_TEMPLATE/config.yml
 
 # Backup data (for testing)
 /backups/

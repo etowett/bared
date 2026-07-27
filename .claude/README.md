@@ -93,11 +93,22 @@ session in a loop.
 
 ## Settings & config
 
-- **`settings.json`** — committed and shared: permission allow/ask/deny lists, hook registrations,
+- **`settings.json`** — committed and shared: `ask` and `deny` lists, hook registrations,
   `enableAllProjectMcpServers`. Secrets are denied for read (`config.yml`, `bared.yml`,
-  `*.local.yml`, `.env*`).
-- **`settings.local.json`** — personal, **gitignored**. Your overrides only; shared config goes in
-  `settings.json` or it won't reach teammates or Codex.
+  `*.local.yml`, `.env*`). It deliberately carries **no `permissions.allow`** — see below.
+- **`settings.local.json`** — personal, **gitignored**. This is where the command allow-list
+  lives. Copy `settings.local.json.example` to `settings.local.json` to opt in.
+
+> **Why the allow-list is not committed.** BareD is a public repository. An entry like
+> `Bash(make:*)` or `Bash(go run:*)` auto-approves, with no prompt, a command whose behaviour
+> is defined by files *in the working tree* — `Makefile`, `scripts/`, `package.json` scripts,
+> `go:generate` directives. Checking out a fork's pull request to review it and then opening an
+> agent session would hand that fork arbitrary code execution on your machine, silently. Keeping
+> the allow-list local makes each maintainer opt in deliberately.
+>
+> **When reviewing an untrusted pull request, work without the local allow-list**, or review the
+> diff to `Makefile`, `scripts/`, `apps/web/package.json` and any `go:generate` line before you
+> run anything.
 - **`../.mcp.json`** — the MCP server set, currently **Context7** for up-to-date library docs.
   `enableAllProjectMcpServers` is on, so it loads automatically. Mirrored to `.codex/config.toml`.
   Its `npx` launcher is unrelated to the web toolchain below.

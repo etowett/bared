@@ -17,9 +17,9 @@ Thank you for your interest in contributing to BareD! This document provides gui
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/etowett/bared.git
 cd bared
-```s
+```
 
 2. Set up the development environment:
 
@@ -199,7 +199,8 @@ docker-compose down
 2. Update documentation as needed
 3. Add a clear description of your changes
 4. Link any related issues
-5. **Add appropriate release label** (see Release Process below)
+5. Indicate the release type in the PR template — a **maintainer** applies the actual
+   label, since contributors working from a fork cannot set labels
 6. Request review from maintainers
 
 ### Pull Request Checklist
@@ -211,7 +212,7 @@ docker-compose down
 - [ ] Linter passes (`make lint`)
 - [ ] Documentation updated
 - [ ] Example configuration updated (if needed)
-- [ ] **Appropriate release label added** (`release:major`, `release:minor`, `release:patch`, or `release:skip`)
+- [ ] Release type indicated in the PR description (a maintainer applies the label)
 
 ## Release Process
 
@@ -219,7 +220,9 @@ BareD uses an automated release system that creates new versions when PRs are me
 
 ### Release Labels
 
-Every PR should have ONE of these labels:
+Every PR gets ONE of these labels. **Maintainers apply it** — a contributor working
+from a fork has no permission to set labels, so just indicate the intended bump in
+the PR description:
 
 | Label | Version Bump | Use Case | Example |
 |-------|--------------|----------|---------|
@@ -233,7 +236,7 @@ Every PR should have ONE of these labels:
 ### How It Works
 
 1. **Create PR** with your changes
-2. **Add release label** based on the impact:
+2. **A maintainer adds the release label** based on the impact:
    - Breaking API changes? → `release:major`
    - New feature? → `release:minor`
    - Bug fix or docs? → `release:patch`
@@ -355,7 +358,9 @@ If a release fails:
    - Create PR with fix
    - Merge and let automation retry
 
-For more details, see [docs/architecture/release-process.md](docs/architecture/release-process.md).
+For more details, see [docs/architecture/release-process.md](docs/architecture/release-process.md)
+and [CHANGELOG.md](CHANGELOG.md), which explains why release notes are generated
+rather than hand-written.
 
 ## Makefile Commands
 
@@ -473,6 +478,44 @@ threshold; `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/interna
 have no tests at all. Raising it is tracked separately. Everything *before* that step
 (`fmt` → `vet` → `lint` → `test-unit`) must pass.
 
+## Working with AI Coding Agents
+
+The repository ships shared configuration for Claude Code (`.claude/`) and the Codex
+CLI (`.codex/`) — hooks, subagents, skills and slash commands. See
+[`.claude/README.md`](.claude/README.md) for what's available.
+
+**The tracked config deliberately auto-approves nothing that executes project code.**
+`.claude/settings.json` carries only the `ask` and `deny` lists and the hook
+registrations; the command allow-list is not committed. To opt in:
+
+```bash
+cp .claude/settings.local.json.example .claude/settings.local.json
+```
+
+`.claude/settings.local.json` is gitignored. Codex users can relax the equivalent
+rules in their personal `~/.codex/config.toml`; the tracked
+`.codex/rules/allowlist.rules` prompts for the same commands.
+
+Why: an allow-list entry like `Bash(make:*)` or `Bash(go run:*)` silently approves a
+command whose behaviour is defined by files in the working tree — `Makefile`,
+`scripts/`, `apps/web/package.json` scripts, `go:generate` directives. On a public
+repository, checking out a fork's pull request and opening an agent session to review
+it would give that fork arbitrary code execution on your machine, with no prompt.
+
+**When reviewing a pull request from a fork, review the diff before you run anything** —
+especially changes to `Makefile`, `scripts/`, `apps/web/package.json`, `Dockerfile`,
+and any `go:generate` line. Consider moving your local settings aside first.
+
+## Reporting Security Issues
+
+**Do not open a public issue for a security vulnerability.** BareD handles database
+passwords, storage credentials and an encryption key — report privately through
+GitHub's private vulnerability reporting instead. See [SECURITY.md](SECURITY.md) for
+the process, response expectations, and the project's known security limitations.
+
+The same applies to pull requests: if a fix would reveal an unreported vulnerability,
+report it privately first and let the advisory drive the timing.
+
 ## Getting Help
 
 - Check existing issues and pull requests
@@ -481,13 +524,15 @@ have no tests at all. Raising it is tracked separately. Everything *before* that
 
 ## Code of Conduct
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the code, not the person
-- Help others learn and grow
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). In short: be
+respectful and inclusive, give constructive feedback, focus on the code rather than
+the person, and help others learn. Read
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the full text and how to report a
+problem.
 
 ## License
 
-By contributing to BareD, you agree that your contributions will be licensed under the same license as the project.
+BareD is released under the MIT License. By contributing, you agree that your
+contributions are licensed under the MIT License — see [LICENSE](LICENSE).
 
 Thank you for contributing to BareD!

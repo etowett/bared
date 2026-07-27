@@ -1,5 +1,11 @@
 # BareD Documentation Consolidation Plan
 
+> **Historical plan — partially implemented.** The `docs/` directory structure this
+> plan describes was created, but many of the individual pages it specifies were
+> never written. The markdown snippets below are *proposed* content: they contain
+> links to pages that do not exist, and are illustrative only. For the documentation
+> that actually exists, start at [docs/README.md](../../README.md).
+
 ## Overview
 
 Consolidate all documentation from multiple locations into a single, logical structure under `docs/` directory. This will create a single source of truth for all documentation and make it easier for users and contributors to find what they need.

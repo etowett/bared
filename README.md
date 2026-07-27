@@ -17,72 +17,37 @@ A simple yet powerful backup and restore daemon for databases written in Go.
 - **REST API**: Comprehensive HTTP API for automation and integration
 - **CLI Interface**: Simple command-line interface for manual operations
 
-## Implementation Status
+## Project status
 
-### ✅ All Core Phases Complete! (v1.0-ready)
+BareD is **pre-1.0** (latest release `v0.4.0`) and the version number is meant
+literally: the feature set below is implemented and exercised, but the interfaces
+are not yet frozen and configuration may still change between minor versions.
 
-**Phase 1: Foundation** ✓
+**What is implemented and working:**
 
-- Go module initialized
-- Project structure created
-- Configuration system (YAML parsing, validation, env vars)
-- Cobra CLI with all commands
-- Example configuration file
+- Backup and restore for MySQL/MariaDB, PostgreSQL and Redis
+- Local, S3 (and S3-compatible) and SFTP storage backends
+- Streaming tar.gz compression — no temp files, flat memory use
+- Daemon mode with cron scheduling and signal handling
+- Retention/cleanup, Slack/email/webhook notifications
+- REST API, WebSocket log streaming, and the React web dashboard
+- YAML config and database-backed config with AES-256-GCM encrypted secrets
 
-**Phase 2: Database Dumpers** ✓
+**What you should weigh before relying on it:**
 
-- Database interfaces (Dumper, Restorer)
-- MySQL/MariaDB implementation (mysqldump/mysql)
-- PostgreSQL implementation (pg_dump/psql)
-- Redis implementation (redis-cli --rdb)
-- Database factory for type dispatch
+- **Test coverage is roughly 27% against the project's own 75% threshold.** There
+  are 43 test files across 16 packages, but `cmd/brd`, `internal/client` and
+  `internal/configservice` have no tests at all. See
+  [issue #53](https://github.com/etowett/bared/issues/53).
+- Known security limitations are documented in [SECURITY.md](SECURITY.md) — read
+  it before deploying. They include SFTP host key verification and encryption key
+  storage.
+- Restore is destructive by design. Test your restore path on a scratch database
+  before you need it in anger.
+- There has been no independent security audit.
 
-**Phase 3: Compression** ✓
-
-- Compressor interface
-- tar.gz implementation using stdlib
-- Streaming compression support
-
-**Phase 4: Storage Backends** ✓
-
-- Storage interface with retry logic
-- Local filesystem storage
-- S3 storage (with S3-compatible support: MinIO, DigitalOcean Spaces, etc.)
-- SFTP storage
-- Storage factory
-
-**Phase 5: Backup Pipeline** ✓
-
-- Streaming backup pipeline (dump -> compress -> upload)
-- Path generation utilities
-- Backup command implementation
-- Progress logging
-
-**Phase 6: Restore Workflow** ✓
-
-- Restore pipeline (retrieve -> decompress -> restore)
-- List backups command
-- "Latest" backup detection
-- Full restore command implementation
-
-**Phase 7: Daemon & Scheduler** ✓
-
-- Daemon mode with signal handling (SIGTERM, SIGINT, SIGHUP)
-- Cron scheduling integration
-- systemd service file example
-
-**Phase 8: Retention & Notifications** ✓
-
-- Backup tracking (JSON metadata in ~/.bared/trackers/)
-- Automatic cleanup based on `keep` setting
-- Slack notifications with success/failure support
-
-**Phase 9: Polish & Documentation** ✓
-
-- Comprehensive README
-- Makefile for common tasks
-- Complete example configuration
-- Project ready for production use
+If you run BareD in production, pin a version, verify your restores on a schedule,
+and treat the encryption key as the sensitive material it is.
 
 ## Quick Start
 
@@ -297,24 +262,27 @@ Run both scheduled backups AND provide HTTP API access:
 
 **For Users**:
 
-- [Getting Started](docs/user-guide/getting-started.md) - New to BareD? Start here
-- [Configuration Guide](docs/user-guide/configuration.md) - Configure BareD for your needs
-- [Configuration Examples](examples/) - Ready-to-use YAML configs
+- [Quick Start](#quick-start) - Install, configure, and run your first backup
+- [Configuration Examples](examples/README.md) - Annotated YAML configs for every backend
+- [Quick Reference](examples/QUICK-REFERENCE.md) - Config syntax lookup
 - [Notification Setup](examples/NOTIFICATIONS.md) - Set up Slack, Email, or Webhooks
 - [Web Interface](docs/user-guide/web-interface.md) - Use the web dashboard
 
 **For Operators**:
 
-- [Deployment Guide](docs/operations/deployment.md) - Deploy in production
-- [Docker Deployment](docs/operations/docker.md) - Docker and Docker Compose
-- [Systemd Service](docs/operations/systemd.md) - Run as a system service
-- [Troubleshooting](docs/operations/troubleshooting.md) - Fix common issues
+- [Docker Compose](compose.yml) / [Dockerfile](Dockerfile) - Container deployment
+- [systemd unit](examples/bared.service) - Run as a system service
+- [Persistence & HA](examples/config.persistence.yml) - Job history and distributed locking
+- [Version Management](docs/operations/versioning.md) - Versions and releases
+- [Security & Hardening](SECURITY.md) - Known limitations, deployment guidance
 
 **For Developers**:
 
 - [Development Setup](docs/development/setup.md) - Set up dev environment
+- [Tooling](docs/development/tooling.md) - Linters, formatters, CI
+- [Testing](docs/development/testing.md) - Testing strategy
 - [Contributing Guide](CONTRIBUTING.md) - How to contribute
-- [System Architecture](docs/development/architecture.md) - How BareD works
+- [System Architecture](docs/architecture/README.md) - How BareD works
 
 **For Integrators**:
 
@@ -360,9 +328,9 @@ bared/
 │   ├── database/         # Database dumpers (MySQL, Postgres, Redis)
 │   ├── storage/          # Storage backends (Local, S3, SFTP)
 │   ├── compress/         # Compression (tar.gz)
-│   ├── notify/           # Notifications (coming soon)
-│   ├── daemon/           # Daemon mode (coming soon)
-│   ├── retention/        # Retention policies (coming soon)
+│   ├── notify/           # Notifications (Slack, email, webhook)
+│   ├── daemon/           # Daemon mode and cron scheduler
+│   ├── retention/        # Backup tracking and retention cleanup
 │   └── util/             # Utilities (paths, retry, shell)
 ├── examples/             # Example configurations
 └── docs/                 # Complete documentation
@@ -404,16 +372,47 @@ go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 make build-all
 ```
 
-### Testing (Coming in Phase 9)
+### Testing
 
 ```bash
+# Unit tests
+make test-unit
+
+# Or directly
 go -C apps/api test ./...
+
+# Integration tests (needs `make setup-test-env`)
+make test-integration
+
+# Coverage report
+make coverage
 ```
+
+Coverage currently sits well below the project's 75% threshold — see
+[Project status](#project-status). New tests are welcome; see
+[docs/development/testing.md](docs/development/testing.md).
+
+## Security
+
+Found a vulnerability? Report it privately — see [SECURITY.md](SECURITY.md). Do not
+open a public issue for a security problem.
+
+SECURITY.md also documents BareD's known security limitations (SFTP host key
+verification, login rate limiting, encryption key storage) and how to harden a
+deployment. Read it before running BareD against production data.
 
 ## License
 
-To be determined
+MIT — see [LICENSE](LICENSE).
 
 ## Contributing
 
-Contributions welcome! Please see `CONTRIBUTING.md` and `docs/development/` for implementation details and architecture.
+Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
+[docs/development/](docs/development/) for implementation details. Participation is
+governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Changelog
+
+Release notes are generated per release — see
+[GitHub Releases](https://github.com/etowett/bared/releases) and
+[CHANGELOG.md](CHANGELOG.md).

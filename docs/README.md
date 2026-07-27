@@ -8,22 +8,22 @@ Welcome to the complete BareD documentation! This guide will help you find exact
 
 Start here if you're new to BareD or want to use it for database backups:
 
-- **[Getting Started](user-guide/getting-started.md)** - Quick start guide to get up and running
-- **[Configuration Guide](user-guide/configuration.md)** - How to configure BareD
+- **[Quick Start](../README.md#quick-start)** - Install, configure, and run your first backup
+- **[Configuration Examples](../examples/README.md)** - Annotated YAML for every database, storage backend and notifier
+- **[Quick Reference](../examples/QUICK-REFERENCE.md)** - Config syntax lookup
+- **[Notification Setup](../examples/NOTIFICATIONS.md)** - Slack, Email and Webhook setup
 - **[Web Interface](user-guide/web-interface.md)** - Using the web UI dashboard
-- **[Backup Operations](user-guide/backup-operations.md)** - Performing and scheduling backups
-- **[Restore Operations](user-guide/restore-operations.md)** - Restoring from backups
 
 ### For Operators
 
-Essential guides for deploying and managing BareD in production:
+Deploying and running BareD in production:
 
-- **[Deployment Guide](operations/deployment.md)** - Deploy BareD in various environments
-- **[Docker Deployment](operations/docker.md)** - Docker and Docker Compose setup
-- **[Systemd Service](operations/systemd.md)** - Run BareD as a system service
+- **[Security & Hardening](../SECURITY.md)** - Known limitations and deployment guidance — read this first
+- **[Docker Compose](../compose.yml)** / **[Dockerfile](../Dockerfile)** - Container deployment
+- **[systemd unit](../examples/bared.service)** - Run BareD as a system service
+- **[Persistence & HA](../examples/config.persistence.yml)** - Job history and distributed locking
 - **[Version Management](operations/versioning.md)** - Working with versions and releases
-- **[Monitoring](operations/monitoring.md)** - Monitor BareD operations
-- **[Troubleshooting](operations/troubleshooting.md)** - Fix common issues
+- **[Operations Guide](operations/README.md)** - Deployment checklist and common scenarios
 
 ### For Developers
 
@@ -32,19 +32,17 @@ Resources for contributors and those extending BareD:
 - **[Development Setup](development/setup.md)** - Set up your development environment
 - **[Tooling Guide](development/tooling.md)** - Development tools and workflows
 - **[Testing Strategy](development/testing.md)** - Testing philosophy and practices
-- **[System Architecture](development/architecture.md)** - Overview of system design
 - **[Contributing](../CONTRIBUTING.md)** - Contribution guidelines
+- **[Agent Guide](../AGENTS.md)** - Architecture map and conventions, for humans and agents alike
 
 ### For Architects
 
-Deep dives into system design and architectural decisions:
+Deep dives into system design:
 
-- **[Architecture Overview](architecture/README.md)** - System architecture and components
-- **[Design Decisions](architecture/design-decisions.md)** - Key architectural choices
-- **[Streaming Pipeline](architecture/streaming-pipeline.md)** - How streaming works
-- **[Notification System](architecture/notification-system.md)** - Notification architecture
-- **[Persistence Layer](architecture/persistence-layer.md)** - Database persistence design
-- **[Implementation Plans](architecture/plans/)** - Historical development plans
+- **[Architecture Overview](architecture/README.md)** - Components, data flow, and design principles
+- **[Release Process](architecture/release-process.md)** - How releases are cut
+- **[Release Uniformity](architecture/release-uniformity.md)** - Release standardisation
+- **[Historical Plans](architecture/plans/)** - Original implementation plans, kept for context
 
 ### API Reference
 
@@ -58,10 +56,10 @@ For developers integrating with BareD programmatically:
 ### I want to
 
 **...set up BareD for the first time**
-→ Start with [Getting Started](user-guide/getting-started.md), then [Configuration Guide](user-guide/configuration.md)
+→ Start with [Quick Start](../README.md#quick-start), then the [configuration examples](../examples/README.md)
 
 **...deploy BareD in production**
-→ See [Deployment Guide](operations/deployment.md) and [Docker Deployment](operations/docker.md)
+→ Read [SECURITY.md](../SECURITY.md), then use [compose.yml](../compose.yml) or the [systemd unit](../examples/bared.service). The [Operations Guide](operations/README.md) has a deployment checklist.
 
 **...configure notifications**
 → Check out [../examples/NOTIFICATIONS.md](../examples/NOTIFICATIONS.md) - comprehensive notification setup guide
@@ -70,10 +68,10 @@ For developers integrating with BareD programmatically:
 → See [Contributing](../CONTRIBUTING.md) and [Development Setup](development/setup.md)
 
 **...troubleshoot an issue**
-→ Start with [Troubleshooting](operations/troubleshooting.md), check logs, verify configuration
+→ There is no troubleshooting guide yet. Check the daemon logs, re-run with `brd validate-config`, and search the [issue tracker](https://github.com/etowett/bared/issues).
 
 **...understand how BareD works internally**
-→ Read [System Architecture](development/architecture.md) and [Design Decisions](architecture/design-decisions.md)
+→ Read the [Architecture Overview](architecture/README.md) and [AGENTS.md](../AGENTS.md)
 
 **...use the web interface**
 → See [Web Interface Guide](user-guide/web-interface.md)
@@ -107,8 +105,10 @@ Looking for configuration examples? See the **[examples/](../examples/)** direct
 
 - All documentation uses relative links - works offline and in any viewer
 - Code blocks include language hints for syntax highlighting
-- Examples are production-ready and tested
 - Each guide is self-contained but cross-referenced where helpful
+- This documentation set is incomplete. Where a topic has no page, the links above
+  point at the closest thing that actually exists — usually an annotated example
+  config or the code itself.
 
 ## 📝 Documentation Structure
 
@@ -124,7 +124,8 @@ docs/
 
 ## 🤝 Need Help?
 
-- **Configuration issues**: See [Troubleshooting](operations/troubleshooting.md)
+- **Configuration issues**: Check the daemon logs and `brd validate-config`, then search the [issue tracker](https://github.com/etowett/bared/issues)
+- **Security issues**: Report privately — see [SECURITY.md](../SECURITY.md)
 - **Feature requests**: Open an issue on GitHub
 - **Contributing**: Read [CONTRIBUTING.md](../CONTRIBUTING.md)
 - **Questions**: Check existing docs or open a discussion

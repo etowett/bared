@@ -1,12 +1,19 @@
-# BareD Implementation Complete! 🎉
+# Implementation Phases: Completion Record
+
+> **Historical document.** This records the completion of the nine phases in the
+> original implementation plan. It describes what was built at that point, not the
+> project's current maturity or its current API. For where BareD actually stands
+> today — including test coverage and known limitations — see
+> [Project status](../../README.md#project-status) and [SECURITY.md](../../SECURITY.md).
 
 ## Summary
 
-All 9 phases of the BareD implementation plan have been successfully completed. The project is now production-ready with full backup, restore, scheduling, retention, and notification capabilities.
+All 9 phases of the original implementation plan were completed: backup, restore,
+scheduling, retention and notifications are all implemented.
 
 ## What's Been Built
 
-### Core Functionality (100% Complete)
+### Core Functionality
 
 **✅ Backup Operations**
 
@@ -265,7 +272,8 @@ ENTRYPOINT ["./brd"]
 
 ## Conclusion
 
-BareD is complete and ready for production use. The implementation follows all best practices:
+The nine planned phases are done. The implementation follows the patterns the plan
+set out:
 
 - Clean architecture with clear separation of concerns
 - Streaming for memory efficiency
@@ -274,6 +282,9 @@ BareD is complete and ready for production use. The implementation follows all b
 - Comprehensive error handling
 - Production-grade signal handling and daemon mode
 
-The codebase is maintainable, testable, and extensible. All original requirements from the plan have been met or exceeded.
+All original requirements from the plan have been met.
 
-**🎯 Project Status: COMPLETE & PRODUCTION-READY**
+"Complete" here means *the planned phases shipped* — it is not a claim that BareD
+is finished or hardened. Test coverage is well below the project's own threshold and
+there are documented security limitations; see
+[Project status](../../README.md#project-status) and [SECURITY.md](../../SECURITY.md).
