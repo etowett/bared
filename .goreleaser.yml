@@ -53,12 +53,16 @@ archives:
     name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - LICENSE
       - README.md
-      - examples/**/*
-      - docs/**/*
+      # Bare directory names glob recursively. Do NOT use `examples/**/*`:
+      # `**` requires at least one intervening directory, so that pattern
+      # silently matched nothing for the flat `examples/` tree (and skipped
+      # top-level files such as `docs/README.md`).
+      - examples
+      - docs
 
 checksum:
   name_template: 'checksums.txt'
