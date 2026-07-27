@@ -258,15 +258,9 @@ func (m *MySQL) ValidateConnection(ctx context.Context) error {
 	return nil
 }
 
-// sanitizeArgs removes sensitive information from command arguments for logging
+// sanitizeArgs removes sensitive information from command arguments for
+// logging. The rule lives in util.RedactArgs so the same masking applies to the
+// error paths in util.ExecuteCommand — see issue #133.
 func (m *MySQL) sanitizeArgs(args []string) []string {
-	sanitized := make([]string, len(args))
-	for i, arg := range args {
-		if len(arg) > 11 && arg[:11] == "--password=" {
-			sanitized[i] = "--password=***REDACTED***"
-		} else {
-			sanitized[i] = arg
-		}
-	}
-	return sanitized
+	return util.RedactArgs(args)
 }

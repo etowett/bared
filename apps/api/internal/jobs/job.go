@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // JobID is a unique identifier for a job
@@ -131,14 +132,20 @@ func (j *Job) MarkCompleted(result interface{}) {
 	j.Result = result
 }
 
-// MarkFailed marks the job as failed
+// MarkFailed marks the job as failed.
+//
+// The message is scrubbed before it is stored: Job.Error is persisted to the
+// jobs table and served verbatim by /api/jobs, so a credential that reached
+// this point would be disclosed at rest and over the API. util.ExecuteCommand
+// already redacts its own argv; this is the backstop for any command builder
+// that bypasses it (issue #133).
 func (j *Job) MarkFailed(err error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	now := time.Now()
 	j.CompletedAt = &now
 	j.Status = JobStatusFailed
-	j.Error = err.Error()
+	j.Error = util.RedactSecrets(err.Error())
 }
 
 // MarkCancelled marks the job as cancelled

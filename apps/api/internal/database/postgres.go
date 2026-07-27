@@ -73,7 +73,7 @@ func (p *Postgres) Dump(ctx context.Context, w io.Writer) (*DumpMetadata, error)
 		"port", p.conn.Port,
 		"command", "pg_dump",
 		"password_env", passwordSet,
-		"args", args)
+		"args", util.RedactArgs(args))
 
 	var err error
 	if len(env) > 0 {
@@ -130,7 +130,7 @@ func (p *Postgres) Restore(ctx context.Context, r io.Reader) error {
 		"port", p.conn.Port,
 		"command", "psql",
 		"password_env", passwordSet,
-		"args", args)
+		"args", util.RedactArgs(args))
 
 	var err error
 	if len(env) > 0 {

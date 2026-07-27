@@ -215,22 +215,11 @@ func (r *Redis) ValidateConnection(ctx context.Context) error {
 	return nil
 }
 
-// sanitizeArgs removes sensitive information from command arguments for logging
+// sanitizeArgs removes sensitive information from command arguments for
+// logging. The rule lives in util.RedactArgs so the same masking applies to the
+// error paths in util.ExecuteCommand — see issue #133.
 func (r *Redis) sanitizeArgs(args []string) []string {
-	sanitized := make([]string, len(args))
-	redactNext := false
-	for i, arg := range args {
-		if redactNext {
-			sanitized[i] = "***REDACTED***"
-			redactNext = false
-		} else if arg == "-a" || arg == "--auth" {
-			sanitized[i] = arg
-			redactNext = true
-		} else {
-			sanitized[i] = arg
-		}
-	}
-	return sanitized
+	return util.RedactArgs(args)
 }
 
 func (r *Redis) buildDumpArgs(outputFile string) []string {

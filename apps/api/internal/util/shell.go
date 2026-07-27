@@ -40,10 +40,10 @@ func ExecuteCommandWithEnv(ctx context.Context, w io.Writer, env map[string]stri
 		stderrOutput := stderrBuf.String()
 		if stderrOutput != "" {
 			return fmt.Errorf("command failed: %s %v (exit code %d): %s: %w",
-				name, args, exitCode, stderrOutput, err)
+				name, RedactArgs(args), exitCode, RedactSecrets(stderrOutput), err)
 		}
 		return fmt.Errorf("command failed: %s %v (exit code %d): %w",
-			name, args, exitCode, err)
+			name, RedactArgs(args), exitCode, err)
 	}
 
 	return nil
@@ -62,7 +62,7 @@ func ExecuteCommandWithStderr(ctx context.Context, w io.Writer, stderr io.Writer
 			exitCode = exitError.ExitCode()
 		}
 
-		return fmt.Errorf("command failed: %s %v (exit code %d): %w", name, args, exitCode, err)
+		return fmt.Errorf("command failed: %s %v (exit code %d): %w", name, RedactArgs(args), exitCode, err)
 	}
 
 	return nil
@@ -127,10 +127,10 @@ func ExecuteCommandWithStdinAndEnv(ctx context.Context, r io.Reader, env map[str
 		stderrOutput := stderrBuf.String()
 		if stderrOutput != "" {
 			return fmt.Errorf("command failed: %s %v (exit code %d): %s: %w",
-				name, args, exitCode, stderrOutput, err)
+				name, RedactArgs(args), exitCode, RedactSecrets(stderrOutput), err)
 		}
 		return fmt.Errorf("command failed: %s %v (exit code %d): %w",
-			name, args, exitCode, err)
+			name, RedactArgs(args), exitCode, err)
 	}
 
 	return nil
@@ -167,10 +167,10 @@ func ExecuteCommandOutputWithEnv(ctx context.Context, env map[string]string, nam
 		stderrOutput := stderrBuf.String()
 		if stderrOutput != "" {
 			return nil, fmt.Errorf("command failed: %s %v (exit code %d): %s: %w",
-				name, args, exitCode, stderrOutput, err)
+				name, RedactArgs(args), exitCode, RedactSecrets(stderrOutput), err)
 		}
 		return nil, fmt.Errorf("command failed: %s %v (exit code %d): %w",
-			name, args, exitCode, err)
+			name, RedactArgs(args), exitCode, err)
 	}
 
 	return stdoutBuf.Bytes(), nil

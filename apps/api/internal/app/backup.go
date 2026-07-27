@@ -278,7 +278,9 @@ func sendNotifications(ctx context.Context, cfg *config.Config, target *config.T
 		Target:    target.Name,
 		Operation: "backup",
 		Duration:  result.Duration,
-		Error:     err,
+		// Scrubbed: notifications leave the host, and a dump error can carry
+		// the command line that produced it (issue #133).
+		Error:     util.RedactErr(err),
 		Timestamp: time.Now(),
 
 		// File path and size metrics
