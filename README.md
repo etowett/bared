@@ -69,6 +69,16 @@ make build
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 ```
 
+> **`go install` gives you the CLI and the REST API — but not the web dashboard.**
+> The dashboard is compiled by Bun and embedded at build time; the module tree ships
+> an empty `internal/web/dist/`, so a `go install`ed binary answers `/` with
+> *"Web UI not built"*. For the dashboard use `make build` (or `make build-with-web`),
+> a release binary, or the Docker image — all three embed it.
+
+> **Building from a clone needs Go and Bun.** `apps/api/go.mod` requires **Go 1.26.5+**;
+> the dashboard is built with **Bun** (pinned in `apps/web/.bun-version`). `go install`
+> and the release binaries need neither.
+
 > **How versions resolve.** `go.mod` lives at `apps/api/`, so the module is
 > `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that subdirectory
 > prefix as versions of it. Each release therefore pushes two tags for the same commit:
@@ -155,6 +165,8 @@ Configure everything via YAML files. Simple and suitable for GitOps workflows.
 
 ```yaml
 # bared.yml
+default_storage: local_disk
+
 storages:
   local_disk:
     type: local
@@ -368,6 +380,15 @@ bared/
   - BareD automatically detects which commands are available
 - **PostgreSQL backups**: `pg_dump` and `psql` commands
 - **Redis backups**: `redis-cli` command
+
+### Build Dependencies
+
+Only needed if you build from a clone — `go install`, the release binaries and the
+Docker image need none of these:
+
+- **Go 1.26.5+** (`apps/api/go.mod`)
+- **Bun** (version pinned in `apps/web/.bun-version`) — builds the embedded dashboard
+- A C toolchain: the SQLite driver needs `CGO_ENABLED=1`
 
 ### Go Dependencies
 

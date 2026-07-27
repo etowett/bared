@@ -20,7 +20,8 @@ make validate
 
 ### Required Tools
 
-- **Go 1.24+**: Primary language
+- **Go 1.26.5+**: Primary language (the version in `apps/api/go.mod` is authoritative)
+- **Bun**: Builds the embedded web dashboard (version pinned in `apps/web/.bun-version`)
 - **Make**: Build automation
 - **Git**: Version control
 
