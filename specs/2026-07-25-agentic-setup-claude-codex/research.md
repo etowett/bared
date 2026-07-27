@@ -25,7 +25,7 @@ configuration, and stop the two from drifting apart. Issue: #52.
 - **No slash commands.** `.claude/commands/` did not exist.
 - Two subagent prompts hardcoded the author's home directory —
   `.claude/agents/go-backend-reviewer.md:11` and `.claude/agents/web-frontend-reviewer.md:11` both
-  read `/Users/eutychus/Code/my/bared/...`, which resolves for exactly one machine.
+  read `/Users/.../Code/my/bared/...`, which resolves for exactly one machine.
 - **The documented verify gate was wrong.** `AGENTS.md:142` labelled `make validate` as
   "Validate backend (fmt+vet+lint+test)" and `AGENTS.md:160` told contributors to run it before
   pushing. `Makefile:139-142` shows `validate: build` → `brd validate-config --config
