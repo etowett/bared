@@ -801,7 +801,7 @@ Since all components are tested individually, integration confidence is high eve
 - MySQL backup/restore with real database
 - Postgres backup/restore with real database
 - Redis backup/restore with real database
-- S3 with MinIO container
+- S3 with RustFS container
 - Full CLI command tests
 
 ### Additional Areas

@@ -83,6 +83,64 @@ export function cronToHuman(cronExpr: string): string {
 }
 
 /**
+ * Extracts the timezone the daemon interprets its cron expressions in.
+ *
+ * A cron expression carries no timezone of its own — `0 2 * * *` is bare
+ * numbers, and the daemon resolves them against its own `time.Local` (UTC in
+ * the Docker image, the host zone under `make run-daemon`). The browser has no
+ * way to know which, so `cronToHuman` alone can only ever print an unqualified
+ * "2:00 AM" that the viewer naturally misreads as their own time.
+ *
+ * `next_scheduled` is the one place that leaks it: the API formats it with Go's
+ * RFC3339 from a `time.Local` instant, so it arrives carrying the daemon's own
+ * offset — "Z" from the container, "+03:00" from a Nairobi host. Reading it back
+ * off the wire is exact, so no extra API field is needed.
+ *
+ * @returns A label like "UTC", "UTC+3" or "UTC-5:30", or null when the offset
+ * can't be read.
+ */
+export function serverZoneLabel(nextScheduled?: string | null): string | null {
+  if (!nextScheduled) return null
+
+  const match = /(Z|[+-]\d{2}:\d{2})$/.exec(nextScheduled.trim())
+  if (!match) return null
+
+  const offset = match[1]
+  if (offset === 'Z' || offset === '+00:00' || offset === '-00:00') return 'UTC'
+
+  const sign = offset[0]
+  const hours = parseInt(offset.slice(1, 3), 10)
+  const minutes = parseInt(offset.slice(4, 6), 10)
+  if (isNaN(hours) || isNaN(minutes)) return null
+
+  // Whole-hour zones read better without ":00"; the half- and quarter-hour ones
+  // (+05:30, +05:45) need the minutes to stay meaningful.
+  return minutes === 0 ? `UTC${sign}${hours}` : `UTC${sign}${hours}:${offset.slice(4, 6)}`
+}
+
+/**
+ * Describes a cron expression, qualified with the daemon's timezone when the
+ * description names a wall-clock time.
+ *
+ * @param cronExpr - Standard cron expression
+ * @param nextScheduled - The target's `next_scheduled`, which supplies the zone
+ * @returns e.g. "Daily at 2:00 AM UTC", or "Hourly" unqualified
+ */
+export function describeSchedule(cronExpr: string, nextScheduled?: string | null): string {
+  const human = cronToHuman(cronExpr)
+  const zone = serverZoneLabel(nextScheduled)
+  if (!zone) return human
+
+  // Only wall-clock descriptions are ambiguous. "Hourly", "Every 15 minutes" and
+  // "Every 6 hours" name intervals, which land on the same instants in every
+  // zone — a suffix there would be noise. formatTime is this module's only
+  // producer of clock times, so its "h:mm AM/PM" tail identifies them exactly.
+  if (!/\d:\d{2} (AM|PM)$/.test(human)) return human
+
+  return `${human} ${zone}`
+}
+
+/**
  * Formats a time as HH:MM AM/PM
  */
 function formatTime(hour: number, minute: number): string {
@@ -122,9 +180,18 @@ function getOrdinal(num: number): string {
 }
 
 /**
- * Formats a next run date/time in both relative and absolute format
+ * Formats a next run date/time in both relative and absolute format.
+ *
+ * This is the timezone-honest half of the schedule display: `next_scheduled` is
+ * an absolute instant, so `Date` renders it in the viewer's own zone with DST
+ * handled, whatever zone the daemon scheduled it in. Shifting the cron fields
+ * themselves cannot match that — an offset rolls the day over (23:00 Monday UTC
+ * is Tuesday in Nairobi, so "Weekly on Monday" would be wrong), step values and
+ * hour lists don't map to one local hour, and a fixed offset drifts across a DST
+ * transition. Showing the concrete next occurrence sidesteps all of it.
+ *
  * @param nextRun - ISO 8601 timestamp or Date object
- * @returns Formatted string like "in 5 hours (Tomorrow at 2:00 AM)"
+ * @returns Formatted string like "in 5 hours · Tomorrow at 2:00 AM"
  */
 export function formatNextRun(nextRun: string | Date | null | undefined): string {
   if (!nextRun) return 'Not scheduled'
@@ -142,7 +209,7 @@ export function formatNextRun(nextRun: string | Date | null | undefined): string
     const relative = formatRelativeTime(diff)
     const absolute = formatAbsoluteTime(date, now)
 
-    return `${relative} (${absolute})`
+    return `${relative} · ${absolute}`
   } catch {
     return 'Invalid date'
   }

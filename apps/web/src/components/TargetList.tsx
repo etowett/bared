@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatDate } from '@/lib/utils'
-import { cronToHuman } from '@/utils/cron'
+import { describeSchedule, formatNextRun } from '@/utils/cron'
 import { toast } from 'sonner'
 import { useConfirm } from '../hooks/useConfirm'
 import { useTriggerBackup } from '../hooks/useJobs'
@@ -78,7 +78,21 @@ export function TargetList({ targets }: TargetListProps) {
                   <StatusBadge status={target.is_running ? 'running' : 'idle'} />
                 </TableCell>
                 <TableCell className="text-sm">
-                  {target.schedule ? cronToHuman(target.schedule) : '—'}
+                  {target.schedule ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span>{describeSchedule(target.schedule, target.next_scheduled)}</span>
+                      {/* The cron line states the daemon's zone; this one is the
+                          same schedule in the viewer's, which is what someone
+                          actually wants to know. */}
+                      {target.next_scheduled && (
+                        <span className="text-xs text-muted-foreground">
+                          next {formatNextRun(target.next_scheduled)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    '—'
+                  )}
                 </TableCell>
                 <TableCell className="font-mono text-sm">
                   {target.last_backup ? formatDate(target.last_backup) : 'Never'}

@@ -118,8 +118,38 @@ describe('TargetList Component', () => {
 
     render(<TargetList targets={targets} />)
 
-    // Table view shows human-readable schedule via cronToHuman
-    expect(screen.getByText('test-db')).toBeInTheDocument()
+    // The cron hour is the daemon's, so it is labelled with the daemon's zone —
+    // read off the next_scheduled offset — rather than left to be misread as the
+    // viewer's own time.
+    expect(screen.getByText('Daily at 2:00 AM UTC')).toBeInTheDocument()
+  })
+
+  it('shows the next run in the viewer timezone alongside the schedule', () => {
+    const nextScheduled = '2026-12-10T02:00:00Z'
+    const targets = [createMockTarget({ schedule: '0 2 * * *', next_scheduled: nextScheduled })]
+
+    render(<TargetList targets={targets} />)
+
+    // 02:00 at the daemon renders as whatever that instant is for the viewer, so
+    // derive the expectation the same way rather than hardcoding a zone.
+    const localTime = new Date(nextScheduled).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+
+    expect(screen.getByText(new RegExp(`^next .*${localTime}$`))).toBeInTheDocument()
+  })
+
+  it('omits the next run line when the daemon reports no next occurrence', () => {
+    const targets = [createMockTarget({ schedule: '0 2 * * *', next_scheduled: undefined })]
+
+    render(<TargetList targets={targets} />)
+
+    // Without next_scheduled there is no offset to read, so the schedule stays
+    // unqualified rather than claiming a zone it cannot know.
+    expect(screen.getByText('Daily at 2:00 AM')).toBeInTheDocument()
+    expect(screen.queryByText(/^next /)).not.toBeInTheDocument()
   })
 
   it('displays dash when no schedule available', () => {

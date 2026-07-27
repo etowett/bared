@@ -34,7 +34,7 @@ storages:
     path: /data/backups
     keep: 20
 
-  # S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.)
+  # S3 or S3-compatible storage (RustFS, MinIO, DigitalOcean Spaces, Backblaze B2, etc.)
   s3:
     type: s3
     bucket: my-backup-bucket
