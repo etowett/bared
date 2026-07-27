@@ -85,9 +85,8 @@ changelog:
       order: 999
 
 release:
-  github:
-    owner: etowett
-    name: bared
+  # No `github:` block on purpose — GoReleaser infers owner/repo from the git
+  # remote, so forks release to their own repo instead of failing against this one.
   draft: false
   prerelease: auto
   mode: append
@@ -103,7 +102,7 @@ release:
 
     #### Linux (amd64)
     ```bash
-    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-amd64.tar.gz
+    wget https://github.com/etowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-amd64.tar.gz
     tar xzf brd-{{ .Version }}-linux-amd64.tar.gz
     sudo mv brd /usr/local/bin/
     sudo chmod +x /usr/local/bin/brd
@@ -111,7 +110,7 @@ release:
 
     #### Linux (arm64)
     ```bash
-    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-arm64.tar.gz
+    wget https://github.com/etowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-linux-arm64.tar.gz
     tar xzf brd-{{ .Version }}-linux-arm64.tar.gz
     sudo mv brd /usr/local/bin/
     sudo chmod +x /usr/local/bin/brd
@@ -119,7 +118,7 @@ release:
 
     #### macOS (Intel)
     ```bash
-    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-amd64.tar.gz
+    wget https://github.com/etowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-amd64.tar.gz
     tar xzf brd-{{ .Version }}-darwin-amd64.tar.gz
     sudo mv brd /usr/local/bin/
     sudo chmod +x /usr/local/bin/brd
@@ -127,7 +126,7 @@ release:
 
     #### macOS (Apple Silicon)
     ```bash
-    wget https://github.com/ektowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-arm64.tar.gz
+    wget https://github.com/etowett/bared/releases/download/{{ .Tag }}/brd-{{ .Version }}-darwin-arm64.tar.gz
     tar xzf brd-{{ .Version }}-darwin-arm64.tar.gz
     sudo mv brd /usr/local/bin/
     sudo chmod +x /usr/local/bin/brd
@@ -149,10 +148,10 @@ release:
   footer: |
     ---
 
-    **Full Changelog**: https://github.com/ektowett/bared/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/etowett/bared/compare/{{ .PreviousTag }}...{{ .Tag }}
 
     ## Need Help?
 
-    - 📖 [Documentation](https://github.com/ektowett/bared/tree/main/docs)
-    - 🐛 [Report Bug](https://github.com/ektowett/bared/issues/new)
-    - 💡 [Request Feature](https://github.com/ektowett/bared/issues/new)
+    - 📖 [Documentation](https://github.com/etowett/bared/tree/main/docs)
+    - 🐛 [Report Bug](https://github.com/etowett/bared/issues/new)
+    - 💡 [Request Feature](https://github.com/etowett/bared/issues/new)
