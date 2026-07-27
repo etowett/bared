@@ -64,7 +64,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ip := s.clientIP(r)
-	if !s.loginLimiter.Allow(ip) {
+	if !s.loginLimiter.Permit(ip) {
 		util.GetLogger().WarnS("Login rate limit exceeded",
 			"component", "api",
 			"ip", ip)
@@ -100,7 +100,17 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Deliberately generic: never reveal whether the username or the
 		// password was the wrong half.
-		time.Sleep(s.failedLoginDelay)
+		//
+		// The penalty is abandoned if the client goes away — an attacker
+		// hanging up immediately should not get to pin a goroutine per guess.
+		delay := time.NewTimer(s.failedLoginDelay)
+		defer delay.Stop()
+		select {
+		case <-delay.C:
+		case <-r.Context().Done():
+			return
+		}
+
 		respondError(w, http.StatusUnauthorized, "Invalid username or password")
 		return
 	}

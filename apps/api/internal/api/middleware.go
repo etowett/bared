@@ -54,10 +54,39 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			staleCookie = true
 		}
 
-		if user, pass, ok := r.BasicAuth(); ok && s.credentialsValid(user, pass) {
-			ctx := withAuth(r.Context(), &authContext{username: user})
-			next.ServeHTTP(w, r.WithContext(ctx))
-			return
+		// Basic auth checks the same static credential pair /api/login does, on
+		// every authenticated route, so it has to spend from the same per-IP
+		// budget. Rate limiting only the login form would leave the identical
+		// password oracle wide open behind GET /api/jobs.
+		//
+		// Only failures are charged, so a working CLI client — which presents
+		// Basic auth on every single request — is never throttled. An
+		// unauthenticated probe with no Authorization header costs nothing
+		// either, so the dashboard's 401-then-login flow is unaffected.
+		if user, pass, ok := r.BasicAuth(); ok {
+			ip := s.clientIP(r)
+			if !s.loginLimiter.Permit(ip) {
+				util.GetLogger().WarnS("Basic auth rate limit exceeded",
+					"component", "api",
+					"ip", ip)
+				w.Header().Set("Retry-After", retryAfterSeconds)
+				respondError(w, http.StatusTooManyRequests, "Too many authentication attempts. Try again later.")
+				return
+			}
+
+			if s.credentialsValid(user, pass) {
+				s.loginLimiter.RecordSuccess(ip)
+				ctx := withAuth(r.Context(), &authContext{username: user})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			if failures := s.loginLimiter.RecordFailure(ip); failures >= loginFailureLogThreshold {
+				util.GetLogger().WarnS("Repeated failed authentication attempts",
+					"component", "api",
+					"ip", ip,
+					"consecutive_failures", failures)
+			}
 		}
 
 		if staleCookie {

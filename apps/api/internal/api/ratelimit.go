@@ -54,6 +54,10 @@ type ipRateLimiter struct {
 	mu      sync.Mutex
 	entries map[string]*limiterEntry
 
+	// overflow is the shared bucket handed to new keys once the map is full
+	// and every entry in it is throttled. See overflowLocked.
+	overflow *limiterEntry
+
 	limit      rate.Limit
 	burst      int
 	ttl        time.Duration
@@ -66,30 +70,37 @@ type ipRateLimiter struct {
 	stop     chan struct{}
 }
 
-func newIPRateLimiter(limit rate.Limit, burst int, ttl time.Duration, maxEntries int) *ipRateLimiter {
+// newIPRateLimiter builds a limiter with the authentication policy above.
+// maxEntries is a parameter only so tests can force eviction without standing
+// up 4096 entries.
+func newIPRateLimiter(maxEntries int) *ipRateLimiter {
 	return &ipRateLimiter{
 		entries:    make(map[string]*limiterEntry),
-		limit:      limit,
-		burst:      burst,
-		ttl:        ttl,
+		limit:      rate.Every(loginRateInterval),
+		burst:      loginRateBurst,
+		ttl:        loginLimiterTTL,
 		maxEntries: maxEntries,
 		now:        time.Now,
 		stop:       make(chan struct{}),
 	}
 }
 
-// newLoginRateLimiter builds the limiter guarding POST /api/login.
+// newLoginRateLimiter builds the limiter guarding every path that checks the
+// operator's password: POST /api/login and the Basic auth fallback.
 func newLoginRateLimiter() *ipRateLimiter {
-	return newIPRateLimiter(
-		rate.Every(loginRateInterval),
-		loginRateBurst,
-		loginLimiterTTL,
-		loginLimiterMaxEntries,
-	)
+	return newIPRateLimiter(loginLimiterMaxEntries)
 }
 
-// Allow consumes a token for key, reporting whether the attempt may proceed.
-func (l *ipRateLimiter) Allow(key string) bool {
+// Permit reports whether key may make another authentication attempt. It does
+// NOT consume a token — only RecordFailure does.
+//
+// Spending on every attempt would rate limit success as well as failure, which
+// would throttle the CLI (internal/client authenticates with Basic auth on
+// every request) down to a handful of calls a minute. Charging only for
+// failures still bounds guessing, because a guess that is wrong is the only
+// kind an attacker can make: once the bucket is empty the credentials are no
+// longer evaluated at all, so a correct guess arriving later is refused too.
+func (l *ipRateLimiter) Permit(key string) bool {
 	if l == nil {
 		return true
 	}
@@ -100,11 +111,12 @@ func (l *ipRateLimiter) Allow(key string) bool {
 	now := l.now()
 	entry := l.entryLocked(key, now)
 
-	return entry.limiter.AllowN(now, 1)
+	return entry.limiter.TokensAt(now) >= 1
 }
 
-// RecordFailure counts a failed attempt for key and returns the running total,
-// so the caller can log a brute-force attempt without keeping state itself.
+// RecordFailure charges key a token for a failed attempt and returns its
+// running failure count, so the caller can log a brute force without keeping
+// state itself.
 func (l *ipRateLimiter) RecordFailure(key string) int {
 	if l == nil {
 		return 0
@@ -113,14 +125,16 @@ func (l *ipRateLimiter) RecordFailure(key string) int {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	entry := l.entryLocked(key, l.now())
+	now := l.now()
+	entry := l.entryLocked(key, now)
+	entry.limiter.AllowN(now, 1)
 	entry.failures++
 
 	return entry.failures
 }
 
-// RecordSuccess clears the failure streak for key. The token bucket is left
-// alone: a successful login is still an attempt.
+// RecordSuccess clears the failure streak for key. No token is charged — a
+// successful authentication is not what the limiter exists to stop.
 func (l *ipRateLimiter) RecordSuccess(key string) {
 	if l == nil {
 		return
@@ -144,11 +158,14 @@ func (l *ipRateLimiter) entryLocked(key string, now time.Time) *limiterEntry {
 
 	if l.maxEntries > 0 && len(l.entries) >= l.maxEntries {
 		l.sweepLocked(now)
-		// Evicting the least-recently-seen entry is the right trade: an
-		// attacker cycling addresses would otherwise push out nothing, and a
-		// hard refusal here would deny logins to everyone.
 		for len(l.entries) >= l.maxEntries {
-			l.evictOldestLocked()
+			if !l.evictOneLocked(now) {
+				// Every tracked bucket is still throttled, so there is nothing
+				// safe to drop. Share the overflow bucket rather than evict a
+				// throttled attacker into a fresh one — cycling addresses would
+				// otherwise be a free reset.
+				return l.overflowLocked(now)
+			}
 		}
 	}
 
@@ -161,19 +178,44 @@ func (l *ipRateLimiter) entryLocked(key string, now time.Time) *limiterEntry {
 	return entry
 }
 
-// evictOldestLocked drops the least-recently-seen entry. Callers must hold l.mu
-// and must not call it on an empty map.
-func (l *ipRateLimiter) evictOldestLocked() {
-	var oldestKey string
-	var oldestSeen time.Time
+// overflowLocked returns the single bucket shared by every key that arrives
+// once the map is full and nothing in it can be evicted. It lives outside the
+// map so it can never be evicted itself, and so this path cannot grow memory.
+// Callers must hold l.mu.
+func (l *ipRateLimiter) overflowLocked(now time.Time) *limiterEntry {
+	if l.overflow == nil {
+		l.overflow = &limiterEntry{limiter: rate.NewLimiter(l.limit, l.burst)}
+	}
+	l.overflow.lastSeen = now
+
+	return l.overflow
+}
+
+// evictOneLocked drops the least-recently-seen bucket that still has tokens to
+// spare, reporting whether it found one. Buckets that are currently throttled
+// are deliberately never evicted: re-creating one hands its owner a full burst
+// back, which is exactly what an attacker rotating addresses wants. Callers
+// must hold l.mu.
+func (l *ipRateLimiter) evictOneLocked(now time.Time) bool {
+	var victim string
+	var victimSeen time.Time
+	found := false
 
 	for key, entry := range l.entries {
-		if oldestKey == "" || entry.lastSeen.Before(oldestSeen) {
-			oldestKey, oldestSeen = key, entry.lastSeen
+		if entry.limiter.TokensAt(now) < 1 {
+			continue
+		}
+		if !found || entry.lastSeen.Before(victimSeen) {
+			victim, victimSeen, found = key, entry.lastSeen, true
 		}
 	}
 
-	delete(l.entries, oldestKey)
+	if !found {
+		return false
+	}
+
+	delete(l.entries, victim)
+	return true
 }
 
 // sweep reaps buckets that have been idle for longer than the TTL.

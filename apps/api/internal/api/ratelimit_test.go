@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/time/rate"
 )
 
 // fakeClock drives a limiter's notion of time so a test can cross the refill
@@ -226,14 +225,26 @@ func TestClientIP(t *testing.T) {
 			want:       "192.0.2.50",
 		},
 		{
-			name:       "IPv6 peer",
+			// A single IPv6 client routinely owns a whole /64, so the bucket is
+			// the /64 — keying on the full address would be 2^64 free retries.
+			name:       "IPv6 peer is bucketed by /64",
 			remoteAddr: "[2001:db8::1]:1234",
-			want:       "2001:db8::1",
+			want:       "2001:db8::/64",
 		},
 		{
-			name:       "unparseable remote address falls back to the raw value",
+			name:       "another address in the same /64 shares the bucket",
+			remoteAddr: "[2001:db8::dead:beef]:1234",
+			want:       "2001:db8::/64",
+		},
+		{
+			name:       "a different /64 gets its own bucket",
+			remoteAddr: "[2001:db8:0:1::1]:1234",
+			want:       "2001:db8:0:1::/64",
+		},
+		{
+			name:       "unparseable remote address shares one bucket",
 			remoteAddr: "pipe",
-			want:       "pipe",
+			want:       unknownClientKey,
 		},
 	}
 
@@ -296,26 +307,75 @@ func TestParseTrustedProxies(t *testing.T) {
 // from arbitrary addresses.
 func TestIPRateLimiter_MapStaysBounded(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPRateLimiter(rate.Every(loginRateInterval), loginRateBurst, loginLimiterTTL, 32)
+	limiter := newIPRateLimiter(32)
 	limiter.now = clock.Now
 
 	for i := range 5000 {
-		limiter.Allow(fmt.Sprintf("198.51.100.%d", i))
+		limiter.Permit(fmt.Sprintf("198.51.100.%d", i))
 	}
 
 	assert.LessOrEqual(t, limiter.count(), 32, "the entry cap must hold under a flood of distinct IPs")
 	assert.Positive(t, limiter.count())
 }
 
+// Eviction must never hand a throttled key a fresh bucket, or rotating
+// addresses to force the cap would be a free reset.
+func TestIPRateLimiter_EvictionDoesNotResetAThrottledKey(t *testing.T) {
+	clock := newFakeClock()
+	limiter := newIPRateLimiter(4)
+	limiter.now = clock.Now
+
+	const attacker = "203.0.113.66"
+	for range loginRateBurst {
+		limiter.RecordFailure(attacker)
+	}
+	require.False(t, limiter.Permit(attacker), "the attacker's bucket starts empty")
+
+	// Fill and overflow the map from other addresses, which is what an
+	// attacker would do to try to evict its own throttled bucket.
+	for i := range 200 {
+		limiter.Permit(fmt.Sprintf("198.51.100.%d", i))
+	}
+
+	assert.False(t, limiter.Permit(attacker), "a throttled key must survive eviction pressure")
+	assert.LessOrEqual(t, limiter.count(), 4)
+}
+
+// When every tracked bucket is throttled there is nothing safe to evict, so new
+// keys share one overflow bucket rather than growing the map or minting fresh
+// budgets.
+func TestIPRateLimiter_OverflowBucketWhenNothingIsEvictable(t *testing.T) {
+	clock := newFakeClock()
+	limiter := newIPRateLimiter(3)
+	limiter.now = clock.Now
+
+	for i := range 3 {
+		key := fmt.Sprintf("203.0.113.%d", i)
+		for range loginRateBurst {
+			limiter.RecordFailure(key)
+		}
+	}
+	require.Equal(t, 3, limiter.count())
+
+	// Everything tracked is throttled, so these all land on the shared bucket.
+	for i := range 50 {
+		limiter.RecordFailure(fmt.Sprintf("198.51.100.%d", i))
+	}
+
+	assert.Equal(t, 3, limiter.count(), "the map must not grow past its cap")
+	assert.False(t, limiter.Permit("198.51.100.999"),
+		"the shared overflow bucket is spent, so new keys are throttled too")
+}
+
 // Idle buckets are reaped, but only after the TTL — evicting sooner would hand
 // an attacker a free reset.
 func TestIPRateLimiter_SweepsIdleEntries(t *testing.T) {
 	clock := newFakeClock()
-	limiter := newIPRateLimiter(rate.Every(loginRateInterval), loginRateBurst, loginLimiterTTL, loginLimiterMaxEntries)
+	limiter := newIPRateLimiter(loginLimiterMaxEntries)
 	limiter.now = clock.Now
 
-	limiter.Allow("203.0.113.1")
-	limiter.Allow("203.0.113.2")
+	limiter.Permit("203.0.113.1")
+	limiter.Permit("203.0.113.2")
 	require.Equal(t, 2, limiter.count())
 
 	clock.Advance(loginLimiterTTL / 2)
@@ -323,7 +383,7 @@ func TestIPRateLimiter_SweepsIdleEntries(t *testing.T) {
 	assert.Equal(t, 2, limiter.count(), "buckets must survive within the TTL")
 
 	// Keep one alive, let the other go idle.
-	limiter.Allow("203.0.113.1")
+	limiter.Permit("203.0.113.1")
 	clock.Advance(loginLimiterTTL + time.Second)
 	limiter.sweep()
 
@@ -346,7 +406,7 @@ func TestIPRateLimiter_FailureCounter(t *testing.T) {
 func TestIPRateLimiter_NilIsPermissive(t *testing.T) {
 	var limiter *ipRateLimiter
 
-	assert.True(t, limiter.Allow("203.0.113.1"))
+	assert.True(t, limiter.Permit("203.0.113.1"))
 	assert.Equal(t, 0, limiter.RecordFailure("203.0.113.1"))
 	assert.Equal(t, 0, limiter.count())
 	limiter.RecordSuccess("203.0.113.1")
@@ -364,7 +424,7 @@ func TestIPRateLimiter_ConcurrentUse(t *testing.T) {
 		go func(n int) {
 			defer wg.Done()
 			key := fmt.Sprintf("203.0.113.%d", n%10)
-			limiter.Allow(key)
+			limiter.Permit(key)
 			limiter.RecordFailure(key)
 			limiter.RecordSuccess(key)
 			limiter.sweep()
@@ -373,4 +433,67 @@ func TestIPRateLimiter_ConcurrentUse(t *testing.T) {
 	wg.Wait()
 
 	assert.LessOrEqual(t, limiter.count(), 10)
+}
+
+// Basic auth checks the same static credential pair as /api/login on every
+// authenticated route, so it must spend from the same budget — otherwise the
+// login limiter is a front door with the back door left open.
+func TestAuthMiddleware_BasicAuthIsRateLimited(t *testing.T) {
+	server, _ := newTestLoginServer(t)
+	r := server.setupRoutes()
+
+	get := func(user, pass string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
+		req.RemoteAddr = "203.0.113.10:5555"
+		req.SetBasicAuth(user, pass)
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		return rr
+	}
+
+	for i := range loginRateBurst {
+		require.Equal(t, http.StatusUnauthorized, get("admin", "wrong").Code, "attempt %d", i+1)
+	}
+
+	assert.Equal(t, http.StatusTooManyRequests, get("admin", "wrong").Code)
+
+	// The correct password is refused too: once the budget is spent the
+	// credentials are no longer evaluated, which is what makes this a limit
+	// rather than a speed bump.
+	assert.Equal(t, http.StatusTooManyRequests, get("admin", "secret").Code)
+}
+
+// A working API client authenticates with Basic auth on every request. Charging
+// successes would throttle the CLI to a handful of calls a minute.
+func TestAuthMiddleware_SuccessfulBasicAuthIsNotThrottled(t *testing.T) {
+	server, _ := newTestLoginServer(t)
+	r := server.setupRoutes()
+
+	for i := range loginRateBurst * 10 {
+		req := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
+		req.RemoteAddr = "203.0.113.10:5555"
+		req.SetBasicAuth("admin", "secret")
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code, "request %d must not be throttled", i+1)
+	}
+}
+
+// An unauthenticated probe carries no credentials to guess with, so it must not
+// consume anyone's budget.
+func TestAuthMiddleware_UnauthenticatedProbeCostsNothing(t *testing.T) {
+	server, _ := newTestLoginServer(t)
+	r := server.setupRoutes()
+
+	for range loginRateBurst * 5 {
+		req := httptest.NewRequest(http.MethodGet, "/api/jobs", nil)
+		req.RemoteAddr = "203.0.113.10:5555"
+		rr := httptest.NewRecorder()
+		r.ServeHTTP(rr, req)
+		require.Equal(t, http.StatusUnauthorized, rr.Code)
+	}
+
+	rr := postLogin(t, server, "203.0.113.10:5555", "secret", nil)
+	assert.Equal(t, http.StatusOK, rr.Code, "probing must not burn the login budget")
 }

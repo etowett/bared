@@ -18,7 +18,7 @@ Rules when touching this area:
 
 - **Every rejection must name the fix.** Failing closed on a host key is only useful if the operator can tell *which* file to edit and *what* to put in it — see `describeKeyError`, which distinguishes an unknown host (setup step) from an unlisted key type (configuration) from a real mismatch (possible attack).
 - **Never log or wrap a key, passphrase, or password into an error.** `loadPrivateKey` carries the path only.
-- **New SFTP config fields need four touch points**, or they silently revert to zero on the next start: `config.Storage`, `config/validator.go`, `configservice/secrets.go` (both `serializeStorage` *and* `deserializeStorage`), and `api/config_handlers.go` (`requestToStorage` + `storageToResponse`, with secrets redacted).
+- **New SFTP config fields need five touch points**, or they silently revert to zero on the next start: `config.Storage`, `config/validator.go` **and** `configservice/validator.go`, `configservice/secrets.go` (both `serializeStorage` *and* `deserializeStorage`), `api/config_handlers.go` (`requestToStorage` + `storageToResponse`, with secrets redacted), and `client/import_client.go` (`storageToAPIRequest` — `brd config import` otherwise drops the field on the way into the DB, and the DB wins over YAML at load).
 
 ## Adding a New Storage Backend
 

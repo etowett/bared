@@ -53,14 +53,14 @@ func (s *Server) clientIP(r *http.Request) string {
 func clientIP(r *http.Request, trusted []netip.Prefix) string {
 	peer := remoteAddr(r)
 	if !peer.IsValid() {
-		// Unparseable RemoteAddr (httptest sometimes, odd transports
-		// otherwise). Fall back to the raw value so distinct peers still get
-		// distinct buckets.
-		return r.RemoteAddr
+		// Unparseable RemoteAddr (in-memory transports, odd listeners). One
+		// shared bucket, deliberately: keying on the raw "host:port" would mint
+		// a fresh bucket per TCP connection, which is no limit at all.
+		return unknownClientKey
 	}
 
 	if len(trusted) == 0 || !isTrustedProxy(peer, trusted) {
-		return peer.String()
+		return limiterKey(peer)
 	}
 
 	// Walk right to left: the rightmost entry was appended by our own trusted
@@ -78,12 +78,35 @@ func clientIP(r *http.Request, trusted []netip.Prefix) string {
 			}
 			addr = addr.Unmap()
 			if !isTrustedProxy(addr, trusted) {
-				return addr.String()
+				return limiterKey(addr)
 			}
 		}
 	}
 
-	return peer.String()
+	return limiterKey(peer)
+}
+
+// unknownClientKey buckets every request whose peer address cannot be parsed.
+const unknownClientKey = "unknown"
+
+// ipv6ClientPrefix is the block a single IPv6 client is assumed to own. A
+// residential or hosted v6 client routinely has a whole /64, so keying a rate
+// limiter on the full 128-bit address would hand an attacker 2^64 free
+// identities. /64 is the smallest block anyone is delegated.
+const ipv6ClientPrefix = 64
+
+// limiterKey collapses an address to the unit that gets rate limited: the exact
+// address for IPv4, the /64 for IPv6.
+func limiterKey(addr netip.Addr) string {
+	if addr.Is4() {
+		return addr.String()
+	}
+
+	prefix, err := addr.Prefix(ipv6ClientPrefix)
+	if err != nil {
+		return addr.String()
+	}
+	return prefix.String()
 }
 
 // remoteAddr parses r.RemoteAddr into an address, dropping the port.

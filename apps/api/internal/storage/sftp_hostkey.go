@@ -142,10 +142,10 @@ func describeKeyError(keyErr *knownhosts.KeyError, path, hostname string, key ss
 		return fmt.Errorf(
 			"SFTP host key for %s not found in known_hosts (%q); "+
 				"the server offered %s %s — add it after verifying it out of band "+
-				"(ssh-keyscan -H %s >> %s), or set host_key_fingerprint, "+
+				"(%s >> %s), or set host_key_fingerprint, "+
 				"or set insecure_skip_host_key_verify: true to accept any key (unsafe)",
 			hostname, path, key.Type(), ssh.FingerprintSHA256(key),
-			knownHostsScanTarget(hostname), path)
+			keyscanCommand(hostname, ""), path)
 	}
 
 	sameType := false
@@ -160,9 +160,9 @@ func describeKeyError(keyErr *knownhosts.KeyError, path, hostname string, key ss
 	if !sameType {
 		return fmt.Errorf(
 			"SFTP host key type mismatch for %s: the server offered a %s key but known_hosts (%q) only lists %s; "+
-				"add the server's %s key (ssh-keyscan -H -t %s %s >> %s)",
+				"add the server's %s key (%s >> %s)",
 			hostname, key.Type(), path, strings.Join(types, ", "),
-			key.Type(), key.Type(), knownHostsScanTarget(hostname), path)
+			key.Type(), keyscanCommand(hostname, key.Type()), path)
 	}
 
 	return fmt.Errorf(
@@ -172,18 +172,33 @@ func describeKeyError(keyErr *knownhosts.KeyError, path, hostname string, key ss
 		hostname, path, key.Type(), ssh.FingerprintSHA256(key), path)
 }
 
-// knownHostsScanTarget strips the port from a "host:port" so the suggested
-// ssh-keyscan command is copy-pasteable.
-func knownHostsScanTarget(hostname string) string {
-	if host, _, err := net.SplitHostPort(hostname); err == nil {
-		return host
+// keyscanCommand builds the ssh-keyscan invocation that would add this server.
+//
+// The port matters: knownhosts.Normalize keys a non-22 port as "[host]:port",
+// so a command that dropped the port would produce an entry that still never
+// matches and the operator would loop on the same error. keyType is optional.
+func keyscanCommand(hostname, keyType string) string {
+	host, port := hostname, ""
+	if h, p, err := net.SplitHostPort(hostname); err == nil {
+		host, port = h, p
 	}
-	return hostname
+
+	cmd := "ssh-keyscan"
+	if port != "" && port != "22" {
+		cmd += " -p " + port
+	}
+	cmd += " -H"
+	if keyType != "" {
+		cmd += " -t " + keyType
+	}
+
+	return cmd + " " + host
 }
 
 func remediation(path string) string {
 	return fmt.Sprintf(
-		"add the server's key with `ssh-keyscan -H HOST >> %s`, point known_hosts_path at an existing file, "+
+		"add the server's key with `ssh-keyscan -H HOST >> %s` (add -p PORT for a non-22 port), "+
+			"point known_hosts_path at an existing file, "+
 			"pin host_key_fingerprint, or set insecure_skip_host_key_verify: true to accept any host key (unsafe)",
 		path)
 }
@@ -265,8 +280,10 @@ func loadPrivateKey(path, passphrase string) (ssh.Signer, error) {
 }
 
 // warnIfHostKeyVerificationDisabled makes the insecure opt-in impossible to
-// miss in the log. It is called once per backend construction rather than per
-// connection so it lands at daemon startup without flooding.
+// miss in the log. storage.New is called per operation, so this fires on every
+// backup, restore, and list that touches the backend — deliberately: the daemon
+// also warns once at startup (daemon.warnInsecureStorages), and a job that
+// shipped a database dump over an unverified channel is worth a line of its own.
 func warnIfHostKeyVerificationDisabled(cfg *config.Storage) {
 	if cfg == nil || !cfg.InsecureSkipHostKeyVerify {
 		return

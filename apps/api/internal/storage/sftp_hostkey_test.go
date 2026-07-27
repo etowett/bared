@@ -408,6 +408,64 @@ func TestLoadPrivateKey_Errors(t *testing.T) {
 	}
 }
 
+// knownhosts.Normalize keys a non-22 port as "[host]:port", so a suggested
+// ssh-keyscan that dropped the port would write an entry that still never
+// matches — the operator would run the fix and hit the same error.
+func TestKeyscanCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		hostname string
+		keyType  string
+		want     string
+	}{
+		{name: "default port", hostname: "backup.example.com:22", want: "ssh-keyscan -H backup.example.com"},
+		{
+			name:     "non-standard port is carried",
+			hostname: "backup.example.com:2222",
+			want:     "ssh-keyscan -p 2222 -H backup.example.com",
+		},
+		{
+			name:     "key type is requested when known",
+			hostname: "backup.example.com:22",
+			keyType:  "ssh-ed25519",
+			want:     "ssh-keyscan -H -t ssh-ed25519 backup.example.com",
+		},
+		{
+			name:     "bracketed IPv6 host",
+			hostname: "[2001:db8::1]:2222",
+			want:     "ssh-keyscan -p 2222 -H 2001:db8::1",
+		},
+		{name: "no port at all", hostname: "backup.example.com", want: "ssh-keyscan -H backup.example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, keyscanCommand(tt.hostname, tt.keyType))
+		})
+	}
+}
+
+// The remediation an operator is given for an unknown host must be runnable as
+// printed, port included.
+func TestSFTP_Connect_UnknownHostErrorCarriesThePort(t *testing.T) {
+	hostKey := newTestHostKey(t)
+	srv := startTestSFTPServer(t, hostKey, "hunter2")
+
+	emptyKnownHosts := filepath.Join(t.TempDir(), "known_hosts")
+	require.NoError(t, os.WriteFile(emptyKnownHosts, []byte{}, 0o600))
+
+	cfg := srv.storageCfg()
+	cfg.KnownHostsPath = emptyKnownHosts
+
+	s := NewSFTP(cfg)
+	t.Cleanup(s.disconnect)
+
+	err := s.connect()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("ssh-keyscan -p %d -H %s", srv.port, srv.host))
+}
+
 func TestNormaliseFingerprint(t *testing.T) {
 	key := newTestHostKey(t).PublicKey()
 	canonical := ssh.FingerprintSHA256(key)
