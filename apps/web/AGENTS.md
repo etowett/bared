@@ -18,9 +18,9 @@ Full-stack recipes — adding a config field end-to-end, or adding an API endpoi
 └──────┬──────┘
        │
        ▼
-┌──────────────┐
-│ Dashboard    │ ← Overview, stats
-└──────────────┘
+┌────────────────────┐
+│ routes/index.tsx   │ ← the operator Overview, assembled from components/dashboard/
+└────────────────────┘
        │
        ├─▶ JobList ────────┐
        │                   │
@@ -46,7 +46,7 @@ apps/web/
 │   ├── api/                  # API client and types
 │   │   └── client.ts         # Axios instance, auth, endpoints
 │   ├── components/           # React components
-│   │   ├── Dashboard.tsx     # Main dashboard view
+│   │   ├── dashboard/        # Overview panels: banner, metrics, health table
 │   │   ├── JobList.tsx       # Job listing with filters
 │   │   ├── JobDetail.tsx     # Job details with real-time logs
 │   │   ├── RestoreForm.tsx   # Backup restore interface
@@ -788,6 +788,17 @@ overlay click — exactly once. `ConfirmProvider` and `TooltipProvider` are moun
 forget them. The hook used to hand back a `ConfirmDialog` element the caller had to render; five
 call sites didn't, and their delete buttons silently did nothing (#125). Don't reintroduce an API
 whose correctness depends on remembering to render something.
+
+**An absent number is not zero, and never green.** Optional fields on
+`/api/dashboard` (`success_rate_7d`, `failed_jobs_24h`, `last_backup_bytes`,
+`total_storage_bytes`, and the three target health fields) are optional because
+the daemon genuinely has no answer — an empty sample, no persistent job store,
+or a build that predates the field. Render the absence with
+`components/dashboard/UnknownValue` ("unknown", or "unavailable" for something
+never tracked at all) and say *why* in visible text next to it. Never `N/A`,
+never `0`, never a success tone. `formatBytes`/`formatDuration` in `lib/utils`
+guard with a falsy check and so answer "N/A" for a measured zero — use
+`components/dashboard/format` on any path where zero is a real value.
 
 **Failures go to a toast, not `console.error`.** The app mounts `sonner`'s `<Toaster>` in
 `App.tsx`; use `toast.error(title, { description })` so the user sees what went wrong.
