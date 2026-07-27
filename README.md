@@ -408,4 +408,11 @@ MIT — see [LICENSE](LICENSE).
 ## Contributing
 
 Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
-[docs/development/](docs/development/) for implementation details.
+[docs/development/](docs/development/) for implementation details. Participation is
+governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Changelog
+
+Release notes are generated per release — see
+[GitHub Releases](https://github.com/etowett/bared/releases) and
+[CHANGELOG.md](CHANGELOG.md).

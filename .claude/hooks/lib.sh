@@ -65,6 +65,12 @@ hook_web_run() {
 # `*.example.*` templates are explicitly fine.
 hook_is_secret_path() {
   local base
+  # GitHub's issue-template chooser is named config.yml by GitHub's own rules and
+  # contains no credentials. Match on the full path so a real config.yml elsewhere
+  # is still caught.
+  case "$1" in
+    .github/ISSUE_TEMPLATE/config.yml | */.github/ISSUE_TEMPLATE/config.yml) return 1 ;;
+  esac
   base="$(basename -- "$1")"
   case "$base" in
     *.example | *.example.* | *example.yml | *example.yaml) return 1 ;;

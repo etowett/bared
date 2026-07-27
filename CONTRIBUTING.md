@@ -199,7 +199,8 @@ docker-compose down
 2. Update documentation as needed
 3. Add a clear description of your changes
 4. Link any related issues
-5. **Add appropriate release label** (see Release Process below)
+5. Indicate the release type in the PR template — a **maintainer** applies the actual
+   label, since contributors working from a fork cannot set labels
 6. Request review from maintainers
 
 ### Pull Request Checklist
@@ -211,7 +212,7 @@ docker-compose down
 - [ ] Linter passes (`make lint`)
 - [ ] Documentation updated
 - [ ] Example configuration updated (if needed)
-- [ ] **Appropriate release label added** (`release:major`, `release:minor`, `release:patch`, or `release:skip`)
+- [ ] Release type indicated in the PR description (a maintainer applies the label)
 
 ## Release Process
 
@@ -219,7 +220,9 @@ BareD uses an automated release system that creates new versions when PRs are me
 
 ### Release Labels
 
-Every PR should have ONE of these labels:
+Every PR gets ONE of these labels. **Maintainers apply it** — a contributor working
+from a fork has no permission to set labels, so just indicate the intended bump in
+the PR description:
 
 | Label | Version Bump | Use Case | Example |
 |-------|--------------|----------|---------|
@@ -233,7 +236,7 @@ Every PR should have ONE of these labels:
 ### How It Works
 
 1. **Create PR** with your changes
-2. **Add release label** based on the impact:
+2. **A maintainer adds the release label** based on the impact:
    - Breaking API changes? → `release:major`
    - New feature? → `release:minor`
    - Bug fix or docs? → `release:patch`
@@ -355,7 +358,9 @@ If a release fails:
    - Create PR with fix
    - Merge and let automation retry
 
-For more details, see [docs/architecture/release-process.md](docs/architecture/release-process.md).
+For more details, see [docs/architecture/release-process.md](docs/architecture/release-process.md)
+and [CHANGELOG.md](CHANGELOG.md), which explains why release notes are generated
+rather than hand-written.
 
 ## Makefile Commands
 
@@ -519,10 +524,11 @@ report it privately first and let the advisory drive the timing.
 
 ## Code of Conduct
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the code, not the person
-- Help others learn and grow
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). In short: be
+respectful and inclusive, give constructive feedback, focus on the code rather than
+the person, and help others learn. Read
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for the full text and how to report a
+problem.
 
 ## License
 

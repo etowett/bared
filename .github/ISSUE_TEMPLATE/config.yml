@@ -1,0 +1,13 @@
+# Both templates are YAML issue forms; free-form issues stay available for
+# anything that doesn't fit either one.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/etowett/bared/security/advisories/new
+    about: Never report vulnerabilities in a public issue. Use private reporting - see SECURITY.md.
+  - name: Documentation
+    url: https://github.com/etowett/bared/tree/main/docs
+    about: Configuration examples, API reference and the architecture overview.
+  - name: Known security limitations
+    url: https://github.com/etowett/bared/blob/main/SECURITY.md
+    about: SFTP host key verification, login rate limiting and encryption key storage are known gaps - check here before filing.

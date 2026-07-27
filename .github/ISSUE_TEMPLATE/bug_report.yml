@@ -1,0 +1,166 @@
+name: Bug report
+description: Something in BareD doesn't work the way it should
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug.
+
+        **Do not report security vulnerabilities here.** Follow
+        [SECURITY.md](https://github.com/etowett/bared/blob/main/SECURITY.md)
+        and report privately instead.
+
+        **Redact your secrets.** Database passwords, S3 keys, SFTP credentials and
+        encryption keys must not appear in config snippets or logs you paste below.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched [existing issues](https://github.com/etowett/bared/issues?q=is%3Aissue) and this is not a duplicate
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md)
+          required: true
+        - label: I have removed all credentials from anything I paste below
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+      placeholder: |
+        Expected: `brd backup --target mydb` uploads a tar.gz to S3.
+        Actual: the command exits 1 after ~30s with "failed to upload".
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands you ran, in order.
+      placeholder: |
+        1. `./bin/brd validate-config --config bared.yml`
+        2. `./bin/brd backup --config bared.yml --target mydb`
+        3. Observe the error
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: BareD version
+      description: Output of `brd version`. If you built from source, give the commit SHA.
+      placeholder: "v0.4.0 (commit abc1234)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install BareD?
+      options:
+        - Release binary
+        - Docker image
+        - Built from source
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and architecture
+      placeholder: "Ubuntu 24.04, amd64 / macOS 15.2, arm64 / Debian 12 in Docker"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Database engine
+      description: Which engine is involved? Select all that apply.
+      multiple: true
+      options:
+        - MySQL
+        - MariaDB
+        - PostgreSQL
+        - Redis
+        - Not engine-specific
+    validations:
+      required: true
+
+  - type: input
+    id: engine-version
+    attributes:
+      label: Database engine version and client tool version
+      description: Server version, plus the version of `mysqldump` / `mariadb-dump` / `pg_dump` / `redis-cli` on the BareD host.
+      placeholder: "PostgreSQL 16.2 server, pg_dump 16.2"
+
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage backend
+      multiple: true
+      options:
+        - Local filesystem
+        - S3 (AWS)
+        - S3-compatible (MinIO, Spaces, R2, ...)
+        - SFTP
+        - Not storage-specific
+    validations:
+      required: true
+
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: How are you running BareD?
+      multiple: true
+      options:
+        - One-off CLI command
+        - Daemon, cron-only
+        - Daemon with HTTP API / web UI
+        - Web UI interaction
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: |
+        The relevant part of your `bared.yml`, or a description of the equivalent
+        database-backed config. **Replace every secret with `REDACTED`.**
+      render: yaml
+      placeholder: |
+        targets:
+          - name: mydb
+            conn:
+              type: postgres
+              user: backup
+              password: REDACTED
+              host: db.internal
+              port: 5432
+            storage:
+              enabled: true
+              name: s3_backups
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and error output
+      description: |
+        The full error and the surrounding log lines. **Redact credentials, hostnames
+        and bucket names you'd rather not publish.**
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Database size, network topology, whether it ever worked, when it started, workarounds you found.
