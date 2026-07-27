@@ -9,7 +9,9 @@ set -uo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-cd "$(hook_repo_root)" 2>/dev/null || exit 0
+# The tree we are actually in, not the project the client was opened on — inside a
+# `git worktree` those differ and the branch below would be the main checkout's.
+cd "$(hook_worktree_root)" 2>/dev/null || exit 0
 
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
 dirty="$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')"

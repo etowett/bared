@@ -92,6 +92,9 @@ standing context cost in every session, for everyone. Before adding one:
   session in a loop. Only the two `guard-*.sh` hooks exit non-zero, and only on a deliberate policy
   violation.
 - **Be fast and be silent when there's nothing to say.** Stop hooks run on every turn.
-- **Don't hardcode the repo root** — use `$CLAUDE_PROJECT_DIR` with a
-  `git rev-parse --show-toplevel` fallback so the script works under Codex too.
+- **Don't hardcode the repo root** — use the `lib.sh` helpers so the script works under Codex too,
+  and pick the right one: `hook_repo_root` for *installed tooling* (`apps/web/node_modules`), which
+  lives in the project the client was opened on; `hook_worktree_root` for *git state* — branch,
+  status, diff — which must come from the tree the command actually runs in. They differ inside a
+  `git worktree`, where `$CLAUDE_PROJECT_DIR` keeps pointing at the main checkout.
 - **Register it in `settings.json`** and run `make agents-sync` so Codex picks it up.
