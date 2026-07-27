@@ -248,10 +248,35 @@ the PR description:
 4. **Automated workflow**:
    - Detects the label
    - Calculates next version
-   - Creates git tag (e.g., `v1.2.3`)
+   - Creates two git tags on the same commit (e.g., `v1.2.3` **and** `apps/api/v1.2.3`)
    - Builds binaries for all platforms
    - Creates GitHub release with changelog
    - Builds and pushes Docker images
+
+### Why every release pushes two tags
+
+`go.mod` lives at `apps/api/`, so the Go module is `github.com/etowett/bared/apps/api`. Go
+only recognises tags prefixed with the module's subdirectory as versions of that module, so a
+root `v1.2.3` tag alone is invisible to it — `go install .../cmd/brd@latest` would quietly
+install a pseudo-version of `main`'s tip, and `@v1.2.3` would fail with
+`unknown revision apps/api/v1.2.3`. Each release therefore pushes:
+
+| Tag | Purpose |
+|-----|---------|
+| `v1.2.3` | The release. Triggers `release.yml` → GoReleaser → GitHub release → `docker.yml`. |
+| `apps/api/v1.2.3` | The Go module version, so `go install .../cmd/brd@latest` resolves to the release. |
+
+Things worth knowing:
+
+- **They must never drift.** `auto-release.yml` pushes both with `git push --atomic`, so git
+  updates both refs or neither. A collision on one tag can't leave the other half-published.
+- **Only `v1.2.3` triggers a build.** `release.yml` filters on `tags: v*.*.*`, and GitHub's
+  ref-filter `*` does not match `/`, so `apps/api/v1.2.3` never matches. No double-fire.
+- **`git describe` needs `--match 'v[0-9]*'`.** Two tags sit on the release commit and a bare
+  `git describe` returns `apps/api/v1.2.3`. Both `auto-release.yml`'s version maths and the
+  `Makefile`'s `VERSION` filter for root tags; anything new that derives a version must too.
+- **Users still write `@v1.2.3`.** Go adds the `apps/api/` prefix when resolving the tag;
+  `@apps/api/v1.2.3` is rejected as a disallowed version string.
 
 ### Release Timeline
 
@@ -276,11 +301,22 @@ Each release includes:
 If automation fails, maintainers can create a manual release:
 
 ```bash
-# Create and push tag
+# Create both tags: the release tag and the Go module tag
 git tag -a v1.2.3 -m "Release v1.2.3"
-git push origin v1.2.3
+git tag -a apps/api/v1.2.3 -m "Release v1.2.3"
 
-# This triggers the release and Docker workflows
+# Push atomically so the two can never drift apart
+git push --atomic origin v1.2.3 apps/api/v1.2.3
+
+# Only v1.2.3 matches release.yml's `tags: v*.*.*`, so this triggers
+# the release and Docker workflows exactly once.
+```
+
+If you need to undo a bad release, delete both tags together:
+
+```bash
+git tag -d v1.2.3 apps/api/v1.2.3
+git push --atomic origin :refs/tags/v1.2.3 :refs/tags/apps/api/v1.2.3
 ```
 
 ### Testing Releases Locally
