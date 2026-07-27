@@ -12,7 +12,7 @@ Run the verify gate before this change ships. Scope: **${ARGUMENTS:-infer from t
 
 | Changed | Command | What it covers |
 |---|---|---|
-| `**/*.go` | `make pre-commit` | `fmt` → `vet` → `lint` → `test-unit` → `coverage-check` (75% threshold) |
+| `**/*.go` | `make pre-commit` | `fmt` → `vet` → `lint` → `test-unit` → `coverage-check` (the coverage ratchet) |
 | `apps/web/**` | `make web-validate` | `type-check` → `lint` → `format:check` → `test:run` |
 | both | both, backend first | |
 | embedding / `go:embed` / release paths | `make build-with-web` as well | binary actually builds with a fresh UI |
@@ -24,14 +24,14 @@ Run the verify gate before this change ships. Scope: **${ARGUMENTS:-infer from t
 > **after** `run`: `bun --cwd apps/web run <script>` prints Bun's help and exits **0** without running
 > anything — a silent false pass.
 
-> **Known pre-existing failure.** `make pre-commit` ends in `coverage-check`, which demands 75% while the repo is at ~27% (`apps/api/cmd/brd`, `apps/api/internal/client`, `apps/api/internal/configservice` have no tests). Everything before it — `fmt` → `vet` → `lint` → `test-unit` — must pass, and that's what you're responsible for. If `coverage-check` is the *only* failure and your diff didn't lower coverage, say so and move on. Do **not** start writing tests for untouched packages, and do **not** lower the threshold.
+> **Coverage is a ratchet.** `coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile`, which is set just under the real number (test helpers under `internal/testutil/` are excluded) and is enforced in CI too. It passes on a clean checkout, so if it fails, your diff lowered coverage: add tests for what you changed. Do **not** lower `COVERAGE_THRESHOLD`. If your change lifts coverage well past it, raise it in the same PR.
 
 Integration tests (`make test-integration`) need `make setup-test-env` and Docker; run them only if the change touches a real database/storage path and the user has Docker up.
 
 ## Then
 
 1. **Fix what it reports.** Don't just relay failures — diagnose and fix them, then re-run that gate until it's clean. If a failure is pre-existing on `main` and unrelated to the diff, say so explicitly instead of fixing it silently.
-2. **Coverage.** If `coverage-check` fails, add the missing tests rather than lowering the threshold.
+2. **Coverage.** If `coverage-check` fails, add the missing tests rather than lowering `COVERAGE_THRESHOLD`.
 3. **Report honestly.** State each gate you ran and its result. If you skipped one, say which and why. Paste the actual failing output — never claim a gate passed that you didn't run.
 
 ## Finally

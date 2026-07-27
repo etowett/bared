@@ -59,11 +59,19 @@ jobs:
           mkdir -p apps/api/internal/web/dist
           echo "placeholder" > apps/api/internal/web/dist/.placeholder
 
+      # The profile is written to the workspace root because that is where the
+      # Makefile's COVERAGE_OUT points; the next step reads it from there.
       - name: Run tests
         working-directory: apps/api
         env:
           CGO_ENABLED: "1"
-        run: go test -race -coverprofile=coverage.out ./...
+        run: go test -race -coverprofile="${GITHUB_WORKSPACE}/coverage.out" ./...
+
+      # The coverage ratchet is part of `make pre-commit`, so CI has to enforce
+      # it too — otherwise it rots the way it did before #53. This reuses the
+      # profile above instead of re-running the suite.
+      - name: Check coverage ratchet
+        run: make coverage-verify
 
   lint:
     name: Lint

@@ -144,7 +144,7 @@ gate (`/gate`, i.e. `make pre-commit` and/or `make web-validate`) — note that 
 checks the example config and is *not* the gate. Run the relevant reviewer subagent, then open a PR
 with the right `release:*` label, which drives the automated release.
 
-> **Known gap:** the final step of `make pre-commit`, `coverage-check`, fails today — ~27% against a
-> 75% threshold, with `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` untested. Treat
-> `fmt` → `vet` → `lint` → `test-unit` as the bar your change must clear, and don't chase the
-> coverage number in an unrelated PR. Raising it is tracked separately.
+> The last step of `make pre-commit`, `coverage-check`, is a **ratchet**: `COVERAGE_THRESHOLD` in the
+> `Makefile` sits just below the real number (test helpers under `internal/testutil/` are excluded),
+> and CI enforces the same value. If it goes red, add tests for what you changed — never lower the
+> threshold. Raise it when a change lifts coverage.

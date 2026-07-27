@@ -1,4 +1,4 @@
-.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info agents-doctor agents-sync setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check bench pre-commit validate validate-all fmt lint vet run-daemon dev help check-bun-pin web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
+.PHONY: all build build-all clean install install-service uninstall release env check deps update-deps mod-info agents-doctor agents-sync setup-test-env test test-unit test-integration test-e2e test-all coverage coverage-check coverage-filter coverage-verify bench pre-commit validate validate-all fmt lint vet run-daemon dev help check-bun-pin web-install web-build web-dev web-clean web-lint web-validate web-format web-sync-dist build-with-web docker-build docker-build-version docker-buildx docker-buildx-setup docker-buildx-local docker-buildx-push docker-push docker-push-latest docker-release docker-release-multiplatform compose-up compose-up-fg compose-down compose-down-volumes compose-restart compose-stop compose-start compose-ps compose-logs compose-logs-follow compose-logs-service compose-logs-service-follow compose-build compose-pull compose-clean compose-clean-all compose-services-up compose-services-down compose-exec compose-shell
 
 # Default target
 all: build
@@ -42,6 +42,26 @@ DOCKER_BUILDX_BUILDER ?= bared-multi
 # With the module rooted at apps/api and the dashboard at apps/web,
 # node_modules is outside the module entirely and no filtering is needed.
 GO_PKGS = $(shell cd $(API_DIR) && go list ./...)
+
+# Coverage policy (see #53)
+# -------------------------
+# COVERAGE_OUT  where the profile lands. Absolute, because $(GO) runs with
+#               -C $(API_DIR) and everything else expects it at the repo root.
+# COVERAGE_EXCLUDE
+#               grep -E pattern of profile lines to drop before computing the
+#               total. Test-helper packages exist to support tests; their
+#               statements are not production code and should not dilute the
+#               number in either direction. Matched as a *path fragment*, not an
+#               import-path prefix, so it keeps working after the module rename
+#               in #79 (`bared/...` -> `github.com/etowett/bared/apps/api/...`).
+# COVERAGE_THRESHOLD
+#               a ratchet, not an aspiration. It sits just under the real
+#               measured number so the gate is green on a clean checkout and
+#               goes red the moment coverage slips. Raise it as coverage
+#               improves; never lower it to turn a red gate green.
+COVERAGE_OUT = $(CURDIR)/coverage.out
+COVERAGE_EXCLUDE ?= /testutil/
+COVERAGE_THRESHOLD ?= 32.0
 
 # CGO handling:
 # - Default builds are CGO disabled for portability (static-ish binaries).
@@ -136,21 +156,45 @@ test-all: test-unit test-integration test-e2e
 # Run tests with coverage
 coverage:
 	@echo "Running tests with coverage..."
-	$(GO) test -v -race -coverprofile=$(CURDIR)/coverage.out $(GO_PKGS)
-	$(GO) tool cover -html=$(CURDIR)/coverage.out -o $(CURDIR)/coverage.html
+	$(GO) test -v -race -coverprofile=$(COVERAGE_OUT) $(GO_PKGS)
+	@$(MAKE) --no-print-directory coverage-filter
+	$(GO) tool cover -html=$(COVERAGE_OUT) -o $(CURDIR)/coverage.html
 	@echo "Coverage report generated: coverage.html"
 
-# Check coverage threshold (75%)
-coverage-check:
-	@echo "Checking coverage threshold (75%)..."
-	@$(GO) test -coverprofile=$(CURDIR)/coverage.out $(GO_PKGS) > /dev/null 2>&1
-	@total=$$($(GO) tool cover -func=$(CURDIR)/coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
-	if [ $$(echo "$$total < 75.0" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
-		echo "❌ Coverage ($$total%) is below threshold (75%)"; \
-		exit 1; \
-	else \
-		echo "✅ Coverage ($$total%) meets threshold (75%)"; \
+# Drop excluded packages from the profile, in place, so every consumer (the HTML
+# report, the ratchet, CI) sees the same statements. Skipped when the pattern is
+# empty — `grep -v ''` would otherwise delete the whole profile.
+coverage-filter:
+	@if [ -n "$(COVERAGE_EXCLUDE)" ] && [ -f $(COVERAGE_OUT) ]; then \
+		grep -Ev '$(COVERAGE_EXCLUDE)' $(COVERAGE_OUT) > $(COVERAGE_OUT).tmp && mv $(COVERAGE_OUT).tmp $(COVERAGE_OUT); \
 	fi
+
+# Run the suite, then check the profile against the ratchet.
+coverage-check:
+	@log=$$(mktemp); \
+	if ! $(GO) test -coverprofile=$(COVERAGE_OUT) $(GO_PKGS) > $$log 2>&1; then \
+		echo "❌ Tests failed:"; cat $$log; rm -f $$log; exit 1; \
+	fi; \
+	rm -f $$log
+	@$(MAKE) --no-print-directory coverage-verify
+
+# Check an *existing* profile against the ratchet. Split out from coverage-check
+# so CI can reuse the profile its test job already produced instead of running
+# the whole suite a second time.
+coverage-verify: coverage-filter
+	@echo "Checking coverage threshold ($(COVERAGE_THRESHOLD)%, excluding '$(COVERAGE_EXCLUDE)')..."
+	@test -f $(COVERAGE_OUT) || { echo "❌ No coverage profile at $(COVERAGE_OUT) — run 'make coverage' first"; exit 1; }
+	@$(GO) tool cover -func=$(COVERAGE_OUT) | awk -v min="$(COVERAGE_THRESHOLD)" '\
+		/^total:/ { total = $$3; sub(/%/, "", total) } \
+		END { \
+			if (total == "") { print "❌ Could not read a total from the coverage profile"; exit 1 } \
+			if (total + 0 < min + 0) { \
+				printf "❌ Coverage (%s%%) is below the ratchet (%s%%)\n", total, min; \
+				print "   Add tests for what you changed — do not lower COVERAGE_THRESHOLD."; \
+				exit 1 \
+			} \
+			printf "✅ Coverage (%s%%) meets the ratchet (%s%%)\n", total, min; \
+		}'
 
 # Run benchmarks
 bench:
@@ -550,7 +594,8 @@ help:
 	@echo "  make test-e2e         - Run end-to-end tests"
 	@echo "  make test-all         - Run all tests (unit + integration + e2e)"
 	@echo "  make coverage         - Generate HTML coverage report"
-	@echo "  make coverage-check   - Verify coverage meets 75% threshold"
+	@echo "  make coverage-check   - Run tests and check the $(COVERAGE_THRESHOLD)% coverage ratchet"
+	@echo "  make coverage-verify  - Check an existing coverage.out against the ratchet"
 	@echo "  make bench            - Run benchmarks"
 	@echo "  make pre-commit       - Run all pre-commit checks"
 	@echo "  make validate         - Validate example configuration"

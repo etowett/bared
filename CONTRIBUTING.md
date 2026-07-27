@@ -88,10 +88,12 @@ git checkout -b feature/your-feature-name
 make pre-commit
 ```
 
-> Heads-up: the final `coverage-check` step currently fails repo-wide (~27% against a 75%
-> threshold — `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice` have no tests). Until that
-> is closed, make sure `fmt`, `vet`, `lint`, and `test-unit` all pass and that your change doesn't
-> lower coverage.
+> The final `coverage-check` step is a **ratchet**, not an aspiration: `COVERAGE_THRESHOLD` in the
+> `Makefile` is set just below the repo's real coverage (test helpers under `internal/testutil/` are
+> excluded, since they aren't production statements), and CI enforces the same number. It passes on
+> a clean checkout, so if it goes red your change lowered coverage — add tests rather than lowering
+> the threshold. If your change lifts coverage well clear of the ratchet, raise `COVERAGE_THRESHOLD`
+> in the same PR so it can never slide back.
 
 4. If you touched the web UI, run its gate too:
 
@@ -473,10 +475,10 @@ make lint
 
 **`make pre-commit` fails at the end, on `coverage-check`.**
 
-Expected, and not caused by your change. The repo sits at ~27% coverage against a 75%
-threshold; `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/internal/configservice`
-have no tests at all. Raising it is tracked separately. Everything *before* that step
-(`fmt` → `vet` → `lint` → `test-unit`) must pass.
+The ratchet passes on a clean checkout, so this almost always means your change added
+statements without tests. Run `make coverage` and open `coverage.html` to see which of your
+new lines are uncovered, and add tests for them. Do not lower `COVERAGE_THRESHOLD` — CI checks
+the same value, so a local edit only moves the failure.
 
 ## Working with AI Coding Agents
 
