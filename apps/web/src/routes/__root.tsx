@@ -1,4 +1,6 @@
 import { AppLayout } from '@/components/layout/AppLayout'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { ConfirmProvider } from '@/contexts/ConfirmContext'
 import { useAuthStore } from '@/stores/auth'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -47,15 +49,19 @@ export function RootComponent() {
   const isLoginPage = routerState.location.pathname === '/login'
 
   return (
-    <>
-      {isLoginPage ? (
-        <Outlet />
-      ) : (
-        <AppLayout onLogout={handleLogout}>
+    // Mounted once, here, so no page can forget to render the confirmation
+    // dialog or a tooltip's provider — see `contexts/ConfirmContext.tsx`.
+    <TooltipProvider delayDuration={200}>
+      <ConfirmProvider>
+        {isLoginPage ? (
           <Outlet />
-        </AppLayout>
-      )}
-      {import.meta.env.DEV && <TanStackRouterDevtools />}
-    </>
+        ) : (
+          <AppLayout onLogout={handleLogout}>
+            <Outlet />
+          </AppLayout>
+        )}
+        {import.meta.env.DEV && <TanStackRouterDevtools />}
+      </ConfirmProvider>
+    </TooltipProvider>
   )
 }

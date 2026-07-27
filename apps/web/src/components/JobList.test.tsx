@@ -34,12 +34,11 @@ vi.mock('sonner', () => ({
   },
 }))
 
-// Mock useConfirm hook
-vi.mock('../hooks/useConfirm', () => ({
-  useConfirm: () => ({
-    confirm: mockConfirm,
-    ConfirmDialog: <div data-testid="confirm-dialog">Confirm Dialog</div>,
-  }),
+// Stub the confirmation prompt but keep the real ConfirmProvider — the test
+// wrapper mounts it, exactly as `__root.tsx` does.
+vi.mock('@/contexts/ConfirmContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/contexts/ConfirmContext')>()),
+  useConfirm: () => mockConfirm,
 }))
 
 // Import after mocks

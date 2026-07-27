@@ -14,8 +14,10 @@ vi.mock('./JobDetailContent', () => ({
   ),
 }))
 
-// Mock TanStack Router Link
-vi.mock('@tanstack/react-router', () => ({
+// Mock TanStack Router Link. The rest of the module has to stay real —
+// `test/utils` builds a router with it so components that link out have one.
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
   Link: ({ to, params, children }: any) => (
     <a href={`${to.replace('$id', params.id)}`}>{children}</a>
   ),

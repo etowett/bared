@@ -11,16 +11,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { ConfigRowActions } from '@/components/config/ConfigRowActions'
 import { NotifierForm } from '@/components/config/NotifierForm'
 import { SourceBadge } from '@/components/config/SourceBadge'
+import { YamlReadOnlyNotice } from '@/components/config/YamlReadOnlyNotice'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   useNotifiers,
   useCreateNotifier,
   useUpdateNotifier,
   useDeleteNotifier,
 } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
-import { Plus, Pencil, Trash2, Bell, Mail, Webhook } from 'lucide-react'
+import { Plus, Bell, Mail, Webhook } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Notifier, NotifierRequest, ConfigSource } from '@/types'
 import { describeNotifier } from '@/utils/notifier'
 
@@ -36,7 +39,7 @@ export function NotifiersPage() {
   const createMutation = useCreateNotifier()
   const updateMutation = useUpdateNotifier()
   const deleteMutation = useDeleteNotifier()
-  const { confirm } = useConfirm()
+  const confirm = useConfirm()
 
   const notifiers = data?.notifiers ?? []
   const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
@@ -55,14 +58,19 @@ export function NotifiersPage() {
     const confirmed = await confirm({
       title: 'Delete Notifier',
       description: `Are you sure you want to delete "${notifier.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete Notifier',
+      variant: 'destructive',
     })
 
-    if (confirmed) {
-      try {
-        await deleteMutation.mutateAsync(notifier.name)
-      } catch (err) {
-        console.error('Failed to delete notifier:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      await deleteMutation.mutateAsync(notifier.name)
+      toast.success(`Notifier "${notifier.name}" deleted`)
+    } catch (err) {
+      toast.error(`Failed to delete notifier "${notifier.name}"`, {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -117,6 +125,8 @@ export function NotifiersPage() {
           Add Notifier
         </Button>
       </div>
+
+      {source === 'yaml' && <YamlReadOnlyNotice resource="notifiers" />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -196,28 +206,14 @@ export function NotifiersPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(notifier)}
-                          disabled={source === 'yaml'}
-                          title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(notifier)}
-                          disabled={source === 'yaml' || deleteMutation.isPending}
-                          title={
-                            source === 'yaml' ? 'Cannot delete YAML-sourced configs' : 'Delete'
-                          }
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
+                      <ConfigRowActions
+                        resource="notifier"
+                        name={notifier.name}
+                        readOnly={source === 'yaml'}
+                        deletePending={deleteMutation.isPending}
+                        onEdit={() => handleEdit(notifier)}
+                        onDelete={() => handleDelete(notifier)}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

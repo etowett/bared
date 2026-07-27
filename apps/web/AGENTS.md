@@ -59,7 +59,8 @@ apps/web/
 │   │   ├── useAuth.ts        # Authentication state
 │   │   └── useDashboard.ts   # Dashboard data
 │   ├── contexts/             # React contexts
-│   │   └── ThemeContext.tsx  # Dark mode management
+│   │   ├── ThemeContext.tsx  # Dark mode management
+│   │   └── ConfirmContext.tsx # App-wide confirmation dialog (see Conventions)
 │   ├── types/                # TypeScript type definitions
 │   │   └── index.ts          # Shared types (Job, Target, etc.)
 │   ├── lib/                  # Utility libraries
@@ -754,6 +755,42 @@ the eager file owns `validateSearch` and exports the `JobsSearch` type, the lazy
 
 The router in `App.tsx` sets `defaultPendingComponent` so a slow chunk fetch shows a fallback rather
 than a blank outlet.
+
+**Confirming a destructive action**: call `useConfirm()` from
+[`src/contexts/ConfirmContext.tsx`](./src/contexts/ConfirmContext.tsx). It returns a single
+function; there is nothing to render.
+
+```typescript
+const confirm = useConfirm()
+
+const handleDelete = async (name: string) => {
+  const confirmed = await confirm({
+    title: 'Delete Target',
+    description: `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+    confirmLabel: 'Delete Target',
+    variant: 'destructive',
+  })
+  if (!confirmed) return
+  try {
+    await deleteMutation.mutateAsync(name)
+    toast.success(`Target "${name}" deleted`)
+  } catch (err) {
+    toast.error(`Failed to delete target "${name}"`, {
+      description: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+```
+
+The promise resolves `true` on confirm and `false` on **every** dismissal path — Cancel, Escape,
+overlay click — exactly once. `ConfirmProvider` and `TooltipProvider` are mounted once in
+`routes/__root.tsx` (and mirrored by the `src/test/utils.tsx` render wrapper), so a page cannot
+forget them. The hook used to hand back a `ConfirmDialog` element the caller had to render; five
+call sites didn't, and their delete buttons silently did nothing (#125). Don't reintroduce an API
+whose correctness depends on remembering to render something.
+
+**Failures go to a toast, not `console.error`.** The app mounts `sonner`'s `<Toaster>` in
+`App.tsx`; use `toast.error(title, { description })` so the user sees what went wrong.
 
 **Type definitions**:
 

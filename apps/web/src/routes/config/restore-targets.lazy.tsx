@@ -11,16 +11,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { ConfigRowActions } from '@/components/config/ConfigRowActions'
 import { RestoreTargetForm } from '@/components/config/RestoreTargetForm'
 import { SourceBadge } from '@/components/config/SourceBadge'
+import { YamlReadOnlyNotice } from '@/components/config/YamlReadOnlyNotice'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   useRestoreTargetsConfig,
   useCreateRestoreTargetConfig,
   useUpdateRestoreTargetConfig,
   useDeleteRestoreTargetConfig,
 } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
-import { Plus, Pencil, Trash2, ArrowDownToLine } from 'lucide-react'
+import { Plus, ArrowDownToLine } from 'lucide-react'
+import { toast } from 'sonner'
 import type {
   RestoreTargetConfig,
   RestoreTargetConfigRequest,
@@ -40,7 +43,7 @@ export function RestoreTargetsPage() {
   const createMutation = useCreateRestoreTargetConfig()
   const updateMutation = useUpdateRestoreTargetConfig()
   const deleteMutation = useDeleteRestoreTargetConfig()
-  const { confirm } = useConfirm()
+  const confirm = useConfirm()
 
   const targets = data?.restore_targets ?? []
   const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
@@ -59,14 +62,19 @@ export function RestoreTargetsPage() {
     const confirmed = await confirm({
       title: 'Delete Restore Target',
       description: `Are you sure you want to delete "${target.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete Restore Target',
+      variant: 'destructive',
     })
 
-    if (confirmed) {
-      try {
-        await deleteMutation.mutateAsync(target.name)
-      } catch (err) {
-        console.error('Failed to delete restore target:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      await deleteMutation.mutateAsync(target.name)
+      toast.success(`Restore target "${target.name}" deleted`)
+    } catch (err) {
+      toast.error(`Failed to delete restore target "${target.name}"`, {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -108,6 +116,8 @@ export function RestoreTargetsPage() {
           Add Restore Target
         </Button>
       </div>
+
+      {source === 'yaml' && <YamlReadOnlyNotice resource="restore targets" />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -205,28 +215,14 @@ export function RestoreTargetsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(target)}
-                            disabled={source === 'yaml'}
-                            title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(target)}
-                            disabled={source === 'yaml' || deleteMutation.isPending}
-                            title={
-                              source === 'yaml' ? 'Cannot delete YAML-sourced configs' : 'Delete'
-                            }
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
+                        <ConfigRowActions
+                          resource="restore target"
+                          name={target.name}
+                          readOnly={source === 'yaml'}
+                          deletePending={deleteMutation.isPending}
+                          onEdit={() => handleEdit(target)}
+                          onDelete={() => handleDelete(target)}
+                        />
                       </TableCell>
                     </TableRow>
                   )

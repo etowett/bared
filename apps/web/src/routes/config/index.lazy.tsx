@@ -2,6 +2,7 @@ import { SourceBadge } from '@/components/config/SourceBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatCard } from '@/components/ui/stat-card'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   useConfigSource,
   useMigrateConfig,
@@ -11,7 +12,6 @@ import {
   useStorages,
   useTargetsConfig,
 } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
 import type { ConfigSource, MigrateConfigResult, ReloadConfigResult } from '@/types'
 import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -26,6 +26,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createLazyFileRoute('/config/')({
   component: ConfigDashboardPage,
@@ -44,7 +45,7 @@ export function ConfigDashboardPage() {
 
   const migrateMutation = useMigrateConfig()
   const reloadMutation = useReloadConfig()
-  const { confirm } = useConfirm()
+  const confirm = useConfirm()
 
   const [migrateResult, setMigrateResult] = useState<MigrateConfigResult | null>(null)
   const [reloadResult, setReloadResult] = useState<ReloadConfigResult | null>(null)
@@ -67,14 +68,16 @@ export function ConfigDashboardPage() {
         'This will import all YAML configuration into the database. Existing database configs will not be overwritten. Continue?',
     })
 
-    if (confirmed) {
-      try {
-        const result = await migrateMutation.mutateAsync()
-        setMigrateResult(result)
-        setReloadResult(null)
-      } catch (err) {
-        console.error('Migration failed:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      const result = await migrateMutation.mutateAsync()
+      setMigrateResult(result)
+      setReloadResult(null)
+    } catch (err) {
+      toast.error('Migration failed', {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -85,14 +88,16 @@ export function ConfigDashboardPage() {
         'This will reload the configuration from the database and reschedule all jobs. This may cause brief interruptions. Continue?',
     })
 
-    if (confirmed) {
-      try {
-        const result = await reloadMutation.mutateAsync()
-        setReloadResult(result as ReloadConfigResult)
-        setMigrateResult(null)
-      } catch (err) {
-        console.error('Reload failed:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      const result = await reloadMutation.mutateAsync()
+      setReloadResult(result as ReloadConfigResult)
+      setMigrateResult(null)
+    } catch (err) {
+      toast.error('Reload failed', {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
