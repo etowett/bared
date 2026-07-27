@@ -136,7 +136,7 @@ presented.
 
 ## Dashboard
 
-Get dashboard statistics including job counts, target information, and recent activity.
+Get dashboard statistics: job counts, per-target health, and success-rate rollups.
 
 **Endpoint**: `GET /api/dashboard`
 
@@ -146,23 +146,69 @@ Get dashboard statistics including job counts, target information, and recent ac
 
 ```json
 {
-  "targets_count": 5,
+  "targets": [
+    {
+      "name": "mysql-prod",
+      "type": "mysql",
+      "database": "production",
+      "schedule": "0 2 * * *",
+      "is_running": false,
+      "last_backup": "2025-12-15T02:04:11Z",
+      "next_scheduled": "2025-12-16T02:00:00Z",
+      "last_backup_status": "success",
+      "consecutive_failures": 0,
+      "last_backup_bytes": 41943040,
+      "last_backup_duration_seconds": 251.4,
+      "overdue": false
+    }
+  ],
   "active_jobs": 2,
   "total_jobs": 150,
-  "failed_jobs": 3,
-  "last_backup": "2025-12-15T02:00:00Z",
-  "jobs": [
-    {
-      "id": "job-123",
-      "type": "backup",
-      "target": "mysql-prod",
-      "status": "running",
-      "created_at": "2025-12-15T02:00:00Z",
-      "started_at": "2025-12-15T02:00:01Z"
-    }
-  ]
+  "success_rate_24h": 92.3,
+  "success_rate_7d": 97.6,
+  "failed_jobs_24h": 1
 }
 ```
+
+**Fields**:
+
+| Field | Meaning |
+|---|---|
+| `targets[]` | One `TargetSummary` per configured target — the same shape `/api/targets` returns. |
+| `active_jobs` | Jobs currently queued or running. |
+| `total_jobs` | Jobs known to the daemon (memory plus persisted history). |
+| `total_storage_bytes` | Bytes currently held across storage backends. **Always absent** — see below. |
+| `success_rate_24h` | Percentage (0-100) of backup jobs that finished in the last 24 hours and succeeded. |
+| `success_rate_7d` | The same over 7 days. Present only when job history is persisted. |
+| `failed_jobs_24h` | Backup jobs that failed in the last 24 hours. |
+
+**TargetSummary fields**:
+
+| Field | Meaning |
+|---|---|
+| `last_backup` | Completion time of the most recent **successful** backup. |
+| `next_scheduled` | Next cron fire time, computed from `schedule`. |
+| `last_backup_status` | `success`, `failed`, or `never` — the outcome of the most recent finished backup job. Cancelled jobs count as neither. |
+| `consecutive_failures` | Failed backup jobs since the last successful one. |
+| `last_backup_bytes` | Artifact size recorded by the last successful backup. |
+| `last_backup_duration_seconds` | How long that backup job ran. |
+| `overdue` | The run due after the last successful backup has already passed. Always `false` for targets with no schedule, and for targets with no job history at all — nothing records when a target was configured, so "late" cannot be established. |
+
+**Absent fields are unknown, not zero.** Every optional field above is omitted
+when the daemon cannot establish it. Clients must render an omitted value as
+unknown or unavailable; showing `0` would report a healthy-looking number the
+backend never claimed.
+
+Two fields are deliberately conservative:
+
+- **`total_storage_bytes` is never populated.** Job history records the size of
+  every backup ever taken, including the ones retention has since deleted, so
+  summing it would overstate usage; listing every storage backend on each
+  dashboard request would be slow and, on S3, billable. The field stays absent
+  until something tracks retained bytes directly.
+- **`success_rate_7d` requires persistence.** Without a job store, history lives
+  only in memory and is pruned every 72 hours, so a 7-day rate would be computed
+  over a window the data does not cover. The field is omitted instead.
 
 **Example**:
 
@@ -188,16 +234,25 @@ List all configured backup targets.
     {
       "name": "mysql-prod",
       "type": "mysql",
+      "database": "production",
       "schedule": "0 2 * * *",
-      "storage": "s3-backups",
-      "compression": "tgz",
-      "last_backup": "2025-12-15T02:00:00Z",
-      "next_backup": "2025-12-16T02:00:00Z"
+      "is_running": false,
+      "last_backup": "2025-12-15T02:04:11Z",
+      "next_scheduled": "2025-12-16T02:00:00Z",
+      "last_backup_status": "success",
+      "consecutive_failures": 0,
+      "last_backup_bytes": 41943040,
+      "last_backup_duration_seconds": 251.4,
+      "overdue": false
     }
   ],
   "total": 1
 }
 ```
+
+Targets are rendered by the same code path as
+[`/api/dashboard`](#dashboard); see that section for what each field means and
+for the rule that absent fields are unknown rather than zero.
 
 **Example**:
 

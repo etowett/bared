@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -18,16 +19,98 @@ import (
 	"github.com/etowett/bared/apps/api/internal/version"
 )
 
+// parseCronSchedule parses a target's cron expression using the same dialect
+// the daemon schedules with.
+func parseCronSchedule(cronExpr string) (cron.Schedule, error) {
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	return parser.Parse(cronExpr)
+}
+
 // calculateNextRun calculates the next execution time for a cron expression
 func calculateNextRun(cronExpr string) (*time.Time, error) {
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
-	schedule, err := parser.Parse(cronExpr)
+	schedule, err := parseCronSchedule(cronExpr)
 	if err != nil {
 		return nil, err
 	}
 
 	next := schedule.Next(time.Now())
 	return &next, nil
+}
+
+// nextScheduledRun renders a target's next run as RFC3339, or nil when the
+// target has no schedule or its expression does not parse. Shared by every
+// handler that reports a TargetSummary so the two never drift apart.
+func nextScheduledRun(cronExpr string) *string {
+	if cronExpr == "" {
+		return nil
+	}
+
+	next, err := calculateNextRun(cronExpr)
+	if err != nil || next == nil {
+		return nil
+	}
+
+	formatted := next.Format(time.RFC3339)
+	return &formatted
+}
+
+// resolveTargets reads targets from the config service (database) and falls
+// back to the static config when the database is unavailable.
+func (s *Server) resolveTargets(ctx context.Context) []*config.Target {
+	if s.configService != nil {
+		if dbTargets, err := s.configService.ListTargets(ctx); err == nil {
+			return dbTargets
+		}
+	}
+	return s.cfg.Targets
+}
+
+// buildTargetSummaries renders targets with their scheduling and health rollup.
+// Both /api/targets and /api/dashboard go through here so the two endpoints
+// cannot disagree about a target's state.
+func (s *Server) buildTargetSummaries(targets []*config.Target, health map[string]*targetHealth, now time.Time) []TargetSummary {
+	summaries := make([]TargetSummary, 0, len(targets))
+
+	for _, target := range targets {
+		entry := health[target.Name]
+
+		summary := TargetSummary{
+			Name:             target.Name,
+			Type:             target.Conn.Type,
+			Database:         target.Conn.Database,
+			Schedule:         target.Schedule,
+			IsRunning:        s.jobManager.IsTargetRunning(target.Name),
+			NextScheduled:    nextScheduledRun(target.Schedule),
+			LastBackupStatus: backupOutcomeNever,
+			Overdue:          isOverdue(target.Schedule, entry, now),
+		}
+
+		if entry != nil {
+			summary.LastBackupStatus = entry.outcome
+			summary.ConsecutiveFailures = entry.consecutiveFailures
+			summary.LastBackupBytes = entry.lastSuccessBytes
+			summary.LastBackupDurationSeconds = entry.lastSuccessSeconds
+
+			if entry.lastSuccessAt != nil {
+				lastBackup := entry.lastSuccessAt.Format(time.RFC3339)
+				summary.LastBackup = &lastBackup
+			}
+		}
+
+		summaries = append(summaries, summary)
+	}
+
+	return summaries
+}
+
+// backupHistory fetches the backup jobs the rollups are derived from, newest
+// first, and reports whether the fetch hit dashboardHistoryLimit.
+func (s *Server) backupHistory(ctx context.Context) (history []*jobs.Job, truncated bool) {
+	history = s.jobManager.ListJobsFiltered(ctx, jobs.JobFilter{
+		Type:  jobs.JobTypeBackup,
+		Limit: dashboardHistoryLimit,
+	})
+	return history, len(history) >= dashboardHistoryLimit
 }
 
 // jobToResponse converts a job to a response with schedule information
@@ -69,45 +152,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Try to get targets from configService first (database), fall back to static config
-	var targets []*config.Target
-	if s.configService != nil {
-		dbTargets, err := s.configService.ListTargets(ctx)
-		if err == nil {
-			targets = dbTargets
-		} else {
-			// Fall back to static config if database read fails
-			targets = s.cfg.Targets
-		}
-	} else {
-		// No configService, use static config
-		targets = s.cfg.Targets
-	}
-
-	summaries := make([]TargetSummary, 0, len(targets))
-
-	for _, target := range targets {
-		summary := TargetSummary{
-			Name:      target.Name,
-			Type:      target.Conn.Type,
-			Database:  target.Conn.Database,
-			Schedule:  target.Schedule,
-			IsRunning: s.jobManager.IsTargetRunning(target.Name),
-		}
-
-		// Calculate next scheduled run if target has a schedule
-		if target.Schedule != "" {
-			nextRun, err := calculateNextRun(target.Schedule)
-			if err == nil && nextRun != nil {
-				nextRunStr := nextRun.Format(time.RFC3339)
-				summary.NextScheduled = &nextRunStr
-			}
-		}
-
-		// TODO: Add last backup time from storage
-
-		summaries = append(summaries, summary)
-	}
+	targets := s.resolveTargets(ctx)
+	history, _ := s.backupHistory(ctx)
+	summaries := s.buildTargetSummaries(targets, computeTargetHealth(history), time.Now())
 
 	respondJSON(w, http.StatusOK, ListTargetsResponse{
 		Targets: summaries,
@@ -467,37 +514,14 @@ func (s *Server) handleGetJobLogs(w http.ResponseWriter, r *http.Request) {
 // handleDashboard returns dashboard summary
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	now := time.Now()
 
-	// Try to get targets from configService first (database), fall back to static config
-	var targets []*config.Target
-	if s.configService != nil {
-		dbTargets, err := s.configService.ListTargets(ctx)
-		if err == nil {
-			targets = dbTargets
-		} else {
-			// Fall back to static config if database read fails
-			targets = s.cfg.Targets
-		}
-	} else {
-		// No configService, use static config
-		targets = s.cfg.Targets
-	}
-
-	summaries := make([]TargetSummary, 0, len(targets))
-
-	for _, target := range targets {
-		summary := TargetSummary{
-			Name:      target.Name,
-			Type:      target.Conn.Type,
-			Database:  target.Conn.Database,
-			Schedule:  target.Schedule,
-			IsRunning: s.jobManager.IsTargetRunning(target.Name),
-		}
-		summaries = append(summaries, summary)
-	}
+	targets := s.resolveTargets(ctx)
+	history, truncated := s.backupHistory(ctx)
+	summaries := s.buildTargetSummaries(targets, computeTargetHealth(history), now)
 
 	// Get job counts
-	allJobs := s.jobManager.ListJobs(r.Context())
+	allJobs := s.jobManager.ListJobs(ctx)
 	activeJobs := 0
 	for _, job := range allJobs {
 		status := job.GetStatus()
@@ -506,9 +530,20 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	respondJSON(w, http.StatusOK, DashboardResponse{
+	resp := DashboardResponse{
 		Targets:    summaries,
 		ActiveJobs: activeJobs,
 		TotalJobs:  len(allJobs),
-	})
+	}
+	resp.SuccessRate24h, resp.FailedJobs24h = backupWindowStats(history, truncated, window24h, now)
+
+	// Without a job store, history is in-memory only and is pruned long before
+	// 7 days elapse, so a 7-day rate would be computed over a window the data
+	// does not cover. Omit it rather than publish a figure that flatters or
+	// alarms for no reason.
+	if s.jobManager.HasPersistence() {
+		resp.SuccessRate7d, _ = backupWindowStats(history, truncated, window7d, now)
+	}
+
+	respondJSON(w, http.StatusOK, resp)
 }

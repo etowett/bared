@@ -3,9 +3,11 @@ package persistence
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/etowett/bared/apps/api/internal/app"
 	"github.com/etowett/bared/apps/api/internal/jobs"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -64,6 +66,66 @@ func TestSanitizeDSN(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSQLStore_BackupResultRoundTrip pins that a completed backup's recorded
+// artifact size survives a restart. The dashboard reads last_backup_bytes from
+// this result, so dropping it on read would silently blank the field.
+func TestSQLStore_BackupResultRoundTrip(t *testing.T) {
+	store, err := NewSQLStore("sqlite3", filepath.Join(t.TempDir(), "roundtrip.db"))
+	if err != nil {
+		t.Fatalf("Failed to create store: %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+
+	job := jobs.NewJob(jobs.JobTypeBackup, "sized_target", false)
+	if err := store.CreateJob(ctx, job); err != nil {
+		t.Fatalf("CreateJob failed: %v", err)
+	}
+
+	job.MarkStarted()
+	job.MarkCompleted(&app.BackupResult{
+		Target:     "sized_target",
+		Success:    true,
+		Size:       4096,
+		Duration:   90 * time.Second,
+		BackupPath: "sized_target/backup.tar.gz",
+	})
+	if err := store.UpdateJob(ctx, job); err != nil {
+		t.Fatalf("UpdateJob failed: %v", err)
+	}
+
+	assertSize := func(t *testing.T, source string, fetched *jobs.Job) {
+		t.Helper()
+
+		result, ok := fetched.Result.(*app.BackupResult)
+		if !ok {
+			t.Fatalf("%s: expected *app.BackupResult, got %T", source, fetched.Result)
+		}
+		if result.Size != 4096 {
+			t.Errorf("%s: expected size 4096, got %d", source, result.Size)
+		}
+		if !result.Success {
+			t.Errorf("%s: expected a successful result", source)
+		}
+	}
+
+	fetched, err := store.GetJob(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("GetJob failed: %v", err)
+	}
+	assertSize(t, "GetJob", fetched)
+
+	listed, err := store.ListJobs(ctx, jobs.JobFilter{Type: jobs.JobTypeBackup})
+	if err != nil {
+		t.Fatalf("ListJobs failed: %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("expected 1 job, got %d", len(listed))
+	}
+	assertSize(t, "ListJobs", listed[0])
 }
 
 func TestSQLStore(t *testing.T) {

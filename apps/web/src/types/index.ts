@@ -24,14 +24,42 @@ export interface Progress {
   message: string
 }
 
+/**
+ * Mirrors the Go `api.TargetSummary` returned by `/api/targets` and
+ * `/api/dashboard`.
+ *
+ * Optional fields are genuinely unknown, not zero. Render an absent value as
+ * "unknown"/"unavailable" — never as 0 — or the dashboard will report a healthy
+ * looking number the backend never claimed.
+ *
+ * The three health fields the daemon always emits (`last_backup_status`,
+ * `consecutive_failures`, `overdue`) are declared optional so a newer dashboard
+ * stays valid against an older daemon that predates them. Read them with a
+ * fallback rather than assuming they are present.
+ */
 export interface Target {
   name: string
   type: string
   database: string
+  /** Completion time of the most recent successful backup. */
   last_backup?: string
   next_scheduled?: string
   schedule?: string
   is_running: boolean
+  /** Outcome of the most recent finished backup job. Cancelled jobs are ignored. */
+  last_backup_status?: 'success' | 'failed' | 'never'
+  /** Failed backup jobs since the last successful one. */
+  consecutive_failures?: number
+  /** Artifact size of the last successful backup; absent when it was not recorded. */
+  last_backup_bytes?: number
+  /** Runtime of the last successful backup job; absent when its timestamps are incomplete. */
+  last_backup_duration_seconds?: number
+  /**
+   * The run due after the last successful backup has already passed. Always
+   * false for targets with no schedule, and for targets with no job history —
+   * nothing records when a target was configured, so "late" cannot be proven.
+   */
+  overdue?: boolean
 }
 
 export interface LogEntry {
@@ -40,11 +68,26 @@ export interface LogEntry {
   message: string
 }
 
+/** Mirrors the Go `api.DashboardResponse` returned by `/api/dashboard`. */
 export interface Dashboard {
   targets: Target[]
   active_jobs: number
   total_jobs: number
+  /**
+   * Bytes currently held across storage backends.
+   *
+   * Always absent today: nothing tracks it cheaply, and the backend refuses to
+   * infer it from job history (which counts backups retention has since
+   * deleted) or from live storage listings (slow, and billable on S3). Render
+   * the absence as "unavailable", not as 0.
+   */
   total_storage_bytes?: number
+  /** Percentage (0-100) of backup jobs finishing in the last 24h that succeeded. Absent when none finished. */
+  success_rate_24h?: number
+  /** Same over 7 days. Absent when job history is not persisted and cannot cover the window. */
+  success_rate_7d?: number
+  /** Backup jobs that failed in the last 24h. 0 is a real answer; absent means it could not be established. */
+  failed_jobs_24h?: number
 }
 
 export interface RestoreTarget {
