@@ -46,8 +46,14 @@ export interface Target {
   next_scheduled?: string
   schedule?: string
   is_running: boolean
-  /** Outcome of the most recent finished backup job. Cancelled jobs are ignored. */
-  last_backup_status?: 'success' | 'failed' | 'never'
+  /**
+   * Outcome of the most recent finished backup job. Cancelled jobs are ignored.
+   *
+   * `'unknown'` means the daemon could not establish this target's history —
+   * the job store was unreachable, or the scan hit its row cap. It is not
+   * `'never'`, and must not render as healthy.
+   */
+  last_backup_status?: 'success' | 'failed' | 'never' | 'unknown'
   /** Failed backup jobs since the last successful one. */
   consecutive_failures?: number
   /** Artifact size of the last successful backup; absent when it was not recorded. */

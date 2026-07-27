@@ -178,9 +178,9 @@ Get dashboard statistics: job counts, per-target health, and success-rate rollup
 | `active_jobs` | Jobs currently queued or running. |
 | `total_jobs` | Jobs known to the daemon (memory plus persisted history). |
 | `total_storage_bytes` | Bytes currently held across storage backends. **Always absent** — see below. |
-| `success_rate_24h` | Percentage (0-100) of backup jobs that finished in the last 24 hours and succeeded. |
-| `success_rate_7d` | The same over 7 days. Present only when job history is persisted. |
-| `failed_jobs_24h` | Backup jobs that failed in the last 24 hours. |
+| `success_rate_24h` | Percentage (0-100) of backup jobs that finished in the last 24 hours and succeeded. Absent when history cannot cover the window — see below. |
+| `success_rate_7d` | The same over 7 days. |
+| `failed_jobs_24h` | Backup jobs that failed in the last 24 hours. Absent under the same conditions as `success_rate_24h`. |
 
 **TargetSummary fields**:
 
@@ -188,27 +188,35 @@ Get dashboard statistics: job counts, per-target health, and success-rate rollup
 |---|---|
 | `last_backup` | Completion time of the most recent **successful** backup. |
 | `next_scheduled` | Next cron fire time, computed from `schedule`. |
-| `last_backup_status` | `success`, `failed`, or `never` — the outcome of the most recent finished backup job. Cancelled jobs count as neither. |
-| `consecutive_failures` | Failed backup jobs since the last successful one. |
+| `last_backup_status` | `success`, `failed`, `never`, or `unknown` — the outcome of the backup job that **finished** most recently (not the one created most recently; overlapping runs can finish out of order). Cancelled jobs count as neither. `unknown` means the daemon could not establish the target's history and is not a claim about backups — see below. |
+| `consecutive_failures` | Failed backup jobs since the last successful one. `0` when `last_backup_status` is `unknown`. |
 | `last_backup_bytes` | Artifact size recorded by the last successful backup. |
 | `last_backup_duration_seconds` | How long that backup job ran. |
-| `overdue` | The run due after the last successful backup has already passed. Always `false` for targets with no schedule, and for targets with no job history at all — nothing records when a target was configured, so "late" cannot be established. |
+| `overdue` | Two scheduled fires have passed since the last successful backup. The second fire is a grace period: a backup is due from the moment its slot opens until it finishes, so flagging the first would mark a healthy target late for the whole duration of its own run. Always `false` while `is_running` is true, for targets with no schedule, for targets with no job history at all — nothing records when a target was configured — and whenever the history behind it could not be read. |
 
 **Absent fields are unknown, not zero.** Every optional field above is omitted
 when the daemon cannot establish it. Clients must render an omitted value as
 unknown or unavailable; showing `0` would report a healthy-looking number the
 backend never claimed.
 
-Two fields are deliberately conservative:
+Several fields are deliberately conservative:
 
 - **`total_storage_bytes` is never populated.** Job history records the size of
   every backup ever taken, including the ones retention has since deleted, so
   summing it would overstate usage; listing every storage backend on each
   dashboard request would be slow and, on S3, billable. The field stays absent
   until something tracks retained bytes directly.
-- **`success_rate_7d` requires persistence.** Without a job store, history lives
-  only in memory and is pruned every 72 hours, so a 7-day rate would be computed
-  over a window the data does not cover. The field is omitted instead.
+- **A window the daemon has not observed is omitted, not estimated.** Rates and
+  counts are computed from a bounded scan of backup history. Whenever that scan
+  cannot cover the window — the job store was unreachable, the scan hit its row
+  cap after the window started, or the daemon has no store and has been up for
+  less than the window — the figure is omitted. Without a job store,
+  `success_rate_7d` is effectively never reported: in-memory history is pruned
+  every 72 hours.
+- **`unknown` is not `never`.** When the daemon cannot read a target's history
+  it says so. Reporting a target it cannot see as one that has never been backed
+  up would turn a persistence outage into a dashboard full of healthy, brand-new
+  targets — the one answer a backup dashboard must never give.
 
 **Example**:
 

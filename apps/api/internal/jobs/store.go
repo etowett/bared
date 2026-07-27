@@ -12,6 +12,13 @@ type JobFilter struct {
 	Type       JobType
 	Limit      int
 	Offset     int
+
+	// WithResults asks the store to rebuild each row's typed Result from the
+	// persisted JSON. It is off by default because that costs a json.Unmarshal
+	// per row, and the only caller that reads a listed job's Result is the
+	// dashboard rollup — /api/jobs renders none of it. Store implementations
+	// that keep results in memory may ignore this.
+	WithResults bool
 }
 
 // JobStore defines the interface for persistence operations

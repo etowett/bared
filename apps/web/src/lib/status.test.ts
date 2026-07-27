@@ -41,6 +41,15 @@ describe('describeTargetHealth', () => {
     expect(describeTargetHealth(target({ last_backup_status: 'never' }))).toBe('never')
   })
 
+  it('says unknown rather than healthy when the daemon disclaims the history', () => {
+    // The daemon sends "unknown" when its job store was unreachable (#134).
+    // Falling through to healthy here would restore the false all-clear the
+    // backend went out of its way to avoid.
+    expect(describeTargetHealth(target({ last_backup_status: 'unknown', overdue: false }))).toBe(
+      'unknown'
+    )
+  })
+
   it('says unknown rather than healthy when the daemon reports no health at all', () => {
     // An older daemon predates the health fields (#127). Treating absence as
     // success would show a green tick the backend never claimed.

@@ -118,7 +118,20 @@ func TestSQLStore_BackupResultRoundTrip(t *testing.T) {
 	}
 	assertSize(t, "GetJob", fetched)
 
-	listed, err := store.ListJobs(ctx, jobs.JobFilter{Type: jobs.JobTypeBackup})
+	// Listing decodes results only on request: it is polled every few seconds
+	// by the dashboard, and /api/jobs renders none of the result.
+	plain, err := store.ListJobs(ctx, jobs.JobFilter{Type: jobs.JobTypeBackup})
+	if err != nil {
+		t.Fatalf("ListJobs failed: %v", err)
+	}
+	if len(plain) != 1 {
+		t.Fatalf("expected 1 job, got %d", len(plain))
+	}
+	if plain[0].Result != nil {
+		t.Errorf("expected no result without WithResults, got %T", plain[0].Result)
+	}
+
+	listed, err := store.ListJobs(ctx, jobs.JobFilter{Type: jobs.JobTypeBackup, WithResults: true})
 	if err != nil {
 		t.Fatalf("ListJobs failed: %v", err)
 	}

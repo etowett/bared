@@ -77,14 +77,16 @@ const targetHealthDescriptors: Record<TargetHealth, StatusDescriptor> = {
  *
  * Work in flight wins, because it is the most recent truth; after that the
  * order is how much it should worry an operator. An older daemon omits these
- * fields entirely, and the answer then is `unknown` — reporting "Healthy" from
- * an absent field would be inventing a claim the backend never made.
+ * fields entirely, and a current one sends `'unknown'` when it could not read
+ * the history behind them; the answer in both cases is `unknown` — reporting
+ * "Healthy" from a field the backend disclaimed would be inventing a claim.
  */
 export function describeTargetHealth(
   target: Pick<Target, 'is_running' | 'last_backup_status' | 'overdue'>
 ): TargetHealth {
   if (target.is_running) return 'running'
   if (target.last_backup_status === undefined) return 'unknown'
+  if (target.last_backup_status === 'unknown') return 'unknown'
   if (target.last_backup_status === 'failed') return 'failing'
   if (target.overdue) return 'overdue'
   if (target.last_backup_status === 'never') return 'never'

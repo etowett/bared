@@ -3,9 +3,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
 
@@ -22,6 +24,10 @@ import (
 // its unexported map.
 type fakeJobStore struct {
 	history []*jobs.Job
+
+	// listErr, when set, is what ListJobs returns — a daemon whose job
+	// database is unreachable.
+	listErr error
 }
 
 func (f *fakeJobStore) CreateJob(context.Context, *jobs.Job) error { return nil }
@@ -36,7 +42,15 @@ func (f *fakeJobStore) GetJob(_ context.Context, id jobs.JobID) (*jobs.Job, erro
 	return nil, fmt.Errorf("job not found: %s", id)
 }
 
+// ListJobs mirrors the SQL store: filter, order by created_at descending, then
+// apply LIMIT/OFFSET. The ordering and the cap are what produce the truncated
+// samples the dashboard has to stay honest about, so a fake that ignored them
+// would never exercise that path.
 func (f *fakeJobStore) ListJobs(_ context.Context, filter jobs.JobFilter) ([]*jobs.Job, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+
 	matched := make([]*jobs.Job, 0, len(f.history))
 	for _, job := range f.history {
 		if filter.TargetName != "" && job.TargetName != filter.TargetName {
@@ -50,6 +64,28 @@ func (f *fakeJobStore) ListJobs(_ context.Context, filter jobs.JobFilter) ([]*jo
 		}
 		matched = append(matched, job)
 	}
+
+	sort.SliceStable(matched, func(i, j int) bool {
+		return matched[i].CreatedAt.After(matched[j].CreatedAt)
+	})
+
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(matched) {
+		return []*jobs.Job{}, nil
+	}
+	matched = matched[offset:]
+
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 1000 // the SQL store's default page size
+	}
+	if limit < len(matched) {
+		matched = matched[:limit]
+	}
+
 	return matched, nil
 }
 
@@ -67,11 +103,18 @@ func (f *fakeJobStore) AcquireLock(context.Context, string, time.Duration) (bool
 func (f *fakeJobStore) ReleaseLock(context.Context, string) error { return nil }
 func (f *fakeJobStore) Close() error                              { return nil }
 
-// backupJob builds a finished backup job. size <= 0 leaves the job without a
-// result, mimicking history written before results were persisted.
+// backupJob builds a finished backup job that ran for 30 seconds. size <= 0
+// leaves the job without a result, mimicking history written before results
+// were persisted.
 func backupJob(target string, status jobs.JobStatus, finishedAt time.Time, size int64) *jobs.Job {
-	started := finishedAt.Add(-30 * time.Second)
-	created := started.Add(-time.Second)
+	return backupJobAt(target, status, finishedAt.Add(-31*time.Second), finishedAt, size)
+}
+
+// backupJobAt builds a finished backup job with its creation and completion
+// times set independently, which is how a long-running or overlapping backup
+// ends up finishing out of creation order.
+func backupJobAt(target string, status jobs.JobStatus, created, finishedAt time.Time, size int64) *jobs.Job {
+	started := created.Add(time.Second)
 
 	job := &jobs.Job{
 		ID:          jobs.JobID(fmt.Sprintf("%s-%d", target, finishedAt.UnixNano())),
@@ -107,14 +150,19 @@ func dashboardTarget(name, schedule string) *config.Target {
 }
 
 // dashboardServer wires a Server around a fixed set of targets and history.
-// store == nil models a daemon running without job persistence.
+// persistent == false models a daemon running without job persistence.
 func dashboardServer(targets []*config.Target, history []*jobs.Job, persistent bool) *Server {
-	cfg := &config.Config{Targets: targets}
-
-	var store jobs.JobStore
-	if persistent {
-		store = &fakeJobStore{history: history}
+	if !persistent {
+		return dashboardServerWithStore(targets, nil)
 	}
+	return dashboardServerWithStore(targets, &fakeJobStore{history: history})
+}
+
+// dashboardServerWithStore wires a Server around a caller-supplied store, for
+// the cases where the store misbehaves rather than merely holding jobs. A nil
+// store means no job persistence at all.
+func dashboardServerWithStore(targets []*config.Target, store jobs.JobStore) *Server {
+	cfg := &config.Config{Targets: targets}
 
 	return &Server{
 		cfg:        cfg,
@@ -241,6 +289,32 @@ func TestHandleDashboard_TargetHealth(t *testing.T) {
 			},
 		},
 		{
+			name:    "the job that finished last wins, not the one created last",
+			targets: []*config.Target{dashboardTarget("overlapping", daily)},
+			history: []*jobs.Job{
+				// Created second, finished first: a short run that started
+				// after a long one and beat it to the end.
+				backupJobAt("overlapping", jobs.JobStatusFailed,
+					now.Add(-2*time.Hour), now.Add(-90*time.Minute), 0),
+				// Created first, finished last. History is ordered by
+				// CreatedAt, so this job is second in the slice.
+				backupJobAt("overlapping", jobs.JobStatusCompleted,
+					now.Add(-3*time.Hour), now.Add(-time.Hour), 111),
+			},
+			check: func(t *testing.T, resp DashboardResponse) {
+				summary := resp.Targets[0]
+				assert.Equal(t, backupOutcomeSuccess, summary.LastBackupStatus,
+					"the newest job by completion succeeded")
+				require.NotNil(t, summary.LastBackup)
+				assert.Equal(t, now.Add(-time.Hour).Format(time.RFC3339), *summary.LastBackup)
+				require.NotNil(t, summary.LastBackupBytes)
+				assert.Equal(t, int64(111), *summary.LastBackupBytes,
+					"the size must come from the run that last_backup names")
+				assert.Equal(t, 0, summary.ConsecutiveFailures,
+					"the failure finished before the success, so it is not consecutive")
+			},
+		},
+		{
 			name:    "target with no schedule",
 			targets: []*config.Target{dashboardTarget("manual-only", "")},
 			history: []*jobs.Job{
@@ -285,6 +359,93 @@ func TestHandleDashboard_SevenDayRateNeedsPersistence(t *testing.T) {
 	// unanswerable rather than 100%.
 	withoutStore := requestDashboard(t, dashboardServer(targets, nil, false))
 	assert.Nil(t, withoutStore.SuccessRate7d)
+}
+
+// TestHandleDashboard_StoreFailureIsUnknownNotNever pins the one answer the
+// dashboard must never give: a persistence outage renders as "I cannot tell",
+// not as a wall of healthy, never-backed-up targets.
+func TestHandleDashboard_StoreFailureIsUnknownNotNever(t *testing.T) {
+	targets := []*config.Target{
+		dashboardTarget("prod", "0 2 * * *"),
+		dashboardTarget("staging", "0 3 * * *"),
+	}
+	store := &fakeJobStore{listErr: errors.New("dial tcp 10.0.0.5:5432: connect: connection refused")}
+
+	resp := requestDashboard(t, dashboardServerWithStore(targets, store))
+	require.Len(t, resp.Targets, 2)
+
+	for _, summary := range resp.Targets {
+		assert.Equal(t, backupOutcomeUnknown, summary.LastBackupStatus, summary.Name)
+		assert.NotEqual(t, backupOutcomeNever, summary.LastBackupStatus,
+			"a target with unreadable history has not 'never' been backed up")
+		assert.False(t, summary.Overdue, "lateness cannot be measured from history we could not read")
+		assert.Nil(t, summary.LastBackup)
+		assert.Equal(t, 0, summary.ConsecutiveFailures)
+	}
+
+	assert.Nil(t, resp.SuccessRate24h)
+	assert.Nil(t, resp.SuccessRate7d)
+	assert.Nil(t, resp.FailedJobs24h, "zero failures is a claim; we have no basis for it")
+
+	// And the omission has to survive serialization: a present 0 would be read
+	// as "nothing failed".
+	rr := httptest.NewRecorder()
+	dashboardServerWithStore(targets, store).handleDashboard(rr, httptest.NewRequest("GET", "/api/dashboard", nil))
+
+	var raw map[string]any
+	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &raw))
+	_, present := raw["failed_jobs_24h"]
+	assert.False(t, present, "failed_jobs_24h must be omitted, not reported as 0")
+}
+
+// TestHandleDashboard_TruncatedHistoryIsUnknown covers the target that scrolls
+// out of the capped scan: it stopped being backed up, which must not read the
+// same as never having been backed up.
+func TestHandleDashboard_TruncatedHistoryIsUnknown(t *testing.T) {
+	now := time.Now()
+
+	// One more job than the scan will return, all for one busy target, so the
+	// forgotten target's only job falls off the end.
+	history := make([]*jobs.Job, 0, dashboardHistoryLimit+1)
+	for i := 0; i < dashboardHistoryLimit; i++ {
+		history = append(history, backupJob("busy", jobs.JobStatusCompleted,
+			now.Add(-time.Duration(i)*time.Second), 64))
+	}
+	history = append(history, backupJob("forgotten", jobs.JobStatusFailed,
+		now.Add(-30*24*time.Hour), 0))
+
+	targets := []*config.Target{dashboardTarget("busy", "*/5 * * * *"), dashboardTarget("forgotten", "0 2 * * *")}
+	resp := requestDashboard(t, dashboardServer(targets, history, true))
+	require.Len(t, resp.Targets, 2)
+
+	byName := map[string]TargetSummary{}
+	for _, summary := range resp.Targets {
+		byName[summary.Name] = summary
+	}
+
+	assert.Equal(t, backupOutcomeSuccess, byName["busy"].LastBackupStatus)
+	assert.Equal(t, backupOutcomeUnknown, byName["forgotten"].LastBackupStatus,
+		"a target cut off by the row cap is not a new target")
+	assert.False(t, byName["forgotten"].Overdue)
+
+	// The 24h window starts inside the retrieved slice, so it cannot be
+	// answered from a sample this truncated either.
+	assert.Nil(t, resp.SuccessRate24h)
+	assert.Nil(t, resp.FailedJobs24h)
+}
+
+// TestHandleDashboard_WindowsNeedProcessUptime covers the storeless daemon
+// restarted minutes ago: it has no basis for a 24h figure, and "0 failures in
+// the last 24 hours" from a 24-minute-old process is exactly the reassuring
+// lie the 7d gate already refuses to tell.
+func TestHandleDashboard_WindowsNeedProcessUptime(t *testing.T) {
+	resp := requestDashboard(t, dashboardServer(
+		[]*config.Target{dashboardTarget("t1", "0 2 * * *")}, nil, false,
+	))
+
+	assert.Nil(t, resp.SuccessRate24h)
+	assert.Nil(t, resp.FailedJobs24h)
+	assert.Nil(t, resp.SuccessRate7d)
 }
 
 func TestHandleDashboard_TotalStorageIsAbsent(t *testing.T) {
@@ -339,16 +500,41 @@ func TestIsOverdue(t *testing.T) {
 	twoDaysAgo := now.Add(-48 * time.Hour)
 	tenMinutesAgo := now.Add(-10 * time.Minute)
 
+	// An hourly target whose run takes four minutes: at 12:00 the 12:00 fire is
+	// due but the backup for it has not finished yet, and at 12:04 it has.
+	hourlyLastSuccess := now.Add(-56 * time.Minute) // 11:04
+	twoHoursOfMisses := now.Add(-176 * time.Minute) // 09:04
+
 	tests := []struct {
 		name     string
 		schedule string
 		health   *targetHealth
+		running  bool
 		want     bool
 	}{
 		{
 			name:     "no schedule is never overdue",
 			schedule: "",
 			health:   &targetHealth{lastSuccessAt: &twoDaysAgo},
+			want:     false,
+		},
+		{
+			name:     "one missed fire is the grace period, not an alarm",
+			schedule: "0 * * * *",
+			health:   &targetHealth{lastSuccessAt: &hourlyLastSuccess},
+			want:     false,
+		},
+		{
+			name:     "the second missed fire is overdue",
+			schedule: "0 * * * *",
+			health:   &targetHealth{lastSuccessAt: &twoHoursOfMisses},
+			want:     true,
+		},
+		{
+			name:     "a target with a job in flight is not overdue",
+			schedule: "0 * * * *",
+			health:   &targetHealth{lastSuccessAt: &twoDaysAgo},
+			running:  true,
 			want:     false,
 		},
 		{
@@ -391,7 +577,7 @@ func TestIsOverdue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isOverdue(tt.schedule, tt.health, now))
+			assert.Equal(t, tt.want, isOverdue(tt.schedule, tt.health, tt.running, now))
 		})
 	}
 }
@@ -409,6 +595,7 @@ func TestBackupWindowStats(t *testing.T) {
 		name       string
 		history    []*jobs.Job
 		truncated  bool
+		degraded   bool
 		wantRate   *float64
 		wantFailed *int
 	}{
@@ -472,11 +659,21 @@ func TestBackupWindowStats(t *testing.T) {
 			wantRate:   ptr(100.0),
 			wantFailed: ptr(0),
 		},
+		{
+			name: "a degraded sample answers nothing, however good it looks",
+			history: []*jobs.Job{
+				backupJob("t1", jobs.JobStatusCompleted, now.Add(-time.Hour), 1),
+			},
+			degraded:   true,
+			wantRate:   nil,
+			wantFailed: nil,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rate, failed := backupWindowStats(tt.history, tt.truncated, window24h, now)
+			sample := historySample{jobs: tt.history, truncated: tt.truncated, degraded: tt.degraded}
+			rate, failed := backupWindowStats(sample, window24h, now)
 
 			if tt.wantRate == nil {
 				assert.Nil(t, rate)

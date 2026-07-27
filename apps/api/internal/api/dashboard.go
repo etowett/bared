@@ -13,6 +13,10 @@ const (
 	backupOutcomeSuccess = "success"
 	backupOutcomeFailed  = "failed"
 	backupOutcomeNever   = "never"
+	// backupOutcomeUnknown means the daemon could not establish the target's
+	// history — the job store was unreachable, or the scan hit its cap before
+	// reaching this target. It is never a claim about backups; "never" is.
+	backupOutcomeUnknown = "unknown"
 )
 
 // dashboardHistoryLimit caps how many backup jobs the rollups scan. It exists
@@ -26,6 +30,31 @@ const (
 	window24h = 24 * time.Hour
 	window7d  = 7 * 24 * time.Hour
 )
+
+// historySample is the backup job history every rollup is derived from,
+// together with what is missing from it.
+//
+// The two flags exist because an incomplete sample and a quiet install look
+// identical once the jobs are in a slice, and on a backup dashboard the
+// difference between "nothing failed" and "I cannot tell" is the whole point.
+type historySample struct {
+	// jobs are backup jobs ordered newest first by CreatedAt.
+	jobs []*jobs.Job
+
+	// truncated is set when the fetch returned dashboardHistoryLimit rows, so
+	// older jobs — possibly a whole target's history — were cut off.
+	truncated bool
+
+	// degraded is set when the job store could not be read. Whatever is here
+	// is in-memory only: everything from before the current process is absent.
+	degraded bool
+}
+
+// complete reports whether a target's absence from the sample can be trusted
+// to mean the target has never been backed up.
+func (h historySample) complete() bool {
+	return !h.truncated && !h.degraded
+}
 
 // targetHealth is the per-target rollup derived from backup job history.
 type targetHealth struct {
@@ -43,14 +72,21 @@ type targetHealth struct {
 	// oldestJobAt is the creation time of the oldest backup job we know of for
 	// the target. It is the only evidence of when a target started running.
 	oldestJobAt *time.Time
+	// lastFinishedAt is when the newest finished job — success or failure —
+	// finished. It decides outcome; it is not reported directly.
+	lastFinishedAt *time.Time
 }
 
 // jobFinishedAt returns when a job reached a terminal state. Persisted rows
 // always carry completed_at; the fallback keeps a job whose timestamps were
 // never written from being silently dropped from the rollups.
 //
-// Only call this once GetStatus() has reported a terminal state — see the note
-// on computeTargetHealth.
+// PRECONDITION: job.GetStatus() has already returned a terminal status
+// (completed, failed or cancelled) on this goroutine. CompletedAt is guarded by
+// the job's mutex and is written under the same Lock that publishes the
+// terminal status, so the status read is what freezes it. Calling this on a job
+// that may still be running is a data race — see the note on
+// computeTargetHealth.
 func jobFinishedAt(job *jobs.Job) time.Time {
 	if job.CompletedAt != nil {
 		return *job.CompletedAt
@@ -61,6 +97,10 @@ func jobFinishedAt(job *jobs.Job) time.Time {
 // backupArtifactSize returns the size a completed backup job recorded. Jobs
 // restored from the store before results were decoded, and jobs that failed
 // before producing an artifact, have no result to read.
+//
+// PRECONDITION: as jobFinishedAt — Result is mutex-guarded and only frozen once
+// GetStatus() has reported a terminal status. A torn read of the interface
+// would crash the type assertion below, not merely return a stale size.
 func backupArtifactSize(job *jobs.Job) (int64, bool) {
 	result, ok := job.Result.(*app.BackupResult)
 	if !ok || result == nil || !result.Success {
@@ -69,8 +109,13 @@ func backupArtifactSize(job *jobs.Job) (int64, bool) {
 	return result.Size, true
 }
 
-// computeTargetHealth rolls backup job history up per target. history must be
-// ordered newest first, which is what jobs.Manager.ListJobsFiltered guarantees.
+// computeTargetHealth rolls backup job history up per target.
+//
+// Ordering: jobs.Manager sorts history by CreatedAt, not by completion. A job
+// created earlier can finish later — an overlapping or long-running backup does
+// exactly that — so "most recent" is resolved with jobFinishedAt on every field
+// here rather than by taking the first match in the slice. Nothing in this
+// function depends on the order it is given.
 //
 // Concurrency: history can contain live jobs a worker is still mutating.
 // StartedAt, CompletedAt and Result are only read after GetStatus() has
@@ -92,40 +137,62 @@ func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 			health[job.TargetName] = entry
 		}
 
-		// history runs newest first, so the last assignment is the oldest job.
-		createdAt := job.CreatedAt
-		entry.oldestJobAt = &createdAt
+		if createdAt := job.CreatedAt; entry.oldestJobAt == nil || createdAt.Before(*entry.oldestJobAt) {
+			entry.oldestJobAt = &createdAt
+		}
 
-		switch job.GetStatus() {
-		case jobs.JobStatusCompleted:
-			if entry.outcome == backupOutcomeNever {
-				entry.outcome = backupOutcomeSuccess
-			}
-			if entry.lastSuccessAt == nil {
-				finishedAt := jobFinishedAt(job)
-				entry.lastSuccessAt = &finishedAt
-
-				if size, ok := backupArtifactSize(job); ok {
-					entry.lastSuccessBytes = &size
-				}
-				if job.StartedAt != nil && job.CompletedAt != nil {
-					seconds := job.CompletedAt.Sub(*job.StartedAt).Seconds()
-					entry.lastSuccessSeconds = &seconds
-				}
-			}
-
-		case jobs.JobStatusFailed:
-			if entry.outcome == backupOutcomeNever {
-				entry.outcome = backupOutcomeFailed
-			}
-			// Only failures newer than the last success are consecutive.
-			if entry.lastSuccessAt == nil {
-				entry.consecutiveFailures++
-			}
-
-		default:
+		status := job.GetStatus()
+		if status != jobs.JobStatusCompleted && status != jobs.JobStatusFailed {
 			// Queued, running, cancelling and cancelled jobs report neither
 			// success nor failure, so they do not move any of these counters.
+			continue
+		}
+
+		finishedAt := jobFinishedAt(job)
+
+		if entry.lastFinishedAt == nil || finishedAt.After(*entry.lastFinishedAt) {
+			entry.lastFinishedAt = &finishedAt
+			if status == jobs.JobStatusCompleted {
+				entry.outcome = backupOutcomeSuccess
+			} else {
+				entry.outcome = backupOutcomeFailed
+			}
+		}
+
+		if status != jobs.JobStatusCompleted {
+			continue
+		}
+		if entry.lastSuccessAt != nil && !finishedAt.After(*entry.lastSuccessAt) {
+			continue
+		}
+
+		entry.lastSuccessAt = &finishedAt
+		entry.lastSuccessBytes = nil
+		entry.lastSuccessSeconds = nil
+
+		if size, ok := backupArtifactSize(job); ok {
+			entry.lastSuccessBytes = &size
+		}
+		if job.StartedAt != nil && job.CompletedAt != nil {
+			seconds := job.CompletedAt.Sub(*job.StartedAt).Seconds()
+			entry.lastSuccessSeconds = &seconds
+		}
+	}
+
+	// Consecutive failures need the final lastSuccessAt, which the loop above
+	// only settles once it has seen every job, so they are counted separately.
+	for _, job := range history {
+		if job.Type != jobs.JobTypeBackup || job.GetStatus() != jobs.JobStatusFailed {
+			continue
+		}
+
+		entry := health[job.TargetName]
+		if entry == nil {
+			continue
+		}
+		// Only failures newer than the last success are consecutive.
+		if entry.lastSuccessAt == nil || jobFinishedAt(job).After(*entry.lastSuccessAt) {
+			entry.consecutiveFailures++
 		}
 	}
 
@@ -140,8 +207,16 @@ func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 // target existed. With no history at all we return false — nothing records when
 // a target was configured, and claiming a brand-new target is overdue would be
 // a guess.
-func isOverdue(schedule string, entry *targetHealth, now time.Time) bool {
-	if schedule == "" || entry == nil {
+//
+// One missed fire is not enough. A backup that takes four minutes on an hourly
+// schedule is "due" from the top of every hour until it finishes, so flagging
+// the first missed fire paints a healthy target red on every poll of its own
+// run — while is_running says it is working. We require the fire *after* the
+// due one to have passed too: a grace period that scales with the schedule
+// instead of a constant that would be wrong for both hourly and monthly jobs.
+// A target with a job in flight is never overdue for the same reason.
+func isOverdue(schedule string, entry *targetHealth, running bool, now time.Time) bool {
+	if schedule == "" || entry == nil || running {
 		return false
 	}
 
@@ -160,27 +235,32 @@ func isOverdue(schedule string, entry *targetHealth, now time.Time) bool {
 		return false
 	}
 
-	return parsed.Next(since).Before(now)
+	due := parsed.Next(since)
+	return parsed.Next(due).Before(now)
 }
 
 // backupWindowStats returns the percentage of backup jobs finishing within the
 // window that succeeded, and how many failed.
 //
-// Both are nil when history was truncated by dashboardHistoryLimit before
-// reaching the start of the window: the sample would then be missing older jobs
-// from the same window, and a success rate that is quietly wrong is worse on a
-// backup dashboard than no success rate at all. The rate alone is nil when the
-// window holds no finished backup job, because a rate over an empty sample is
-// unknown, not 0%. A failure count of zero, in contrast, is a real answer.
-func backupWindowStats(history []*jobs.Job, truncated bool, window time.Duration, now time.Time) (rate *float64, failed *int) {
+// Both are nil when the sample cannot cover the window: the store read failed,
+// or dashboardHistoryLimit cut history off after the window started. The sample
+// is then missing jobs from inside the window, and a success rate that is
+// quietly wrong is worse on a backup dashboard than no success rate at all. The
+// rate alone is nil when the window holds no finished backup job, because a
+// rate over an empty sample is unknown, not 0%. A failure count of zero, in
+// contrast, is a real answer.
+func backupWindowStats(sample historySample, window time.Duration, now time.Time) (rate *float64, failed *int) {
 	cutoff := now.Add(-window)
 
-	if truncated && len(history) > 0 && history[len(history)-1].CreatedAt.After(cutoff) {
+	if sample.degraded {
+		return nil, nil
+	}
+	if sample.truncated && len(sample.jobs) > 0 && sample.jobs[len(sample.jobs)-1].CreatedAt.After(cutoff) {
 		return nil, nil
 	}
 
 	succeeded, failures := 0, 0
-	for _, job := range history {
+	for _, job := range sample.jobs {
 		if job.Type != jobs.JobTypeBackup {
 			continue
 		}
