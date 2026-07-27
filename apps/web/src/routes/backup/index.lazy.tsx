@@ -16,7 +16,7 @@ import type { Job } from '@/types'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
-export const Route = createLazyFileRoute('/backup')({
+export const Route = createLazyFileRoute('/backup/')({
   component: BackupPage,
 })
 
