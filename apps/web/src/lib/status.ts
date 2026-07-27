@@ -12,6 +12,7 @@ import {
   Terminal,
   type LucideIcon,
 } from 'lucide-react'
+import type { Target } from '@/types'
 
 /**
  * The four semantic tones defined in `styles/globals.css`, plus neutral.
@@ -35,8 +36,16 @@ export interface StatusDescriptor {
   spin?: boolean
 }
 
+/**
+ * A backup target's health, in the order an operator cares about it.
+ *
+ * `unknown` is not a health state — it means the daemon did not report one, and
+ * is rendered as the old liveness label rather than a reassuring green tick.
+ */
+export type TargetHealth = 'running' | 'failing' | 'overdue' | 'healthy' | 'never' | 'unknown'
+
 /** The subjects `describeStatus` knows how to render. */
-export type StatusKind = 'job' | 'enabled' | 'database' | 'trigger'
+export type StatusKind = 'job' | 'enabled' | 'database' | 'trigger' | 'target'
 
 const jobStateDescriptors: Record<JobState, StatusDescriptor> = {
   running: { tone: 'info', label: 'Running', icon: LoaderCircle, spin: true },
@@ -52,6 +61,34 @@ const triggerDescriptors: Record<JobTrigger, StatusDescriptor> = {
   schedule: { tone: 'info', label: 'Scheduled', icon: CalendarClock },
   manual: { tone: 'warning', label: 'Manual', icon: Play },
   api: { tone: 'neutral', label: 'API', icon: Terminal },
+}
+
+const targetHealthDescriptors: Record<TargetHealth, StatusDescriptor> = {
+  running: { tone: 'info', label: 'Running', icon: LoaderCircle, spin: true },
+  failing: { tone: 'danger', label: 'Failing', icon: CircleX },
+  overdue: { tone: 'warning', label: 'Overdue', icon: Clock },
+  healthy: { tone: 'success', label: 'Healthy', icon: CircleCheck },
+  never: { tone: 'neutral', label: 'Never run', icon: Circle },
+  unknown: { tone: 'neutral', label: 'Idle', icon: Circle },
+}
+
+/**
+ * Reduces a target's health fields to the one thing worth showing in a cell.
+ *
+ * Work in flight wins, because it is the most recent truth; after that the
+ * order is how much it should worry an operator. An older daemon omits these
+ * fields entirely, and the answer then is `unknown` — reporting "Healthy" from
+ * an absent field would be inventing a claim the backend never made.
+ */
+export function describeTargetHealth(
+  target: Pick<Target, 'is_running' | 'last_backup_status' | 'overdue'>
+): TargetHealth {
+  if (target.is_running) return 'running'
+  if (target.last_backup_status === undefined) return 'unknown'
+  if (target.last_backup_status === 'failed') return 'failing'
+  if (target.overdue) return 'overdue'
+  if (target.last_backup_status === 'never') return 'never'
+  return 'healthy'
 }
 
 /**
@@ -72,6 +109,8 @@ export function describeStatus(kind: StatusKind, status: string | boolean): Stat
         : { tone: 'neutral', label: 'Disabled', icon: Ban }
     case 'trigger':
       return triggerDescriptors[status as JobTrigger] ?? triggerDescriptors.api
+    case 'target':
+      return targetHealthDescriptors[status as TargetHealth] ?? targetHealthDescriptors.unknown
     case 'database':
       // A database engine is an attribute, not a health signal, so it stays
       // neutral — colour is reserved for things an operator must act on.

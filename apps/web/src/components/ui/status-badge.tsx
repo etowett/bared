@@ -7,11 +7,12 @@ import {
   type StatusDescriptor,
   type StatusKind,
   type StatusTone,
+  type TargetHealth,
 } from '@/lib/status'
 import { cva } from 'class-variance-authority'
 import { CircleDot, type LucideIcon } from 'lucide-react'
 
-export type { JobState, JobTrigger, StatusTone }
+export type { JobState, JobTrigger, StatusTone, TargetHealth }
 
 const toneVariants = cva(
   'inline-flex items-center gap-1.5 border px-2 py-1 text-[0.6875rem] font-semibold uppercase leading-none tracking-wide',
@@ -36,6 +37,7 @@ export type StatusBadgeProps = BadgeAttributes &
     | { kind?: 'job'; status: JobState }
     | { kind: 'enabled'; status: boolean }
     | { kind: 'trigger'; status: JobTrigger }
+    | { kind: 'target'; status: TargetHealth }
     | { kind: 'database'; status: string }
     /** Escape hatch for subjects `describeStatus` does not cover yet. */
     | { kind: 'custom'; status?: never; tone: StatusTone; label: string; icon?: LucideIcon }

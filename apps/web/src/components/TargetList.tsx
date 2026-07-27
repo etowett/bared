@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useConfirm } from '@/contexts/ConfirmContext'
+import { describeTargetHealth } from '@/lib/status'
 import { formatDate } from '@/lib/utils'
 import { describeSchedule, formatNextRun } from '@/utils/cron'
 import { toast } from 'sonner'
@@ -72,8 +73,21 @@ export function TargetList({ targets }: TargetListProps) {
                 <StatusBadge kind="database" status={target.type} />
               </TableCell>
               <TableCell className="font-mono text-sm">{target.database}</TableCell>
+              {/*
+                The daemon now reports health, not just liveness (#127), so
+                this cell answers "does this target need me?" instead of
+                "Idle". Targets served by an older daemon fall back to the
+                liveness label rather than a green tick nobody claimed.
+              */}
               <TableCell>
-                <StatusBadge status={target.is_running ? 'running' : 'idle'} />
+                <div className="flex flex-col items-start gap-1">
+                  <StatusBadge kind="target" status={describeTargetHealth(target)} />
+                  {(target.consecutive_failures ?? 0) > 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      {target.consecutive_failures} in a row
+                    </span>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-sm">
                 {target.schedule ? (

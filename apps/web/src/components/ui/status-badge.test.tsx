@@ -83,6 +83,22 @@ describe('StatusBadge', () => {
     })
   })
 
+  describe('target health', () => {
+    it.each([
+      ['running', 'Running', 'text-info'],
+      ['failing', 'Failing', 'text-danger'],
+      ['overdue', 'Overdue', 'text-warning'],
+      ['healthy', 'Healthy', 'text-success'],
+      ['never', 'Never run', 'text-muted-foreground'],
+      ['unknown', 'Idle', 'text-muted-foreground'],
+    ] as const)('renders %s with its label and tone', (health, label, toneClass) => {
+      const { container } = render(<StatusBadge kind="target" status={health} />)
+
+      expect(screen.getByText(label)).toBeInTheDocument()
+      expect(container.firstElementChild).toHaveClass(toneClass)
+    })
+  })
+
   describe('custom', () => {
     it('accepts an explicit tone, label and icon for unmapped subjects', () => {
       const { container } = render(
