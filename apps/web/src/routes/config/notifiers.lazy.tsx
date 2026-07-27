@@ -21,7 +21,8 @@ import {
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
 import { Plus, Pencil, Trash2, Bell, Mail, Webhook } from 'lucide-react'
-import type { Notifier, NotifierRequest, ConfigSource, WebhookNotifierConfig } from '@/types'
+import type { Notifier, NotifierRequest, ConfigSource } from '@/types'
+import { describeNotifier } from '@/utils/notifier'
 
 export const Route = createLazyFileRoute('/config/notifiers')({
   component: NotifiersPage,
@@ -168,16 +169,7 @@ export function NotifiersPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-500">
-                        {notifier.type === 'slack' && (
-                          <span>Channel: {notifier.config.channel || 'default'}</span>
-                        )}
-                        {notifier.type === 'email' && <span>To: {notifier.config.to_email}</span>}
-                        {notifier.type === 'webhook' && (
-                          <span>
-                            {(notifier.config as WebhookNotifierConfig).method}{' '}
-                            {new URL((notifier.config as WebhookNotifierConfig).url).hostname}
-                          </span>
-                        )}
+                        <span>{describeNotifier(notifier)}</span>
                       </div>
                     </TableCell>
                     <TableCell>

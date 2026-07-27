@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -520,6 +521,109 @@ func (s *Service) getSecrets(ctx context.Context, refType string, refID int64) (
 		}
 
 		secrets[fieldName] = decrypted
+	}
+
+	return secrets, nil
+}
+
+// CarryForwardStorageSecrets fills in every secret the caller left blank with
+// the value already stored under name.
+//
+// The API never sends a secret back to the dashboard — storageToResponse
+// replaces it with "***REDACTED***" — so the form can only send one when the
+// user actually retypes it, and it deliberately omits the rest. Without this
+// step that omission is destructive: ValidateStorage rejects the update
+// outright for an SFTP backend authenticating by password ("sftp storage
+// requires password or private_key_path", HTTP 400), and for the rest
+// updateSecrets replaces the row's whole secret set, so an edit that only
+// changed `keep` silently erases the S3 secret access key and every later
+// backup fails to authenticate.
+//
+// A name with no row is not an error here; UpdateStorage reports "not found".
+func (s *Service) CarryForwardStorageSecrets(ctx context.Context, name string, storage *config.Storage) error {
+	stored, err := s.secretsByName(ctx, "storage", name)
+	if err != nil {
+		return err
+	}
+
+	if storage.SecretAccessKey == "" {
+		storage.SecretAccessKey = stored["secret_access_key"]
+	}
+	if storage.Password == "" {
+		storage.Password = stored["password"]
+	}
+	if storage.PrivateKeyPassphrase == "" {
+		storage.PrivateKeyPassphrase = stored["private_key_passphrase"]
+	}
+
+	return nil
+}
+
+// CarryForwardNotifierSecrets fills in every secret the caller left blank with
+// the value already stored under name. See CarryForwardStorageSecrets for why
+// this is needed; for notifiers the two symptoms are a 400 on any edit of a
+// webhook that uses auth, and a silently erased SMTP password on any edit of an
+// email notifier.
+func (s *Service) CarryForwardNotifierSecrets(ctx context.Context, name string, notifier *config.Notifier) error {
+	stored, err := s.secretsByName(ctx, "notifier", name)
+	if err != nil {
+		return err
+	}
+
+	if notifier.SMTPPassword == "" {
+		notifier.SMTPPassword = stored["smtp_password"]
+	}
+
+	// Only the credential the current auth type actually uses is carried over,
+	// so switching basic -> bearer drops the superseded password instead of
+	// leaving it encrypted in the table forever. Switching to a type that has
+	// no stored credential still fails validation, which is correct: the user
+	// has to supply the new one.
+	if notifier.WebhookAuth != nil {
+		switch notifier.WebhookAuth.Type {
+		case "basic":
+			if notifier.WebhookAuth.Password == "" {
+				notifier.WebhookAuth.Password = stored["webhook_auth_password"]
+			}
+		case "bearer":
+			if notifier.WebhookAuth.Token == "" {
+				notifier.WebhookAuth.Token = stored["webhook_auth_token"]
+			}
+		case "header":
+			if notifier.WebhookAuth.HeaderValue == "" {
+				notifier.WebhookAuth.HeaderValue = stored["webhook_auth_header_value"]
+			}
+		}
+	}
+
+	return nil
+}
+
+// secretsByName resolves a config row by name and returns its decrypted
+// secrets. A missing row yields an empty map rather than an error, so callers
+// can leave the "not found" reporting to the Update* method that follows.
+func (s *Service) secretsByName(ctx context.Context, refType, name string) (map[string]string, error) {
+	var query string
+	switch refType {
+	case "storage":
+		query = `SELECT id FROM storages WHERE name = ?`
+	case "notifier":
+		query = `SELECT id FROM notifiers WHERE name = ?`
+	default:
+		return nil, fmt.Errorf("unsupported secret ref type: %s", refType)
+	}
+
+	var id int64
+	if err := s.db.QueryRowContext(ctx, query, name).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("failed to query %s %q: %w", refType, name, err)
+	}
+
+	secrets, err := s.getSecrets(ctx, refType, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %s secrets: %w", refType, err)
 	}
 
 	return secrets, nil

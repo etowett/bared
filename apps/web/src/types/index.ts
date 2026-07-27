@@ -100,6 +100,8 @@ export interface S3StorageConfigRequest {
   access_key_id: string
   /** `endpoint_url` — not `endpoint`; blank means AWS S3. */
   endpoint_url: string
+  /** Key prefix inside the bucket. Omitting it stores at the bucket root. */
+  path: string
 }
 
 export interface SftpStorageConfigRequest {
@@ -130,19 +132,6 @@ export interface StorageRequest {
   secret_access_key?: string
   password?: string
   private_key_passphrase?: string
-}
-
-// Webhook notifier config for type narrowing
-export interface WebhookNotifierConfig {
-  url: string
-  method?: string
-  headers?: Record<string, string>
-  auth_type?: string
-  auth_username?: string
-  auth_password?: string
-  auth_token?: string
-  auth_header_name?: string
-  auth_header_value?: string
 }
 
 export type NotifierType = 'slack' | 'email' | 'webhook'
@@ -209,6 +198,38 @@ export interface WebhookNotifierConfigRequest {
 
 export type NotifierConfigRequest =
   SlackNotifierConfigRequest | EmailNotifierConfigRequest | WebhookNotifierConfigRequest
+
+/**
+ * What `notifierToResponse` actually puts in `Notifier.config` when reading a
+ * notifier back. Same key names as the request types — the difference is that
+ * every field is optional, because the handler only writes a key when the
+ * underlying value is non-empty, and the secrets come back as
+ * `***REDACTED***`.
+ *
+ * Use this to narrow `Notifier.config` on display paths. The previous type here
+ * described flat `method`/`auth_*` keys the API has never emitted, so the list
+ * page rendered a blank column that type-checked cleanly.
+ */
+export interface NotifierConfigResponse {
+  url?: string
+  channel?: string
+  smtp_host?: string
+  smtp_port?: number
+  smtp_username?: string
+  smtp_from?: string
+  /** `smtp_to` — a list, not a single `to_email` string. */
+  smtp_to?: string[]
+  smtp_use_tls?: boolean
+  smtp_password?: string
+  /** `webhook_method` — not `method`. */
+  webhook_method?: string
+  webhook_headers?: Record<string, string>
+  webhook_auth?: WebhookAuthRequest & {
+    password?: string
+    token?: string
+    header_value?: string
+  }
+}
 
 export interface NotifierRequest {
   name: string

@@ -35,10 +35,9 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What you should weigh before relying on it:**
 
-- **Test coverage is roughly 35%.** There are 43 test files across 16 packages, but
-  `cmd/brd`, `internal/client` and `internal/configservice` have no tests at all, and
-  `internal/storage`, `internal/api` and `internal/notify` sit in the 20s. CI enforces a
-  ratchet (`make coverage-check`) so the number can only go up, but it is low today.
+- **Test coverage is roughly 40%.** `cmd/brd` has no tests at all, and `internal/storage`
+  and `internal/notify` sit in the 20s. CI enforces a ratchet (`make coverage-check`) so the
+  number can only go up, but it is low today.
 - Known security limitations are documented in [SECURITY.md](SECURITY.md) — read
   it before deploying. They include SFTP host key verification and encryption key
   storage.
@@ -54,24 +53,27 @@ and treat the encryption key as the sensitive material it is.
 ### Installation
 
 ```bash
-# Install the latest release with Go
-go install github.com/etowett/bared/apps/api/cmd/brd@latest
-
-# Or pin a version
-go install github.com/etowett/bared/apps/api/cmd/brd@v0.5.0
-
-# Or build from a clone (embeds the web dashboard)
+# Build from a clone (embeds the web dashboard)
 make build
 
 # Or manually with Go (the module lives in apps/api)
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
+
+# Or, from the first release after v0.4.0, install with Go — see the note below
+go install github.com/etowett/bared/apps/api/cmd/brd@latest
 ```
 
-> **How versions resolve.** `go.mod` lives at `apps/api/`, so the module is
-> `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that subdirectory
-> prefix as versions of it. Each release therefore pushes two tags for the same commit:
-> `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version). You still
-> write `@v0.5.0` — Go adds the `apps/api/` prefix when it looks the tag up.
+> **`go install` does not work for `v0.4.0` or earlier.** `go.mod` lives at `apps/api/`, so
+> the module is `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that
+> subdirectory prefix as versions of it. Every release from now on pushes two tags for the
+> same commit — `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version) —
+> but no `apps/api/*` tag exists yet, so today `@v0.4.0` fails with
+> `unknown revision apps/api/v0.4.0` and `@latest` quietly resolves to a pseudo-version of
+> `main`'s tip rather than a release. Until the next release ships, use a release binary,
+> the Docker image, or `make build`.
+>
+> Once a release carries both tags you write `@vX.Y.Z` — Go adds the `apps/api/` prefix when
+> it looks the tag up; `@apps/api/vX.Y.Z` is rejected as a disallowed version string.
 >
 > A `go install`ed binary reports its version, recovered from the build info the Go toolchain
 > embeds, but not a commit or build date: builds served from the module proxy carry no VCS

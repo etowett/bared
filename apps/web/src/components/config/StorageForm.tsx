@@ -96,6 +96,10 @@ function buildConfig(state: StorageFormState): StorageConfigRequest {
         region: state.region,
         access_key_id: state.accessKeyId,
         endpoint_url: state.endpointUrl,
+        // Key prefix inside the bucket. requestToStorage reads it (#104/#109)
+        // and UpdateStorage rewrites config_json wholesale, so leaving it out
+        // here silently moved an existing prefixed backend to the bucket root.
+        path: state.path,
       }
     case 'sftp':
       return {
@@ -329,6 +333,19 @@ function StorageFormFields({ storage, onOpenChange, onSubmit }: Omit<StorageForm
                 placeholder="https://s3.amazonaws.com"
               />
               <p className="text-xs text-gray-500">Leave blank for AWS S3</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="s3_path">Path prefix (optional)</Label>
+              <Input
+                id="s3_path"
+                value={formData.path}
+                onChange={(e) => update('path', e.target.value)}
+                placeholder="backups/"
+              />
+              <p className="text-xs text-gray-500">
+                Key prefix inside the bucket. Leave blank to store at the bucket root.
+              </p>
             </div>
           </>
         )}

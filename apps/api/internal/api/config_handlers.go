@@ -109,6 +109,14 @@ func (s *Server) handleUpdateStorage(w http.ResponseWriter, r *http.Request) {
 
 	storage := s.requestToStorage(&req)
 
+	// The dashboard only sends a secret when the user retypes it, so fill the
+	// blanks from what is already stored before validating. Skipping this makes
+	// an edit that never touched the credentials destructive.
+	if err := s.configService.CarryForwardStorageSecrets(r.Context(), name, storage); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read stored storage secrets: %v", err))
+		return
+	}
+
 	if err := configservice.ValidateStorage(storage); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Validation failed: %v", err))
 		return
@@ -221,6 +229,13 @@ func (s *Server) handleUpdateNotifier(w http.ResponseWriter, r *http.Request) {
 
 	req.Name = name
 	notifier := s.requestToNotifier(&req)
+
+	// Same as handleUpdateStorage: the form omits secrets it did not change, so
+	// carry the stored ones forward before validating.
+	if err := s.configService.CarryForwardNotifierSecrets(r.Context(), name, notifier); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to read stored notifier secrets: %v", err))
+		return
+	}
 
 	if err := configservice.ValidateNotifier(notifier); err != nil {
 		respondError(w, http.StatusBadRequest, fmt.Sprintf("Validation failed: %v", err))

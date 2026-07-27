@@ -136,32 +136,36 @@ docker run --rm \
 
 ### Docker Compose
 
-Complete development stack with:
+The default stack in `compose.yml` is just two services:
 
 - **BareD daemon**: Main application
-- **MySQL 8.0**: Test database
-- **PostgreSQL 15**: Test database
-- **Redis 7**: Test database
-- **RustFS**: S3-compatible storage for testing (API on `:9000`, console on `:9001`)
+- **RustFS**: S3-compatible storage for testing (API on host `:9100`, console on host `:9001`)
 
-Usage:
+The three test databases — **MySQL 8.4**, **PostgreSQL 18** and **Redis 8** — sit behind the
+`databases` compose profile, so they stay out of the way until you ask for them:
 
 ```bash
-# Start all services
-docker-compose up -d
+# Start the default stack (daemon + RustFS)
+docker compose up -d
+
+# Start it with the test databases as well
+docker compose --profile databases up -d
 
 # View logs
-docker-compose logs -f bared
+docker compose logs -f bared
 
-# Connect to MySQL
-docker-compose exec mysql mysql -ubackup -ptestpass testdb
+# Connect to MySQL (needs the databases profile running)
+docker compose exec mysql mysql -ubackup -ptestpass testdb
 
 # Stop services
-docker-compose down
+docker compose --profile databases down
 
 # Clean up volumes
-docker-compose down -v
+docker compose --profile databases down -v
 ```
+
+`make compose-services-up` / `make compose-services-down` and `make test-integration` pass the
+profile for you.
 
 #### RustFS (S3 testing)
 
@@ -181,12 +185,16 @@ storages:
     region: us-east-1            # RustFS has no regions, but SigV4 needs one
     access_key_id: bared
     secret_access_key: baredbared
-    endpoint_url: http://localhost:9000   # http://rustfs:9000 from inside the compose network
+    endpoint_url: http://localhost:9100   # http://rustfs:9000 from inside the compose network
 ```
+
+The host port is `9100`, not `9000`: RustFS listens on `9000` in the container, but `compose.yml`
+publishes it as `${RUSTFS_HOST_PORT:-9100}` because other projects commonly own 9000. Inside the
+compose network you still use the container port, `http://rustfs:9000`.
 
 A custom `endpoint_url` switches the AWS SDK to path-style addressing automatically.
 
-If something else on your machine already owns 9000/9001, override the host ports in a root `.env`
+If something else on your machine already owns 9100/9001, override the host ports in a root `.env`
 (gitignored) — the container ports do not change:
 
 ```bash

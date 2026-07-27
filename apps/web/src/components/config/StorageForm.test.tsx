@@ -10,17 +10,21 @@ import { StorageForm } from './StorageForm'
  * the server — which is how SFTP shipped sending `user` while the API read
  * `username`, and how S3 shipped sending `endpoint` instead of `endpoint_url`.
  *
- * `path` is listed for SFTP because it is the remote base directory
- * (`config.Storage.Path`); requestToStorage does not copy it across yet, so it
- * is tracked separately below rather than asserted as required.
+ * `path` is required for all three types: it is the local directory, the S3 key
+ * prefix inside the bucket, and the SFTP remote base directory
+ * (`config.Storage.Path`). #109 taught `requestToStorage` to read it for S3 and
+ * SFTP, but the form kept omitting it for S3 — and since `UpdateStorage`
+ * rewrites `config_json` wholesale, every edit moved a prefixed bucket back to
+ * its root.
  */
 const BACKEND_CONFIG_KEYS: Record<StorageType, string[]> = {
   local: ['path'],
-  s3: ['bucket', 'region', 'access_key_id', 'endpoint_url'],
+  s3: ['bucket', 'region', 'access_key_id', 'endpoint_url', 'path'],
   sftp: [
     'host',
     'port',
     'username',
+    'path',
     'known_hosts_path',
     'host_key_fingerprint',
     'private_key_path',
@@ -31,7 +35,7 @@ const BACKEND_CONFIG_KEYS: Record<StorageType, string[]> = {
 const ALLOWED_EXTRA_CONFIG_KEYS: Record<StorageType, string[]> = {
   local: [],
   s3: [],
-  sftp: ['path'],
+  sftp: [],
 }
 
 type User = ReturnType<typeof userEvent.setup>
@@ -175,8 +179,29 @@ describe('StorageForm', () => {
       region: 'us-east-1',
       access_key_id: 'AKIA',
       endpoint_url: 'https://minio.internal',
+      path: '',
     })
     expect(payload.secret_access_key).toBe('shhh')
+  })
+
+  // #109 taught requestToStorage to read `path` for S3 (the key prefix inside
+  // the bucket), but the form kept omitting it. Because UpdateStorage rewrites
+  // config_json wholesale, editing anything on a prefixed bucket moved every
+  // later backup to the bucket root.
+  it('sends the S3 key prefix as path', async () => {
+    const { onSubmit, user } = renderForm()
+
+    await user.type(field.name(), 's3')
+    await selectType(user, 'S3')
+    await user.type(field.bucket(), 'my-bucket')
+    await user.type(field.region(), 'us-east-1')
+    await user.type(field.accessKeyId(), 'AKIA')
+    await user.type(field.secretAccessKey(), 'shhh')
+    await user.type(screen.getByLabelText(/^path prefix/i), 'backups/')
+
+    await submit(user)
+
+    expect(submitted(onSubmit).config).toMatchObject({ path: 'backups/' })
   })
 
   // The API rejects a pinned fingerprint combined with the insecure skip, so
