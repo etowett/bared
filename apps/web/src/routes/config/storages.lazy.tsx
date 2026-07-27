@@ -11,16 +11,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { ConfigRowActions } from '@/components/config/ConfigRowActions'
 import { StorageForm } from '@/components/config/StorageForm'
 import { SourceBadge } from '@/components/config/SourceBadge'
+import { YamlReadOnlyNotice } from '@/components/config/YamlReadOnlyNotice'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   useStorages,
   useCreateStorage,
   useUpdateStorage,
   useDeleteStorage,
 } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
-import { Plus, Pencil, Trash2, HardDrive, Cloud, Server } from 'lucide-react'
+import { Plus, HardDrive, Cloud, Server } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Storage, StorageRequest, ConfigSource } from '@/types'
 
 export const Route = createLazyFileRoute('/config/storages')({
@@ -35,7 +38,7 @@ export function StoragesPage() {
   const createMutation = useCreateStorage()
   const updateMutation = useUpdateStorage()
   const deleteMutation = useDeleteStorage()
-  const { confirm } = useConfirm()
+  const confirm = useConfirm()
 
   const storages = data?.storages ?? []
   const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
@@ -54,14 +57,19 @@ export function StoragesPage() {
     const confirmed = await confirm({
       title: 'Delete Storage',
       description: `Are you sure you want to delete "${storage.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete Storage',
+      variant: 'destructive',
     })
 
-    if (confirmed) {
-      try {
-        await deleteMutation.mutateAsync(storage.name)
-      } catch (err) {
-        console.error('Failed to delete storage:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      await deleteMutation.mutateAsync(storage.name)
+      toast.success(`Storage "${storage.name}" deleted`)
+    } catch (err) {
+      toast.error(`Failed to delete storage "${storage.name}"`, {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -116,6 +124,8 @@ export function StoragesPage() {
           Add Storage
         </Button>
       </div>
+
+      {source === 'yaml' && <YamlReadOnlyNotice resource="storage backends" />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -196,28 +206,14 @@ export function StoragesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(storage)}
-                          disabled={source === 'yaml'}
-                          title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(storage)}
-                          disabled={source === 'yaml' || deleteMutation.isPending}
-                          title={
-                            source === 'yaml' ? 'Cannot delete YAML-sourced configs' : 'Delete'
-                          }
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
+                      <ConfigRowActions
+                        resource="storage backend"
+                        name={storage.name}
+                        readOnly={source === 'yaml'}
+                        deletePending={deleteMutation.isPending}
+                        onEdit={() => handleEdit(storage)}
+                        onDelete={() => handleDelete(storage)}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

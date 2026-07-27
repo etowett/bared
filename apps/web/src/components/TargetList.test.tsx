@@ -21,12 +21,11 @@ vi.mock('sonner', () => ({
   },
 }))
 
-// Mock useConfirm hook
-vi.mock('../hooks/useConfirm', () => ({
-  useConfirm: () => ({
-    confirm: mockConfirm,
-    ConfirmDialog: <div data-testid="confirm-dialog">Confirm Dialog</div>,
-  }),
+// Stub the confirmation prompt but keep the real ConfirmProvider — the test
+// wrapper mounts it, exactly as `__root.tsx` does.
+vi.mock('@/contexts/ConfirmContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/contexts/ConfirmContext')>()),
+  useConfirm: () => mockConfirm,
 }))
 
 // Mock hooks
@@ -286,14 +285,6 @@ describe('TargetList Component', () => {
     expect(screen.getByText('db1')).toBeInTheDocument()
     expect(screen.getByText('db2')).toBeInTheDocument()
     expect(screen.getByText('db3')).toBeInTheDocument()
-  })
-
-  it('renders confirm dialog component', () => {
-    const targets = [createMockTarget()]
-
-    render(<TargetList targets={targets} />)
-
-    expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument()
   })
 
   it('handles targets without optional fields gracefully', () => {

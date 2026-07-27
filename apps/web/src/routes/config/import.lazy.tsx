@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { useImportConfig } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
 import type { ConfigImportResponse, ResourceImportSummary } from '@/types'
 import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import {
@@ -36,7 +36,7 @@ export function ConfigImportPage() {
   const [error, setError] = useState<string | null>(null)
 
   const importMutation = useImportConfig()
-  const { confirm, ConfirmDialog } = useConfirm()
+  const confirm = useConfirm()
 
   const handleValidate = async () => {
     setError(null)
@@ -78,52 +78,50 @@ export function ConfigImportPage() {
   const hasContent = yamlContent.trim().length > 0
 
   return (
-    <>
-      {ConfirmDialog}
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/config">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Link>
-          </Button>
-          <div>
-            <h2 className="text-2xl font-semibold">Import Configuration</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Paste YAML configuration to import storages, notifiers, targets, and restore targets
-            </p>
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/config">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Link>
+        </Button>
+        <div>
+          <h2 className="text-2xl font-semibold">Import Configuration</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Paste YAML configuration to import storages, notifiers, targets, and restore targets
+          </p>
         </div>
+      </div>
 
-        {error && (
-          <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/10">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
-                <div>
-                  <h3 className="font-medium text-red-900 dark:text-red-100">Error</h3>
-                  <p className="text-sm text-red-700 dark:text-red-300 mt-1 whitespace-pre-wrap">
-                    {error}
-                  </p>
-                </div>
+      {error && (
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/10">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-medium text-red-900 dark:text-red-100">Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1 whitespace-pre-wrap">
+                  {error}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>YAML Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="yaml-content">Paste your YAML configuration below</Label>
-              <Textarea
-                id="yaml-content"
-                value={yamlContent}
-                onChange={(e) => setYamlContent(e.target.value)}
-                placeholder={`# Example configuration
+      <Card>
+        <CardHeader>
+          <CardTitle>YAML Configuration</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="yaml-content">Paste your YAML configuration below</Label>
+            <Textarea
+              id="yaml-content"
+              value={yamlContent}
+              onChange={(e) => setYamlContent(e.target.value)}
+              placeholder={`# Example configuration
 storages:
   local-backup:
     type: local
@@ -143,66 +141,65 @@ targets:
       enabled: true
       name: local-backup
     schedule: "0 2 * * *"`}
-                className="font-mono text-sm min-h-[400px] resize-y"
+              className="font-mono text-sm min-h-[400px] resize-y"
+              disabled={importMutation.isPending}
+            />
+            <p className="text-xs text-muted-foreground">
+              Environment variables (<code className="text-xs">{'${VAR}'}</code>) will not be
+              expanded. Replace them with actual values before importing.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+            <div className="space-y-2 w-full sm:w-48">
+              <Label htmlFor="conflict-mode">Conflict Mode</Label>
+              <Select
+                value={conflictMode}
+                onValueChange={(v) => setConflictMode(v as 'override' | 'skip')}
                 disabled={importMutation.isPending}
-              />
+              >
+                <SelectTrigger id="conflict-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="override">Override existing</SelectItem>
+                  <SelectItem value="skip">Skip existing</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                Environment variables (<code className="text-xs">{'${VAR}'}</code>) will not be
-                expanded. Replace them with actual values before importing.
+                Existing resources will be{' '}
+                {conflictMode === 'override' ? 'updated' : 'kept unchanged'}.
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-              <div className="space-y-2 w-full sm:w-48">
-                <Label htmlFor="conflict-mode">Conflict Mode</Label>
-                <Select
-                  value={conflictMode}
-                  onValueChange={(v) => setConflictMode(v as 'override' | 'skip')}
-                  disabled={importMutation.isPending}
-                >
-                  <SelectTrigger id="conflict-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="override">Override existing</SelectItem>
-                    <SelectItem value="skip">Skip existing</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Existing resources will be{' '}
-                  {conflictMode === 'override' ? 'updated' : 'kept unchanged'}.
-                </p>
-              </div>
-
-              <div className="flex gap-2 ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={handleValidate}
-                  disabled={!hasContent || importMutation.isPending}
-                >
-                  {importMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Eye className="mr-2 h-4 w-4" />
-                  )}
-                  Validate (Dry Run)
-                </Button>
-                <Button onClick={handleImport} disabled={!hasContent || importMutation.isPending}>
-                  {importMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Import
-                </Button>
-              </div>
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                onClick={handleValidate}
+                disabled={!hasContent || importMutation.isPending}
+              >
+                {importMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="mr-2 h-4 w-4" />
+                )}
+                Validate (Dry Run)
+              </Button>
+              <Button onClick={handleImport} disabled={!hasContent || importMutation.isPending}>
+                {importMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                Import
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {result && <ImportResults result={result} />}
-      </div>
-    </>
+      {result && <ImportResults result={result} />}
+    </div>
   )
 }
 

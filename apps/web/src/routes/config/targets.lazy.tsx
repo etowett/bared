@@ -1,5 +1,7 @@
+import { ConfigRowActions } from '@/components/config/ConfigRowActions'
 import { SourceBadge } from '@/components/config/SourceBadge'
 import { TargetForm } from '@/components/config/TargetForm'
+import { YamlReadOnlyNotice } from '@/components/config/YamlReadOnlyNotice'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,17 +13,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import {
   useCreateTargetConfig,
   useDeleteTargetConfig,
   useTargetsConfig,
   useUpdateTargetConfig,
 } from '@/hooks/useConfig'
-import { useConfirm } from '@/hooks/useConfirm'
 import type { ConfigSource, ConnectionConfig, TargetConfig, TargetConfigRequest } from '@/types'
 import { createLazyFileRoute } from '@tanstack/react-router'
-import { Calendar, Database, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Calendar, Database, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
 
 export const Route = createLazyFileRoute('/config/targets')({
   component: TargetsPage,
@@ -35,7 +38,7 @@ export function TargetsPage() {
   const createMutation = useCreateTargetConfig()
   const updateMutation = useUpdateTargetConfig()
   const deleteMutation = useDeleteTargetConfig()
-  const { confirm } = useConfirm()
+  const confirm = useConfirm()
 
   const targets = data?.targets ?? []
   const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
@@ -54,14 +57,19 @@ export function TargetsPage() {
     const confirmed = await confirm({
       title: 'Delete Target',
       description: `Are you sure you want to delete "${target.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete Target',
+      variant: 'destructive',
     })
 
-    if (confirmed) {
-      try {
-        await deleteMutation.mutateAsync(target.name)
-      } catch (err) {
-        console.error('Failed to delete target:', err)
-      }
+    if (!confirmed) return
+
+    try {
+      await deleteMutation.mutateAsync(target.name)
+      toast.success(`Target "${target.name}" deleted`)
+    } catch (err) {
+      toast.error(`Failed to delete target "${target.name}"`, {
+        description: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
@@ -103,6 +111,8 @@ export function TargetsPage() {
           Add Target
         </Button>
       </div>
+
+      {source === 'yaml' && <YamlReadOnlyNotice resource="targets" />}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -195,28 +205,14 @@ export function TargetsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(target)}
-                            disabled={source === 'yaml'}
-                            title={source === 'yaml' ? 'Cannot edit YAML-sourced configs' : 'Edit'}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(target)}
-                            disabled={source === 'yaml' || deleteMutation.isPending}
-                            title={
-                              source === 'yaml' ? 'Cannot delete YAML-sourced configs' : 'Delete'
-                            }
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
+                        <ConfigRowActions
+                          resource="target"
+                          name={target.name}
+                          readOnly={source === 'yaml'}
+                          deletePending={deleteMutation.isPending}
+                          onEdit={() => handleEdit(target)}
+                          onDelete={() => handleDelete(target)}
+                        />
                       </TableCell>
                     </TableRow>
                   )
