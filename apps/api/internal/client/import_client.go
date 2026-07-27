@@ -395,6 +395,10 @@ func storageToAPIRequest(storage *config.Storage) api.StorageRequest {
 		if storage.Bucket != "" {
 			req.Config["bucket"] = storage.Bucket
 		}
+		// Key prefix inside the bucket (#104).
+		if storage.Path != "" {
+			req.Config["path"] = storage.Path
+		}
 		if storage.Region != "" {
 			req.Config["region"] = storage.Region
 		}
@@ -408,6 +412,12 @@ func storageToAPIRequest(storage *config.Storage) api.StorageRequest {
 	case "sftp":
 		if storage.Host != "" {
 			req.Config["host"] = storage.Host
+		}
+		// Remote base directory (#104) — without it `brd config import` wrote
+		// a pathless SFTP backend into the DB, and the DB wins over the YAML
+		// at load, so the backups moved to the SSH login directory.
+		if storage.Path != "" {
+			req.Config["path"] = storage.Path
 		}
 		if storage.Port > 0 {
 			req.Config["port"] = storage.Port

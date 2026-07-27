@@ -28,7 +28,28 @@ type SFTP struct {
 // NewSFTP creates a new SFTP storage backend
 func NewSFTP(cfg *config.Storage) *SFTP {
 	warnIfHostKeyVerificationDisabled(cfg)
+	warnIfNoRemotePath(cfg)
 	return &SFTP{cfg: cfg}
+}
+
+// warnIfNoRemotePath makes the pathless case visible in the log. An SFTP
+// backend with no path writes to whatever the SSH login directory happens to
+// be, which is legal but almost never intended — #104 was exactly that,
+// reached by a mapping bug rather than by choice, and the giveaway was that
+// nothing anywhere said so. It is a warning and not a validation error
+// because rejecting it would refuse to start daemons whose existing configs
+// have always omitted the path.
+func warnIfNoRemotePath(cfg *config.Storage) {
+	if cfg == nil || cfg.Path != "" {
+		return
+	}
+
+	util.GetLogger().WarnS(
+		"SFTP storage has no path configured — backups will be written to the SSH login directory. "+
+			"Set path on the storage backend to choose the remote directory.",
+		"component", "storage",
+		"storage", cfg.Name,
+		"host", cfg.Host)
 }
 
 // Name returns the storage name

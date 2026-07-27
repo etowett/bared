@@ -1,12 +1,14 @@
 package configservice
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
 )
 
 // Storage config is persisted as a JSON blob plus separately-encrypted secrets.
@@ -84,6 +86,49 @@ func TestStorageRoundTrip(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.storage, got)
+		})
+	}
+}
+
+// TestStorageRoundTrip_EveryField is the persistence half of the storage
+// mapping audit (#104). The table above is hand-written, so it only covers the
+// fields somebody remembered to set — it happily passed while `path` was
+// dropped for s3 and sftp. This one drives the round trip from
+// fixtures.StorageFieldSpecs, which is checked against config.Storage by
+// reflection, so a new field cannot be added without being threaded through
+// serializeStorage and deserializeStorage.
+func TestStorageRoundTrip_EveryField(t *testing.T) {
+	fixtures.AssertStorageFieldsEnumerated(t)
+
+	svc := &Service{}
+
+	for _, storageType := range fixtures.StorageTypes {
+		t.Run(storageType, func(t *testing.T) {
+			sample := fixtures.SampleStorage(t, storageType)
+
+			configJSON, secrets, err := svc.serializeStorage(sample)
+			require.NoError(t, err)
+
+			var configMap map[string]interface{}
+			require.NoError(t, json.Unmarshal([]byte(configJSON), &configMap))
+			fixtures.AssertStorageConfigMap(t, storageType, configMap)
+
+			secretMap := make(map[string]string, len(secrets))
+			for _, s := range secrets {
+				secretMap[s.FieldName] = s.Value
+			}
+			for _, spec := range fixtures.StorageFieldSpecsFor(storageType) {
+				if !spec.Secret {
+					continue
+				}
+				assert.Containsf(t, secretMap, spec.Key,
+					"secret %q (config.Storage.%s) was not extracted, so it is never stored", spec.Key, spec.Field)
+			}
+
+			got, err := svc.deserializeStorage(sample.Name, sample.Type, configJSON, sample.Keep, secretMap)
+			require.NoError(t, err)
+
+			fixtures.AssertStorageRoundTrip(t, storageType, got, true)
 		})
 	}
 }

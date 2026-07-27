@@ -876,6 +876,11 @@ func (s *Server) storageToResponse(storage *config.Storage) StorageResponse {
 		if storage.Bucket != "" {
 			configMap["bucket"] = storage.Bucket
 		}
+		// Key prefix inside the bucket. Omitting it from the response made the
+		// dashboard's edit form drop the prefix on the next save.
+		if storage.Path != "" {
+			configMap["path"] = storage.Path
+		}
 		if storage.Region != "" {
 			configMap["region"] = storage.Region
 		}
@@ -892,6 +897,11 @@ func (s *Server) storageToResponse(storage *config.Storage) StorageResponse {
 	case "sftp":
 		if storage.Host != "" {
 			configMap["host"] = storage.Host
+		}
+		// Remote base directory. Without it the dashboard could not pre-fill
+		// the field, so editing a backend silently cleared the path.
+		if storage.Path != "" {
+			configMap["path"] = storage.Path
 		}
 		if storage.Port > 0 {
 			configMap["port"] = storage.Port
@@ -947,6 +957,9 @@ func (s *Server) requestToStorage(req *StorageRequest) *config.Storage {
 		if bucket, ok := req.Config["bucket"].(string); ok {
 			storage.Bucket = bucket
 		}
+		if path, ok := req.Config["path"].(string); ok {
+			storage.Path = path
+		}
 		if region, ok := req.Config["region"].(string); ok {
 			storage.Region = region
 		}
@@ -960,6 +973,12 @@ func (s *Server) requestToStorage(req *StorageRequest) *config.Storage {
 	case "sftp":
 		if host, ok := req.Config["host"].(string); ok {
 			storage.Host = host
+		}
+		// #104: this was missing, so every SFTP backend created through the
+		// API wrote its backups to the SSH login directory instead of the
+		// configured remote path.
+		if path, ok := req.Config["path"].(string); ok {
+			storage.Path = path
 		}
 		if port, ok := req.Config["port"].(float64); ok {
 			storage.Port = int(port)
