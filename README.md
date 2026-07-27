@@ -59,7 +59,7 @@ and treat the encryption key as the sensitive material it is.
 
 ```bash
 # Fastest way to try it — the image ships the dashboard, no toolchain needed
-docker pull ektowett/bared:v0.4.0
+docker pull ektowett/bared:v0.5.0
 
 # Build from a clone (embeds the web dashboard)
 make build
@@ -77,12 +77,13 @@ go install github.com/etowett/bared/apps/api/cmd/brd@latest
 >
 > **Pin a tag.** Browse [the published tags](https://hub.docker.com/r/ektowett/bared/tags)
 > and pick one; do not rely on `:latest`, which currently trails several releases behind.
-> Image publication can also lag a GitHub release, so the newest image may be older than
-> the newest release. `v0.4.0` above is the newest image published at the time of writing.
+> Image publication can lag a GitHub release, so the newest image may be older than the
+> newest release — check the [tags page](https://hub.docker.com/r/ektowett/bared/tags)
+> rather than assuming. `v0.5.0` is published for `linux/amd64` and `linux/arm64`.
 >
 > ```bash
-> docker run --rm ektowett/bared:v0.4.0 --version
-> docker run -p 8080:8080 ektowett/bared:v0.4.0 \
+> docker run --rm ektowett/bared:v0.5.0 --version
+> docker run -p 8080:8080 ektowett/bared:v0.5.0 \
 >   daemon --http :8080 --http-user admin --http-pass secret   # dashboard on :8080
 > ```
 
