@@ -42,6 +42,7 @@ type Daemon struct {
 	sessionTTL     time.Duration
 	allowedOrigins []string
 	secureCookies  bool
+	trustedProxies []string
 	apiServer      *api.Server
 
 	// Job configuration
@@ -83,6 +84,15 @@ func WithAllowedOrigins(origins []string) Option {
 func WithSecureCookies(secure bool) Option {
 	return func(d *Daemon) {
 		d.secureCookies = secure
+	}
+}
+
+// WithTrustedProxies names the addresses or CIDRs whose X-Forwarded-For header
+// may be believed when attributing a login attempt to a client IP. Empty — the
+// default — means the header is ignored and only the immediate peer counts.
+func WithTrustedProxies(proxies []string) Option {
+	return func(d *Daemon) {
+		d.trustedProxies = proxies
 	}
 }
 
@@ -213,23 +223,39 @@ func New(cfg *config.Config, opts ...Option) *Daemon {
 			SessionTTL:     d.sessionTTL,
 			AllowedOrigins: d.allowedOrigins,
 			SecureCookies:  d.secureCookies,
+			TrustedProxies: d.trustedProxies,
 		})
 	}
 
 	return d
 }
 
-// initializeEncryptionKey initializes the encryption key from env var or DB
+// encryptionKeyBytes is the key length required by the encryption service.
+const encryptionKeyBytes = 32
+
+// encryptionKeyHint is appended to every BARED_ENCRYPTION_KEY error. The value
+// is base64, not hex — the previous message said "64 hex chars", which sent
+// anyone who followed it straight into a second failure.
+const encryptionKeyHint = "BARED_ENCRYPTION_KEY must be 32 raw bytes encoded as base64 " +
+	"(generate one with: openssl rand -base64 32)"
+
+// initializeEncryptionKey initializes the encryption key from env var or DB.
+//
+// Precedence matters and is not reversible: the environment variable always
+// wins over the key stored in the database. Setting it on a daemon that has
+// already generated and stored its own key makes every credential encrypted
+// with the old key undecryptable, because nothing falls back to the DB key.
 func initializeEncryptionKey(db *sql.DB, logger *util.Logger) ([]byte, error) {
 	// Check for environment variable first
 	if envKey := os.Getenv("BARED_ENCRYPTION_KEY"); envKey != "" {
 		logger.InfoS("Using encryption key from environment variable", "component", "daemon")
 		key, err := base64.StdEncoding.DecodeString(envKey)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode BARED_ENCRYPTION_KEY: %w", err)
+			return nil, fmt.Errorf("failed to decode BARED_ENCRYPTION_KEY as base64: %w (%s)", err, encryptionKeyHint)
 		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf("BARED_ENCRYPTION_KEY must be 32 bytes (64 hex chars), got %d", len(key))
+		if len(key) != encryptionKeyBytes {
+			return nil, fmt.Errorf("BARED_ENCRYPTION_KEY decoded to %d bytes, want %d: %s",
+				len(key), encryptionKeyBytes, encryptionKeyHint)
 		}
 		return key, nil
 	}
@@ -246,7 +272,13 @@ func initializeEncryptionKey(db *sql.DB, logger *util.Logger) ([]byte, error) {
 		return nil, fmt.Errorf("failed to query encryption keys: %w", err)
 	}
 
-	// Generate new key and store in DB
+	// Generate new key and store in DB.
+	//
+	// The key is stored base64-plaintext in the same database as the credentials
+	// it protects: whoever can read the DB file gets both halves. That is the
+	// deliberate trade-off for a single-binary daemon with nowhere else to put
+	// it — set BARED_ENCRYPTION_KEY and lock down the DB file's permissions if
+	// that is not acceptable.
 	logger.InfoS("Generating new encryption key", "component", "daemon")
 	key, err := encryption.GenerateKey()
 	if err != nil {
@@ -264,10 +296,35 @@ func initializeEncryptionKey(db *sql.DB, logger *util.Logger) ([]byte, error) {
 	return key, nil
 }
 
+// warnInsecureStorages surfaces storage backends configured with their safety
+// checks switched off, at startup rather than at the first backup — an operator
+// who opted out should be reminded every boot, not only when it matters.
+func warnInsecureStorages(cfg *config.Config, logger *util.Logger) {
+	if cfg == nil {
+		return
+	}
+
+	for name, storage := range cfg.Storages {
+		if storage == nil || storage.Type != "sftp" || !storage.InsecureSkipHostKeyVerify {
+			continue
+		}
+
+		logger.WarnS("INSECURE: SFTP storage has host key verification disabled — "+
+			"an on-path attacker can impersonate the backup server and capture both "+
+			"its credentials and every backup written to it. "+
+			"Set known_hosts_path or host_key_fingerprint and remove insecure_skip_host_key_verify.",
+			"component", "daemon",
+			"storage", name,
+			"host", storage.Host)
+	}
+}
+
 // Start starts the daemon and scheduler
 func (d *Daemon) Start() error {
 	logger := util.GetLogger()
 	logger.InfoS("Starting BareD daemon", "component", "daemon")
+
+	warnInsecureStorages(d.cfg, logger)
 
 	// Clean up orphaned temp files from previous runs
 	logger.InfoS("Cleaning up orphaned temp files", "component", "daemon")

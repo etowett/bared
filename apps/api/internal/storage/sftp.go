@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"time"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -12,6 +13,10 @@ import (
 	"bared/internal/config"
 	"bared/internal/util"
 )
+
+// sshDialTimeout bounds the TCP connect and SSH handshake so an unreachable
+// backup host cannot wedge a job indefinitely.
+const sshDialTimeout = 30 * time.Second
 
 // SFTP implements Storage for SFTP servers
 type SFTP struct {
@@ -22,6 +27,7 @@ type SFTP struct {
 
 // NewSFTP creates a new SFTP storage backend
 func NewSFTP(cfg *config.Storage) *SFTP {
+	warnIfHostKeyVerificationDisabled(cfg)
 	return &SFTP{cfg: cfg}
 }
 
@@ -162,13 +168,26 @@ func (s *SFTP) connect() error {
 		return nil
 	}
 
+	// Verify the server's host key. Without this an on-path attacker gets both
+	// the SFTP credentials and every byte of the dump. See sftp_hostkey.go for
+	// the precedence between known_hosts, a pinned fingerprint, and the
+	// insecure opt-in.
+	hostKey, err := hostKeyCallback(s.cfg)
+	if err != nil {
+		return err
+	}
+
+	auth, err := sshAuthMethods(s.cfg)
+	if err != nil {
+		return err
+	}
+
 	// Configure SSH client
 	config := &ssh.ClientConfig{
-		User: s.cfg.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(s.cfg.Password),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // #nosec G106 - TODO: Add proper host key verification
+		User:            s.cfg.Username,
+		Auth:            auth,
+		HostKeyCallback: hostKey,
+		Timeout:         sshDialTimeout,
 	}
 
 	// Connect to SSH server

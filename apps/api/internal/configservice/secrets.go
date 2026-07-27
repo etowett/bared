@@ -53,7 +53,19 @@ func (s *Service) serializeStorage(storage *config.Storage) (string, []Secret, e
 		if storage.Username != "" {
 			configMap["username"] = storage.Username
 		}
-		// Password is a secret - handled separately
+		if storage.KnownHostsPath != "" {
+			configMap["known_hosts_path"] = storage.KnownHostsPath
+		}
+		if storage.HostKeyFingerprint != "" {
+			configMap["host_key_fingerprint"] = storage.HostKeyFingerprint
+		}
+		if storage.PrivateKeyPath != "" {
+			configMap["private_key_path"] = storage.PrivateKeyPath
+		}
+		if storage.InsecureSkipHostKeyVerify {
+			configMap["insecure_skip_host_key_verify"] = true
+		}
+		// Password and private_key_passphrase are secrets - handled separately
 	}
 
 	configJSON, err := json.Marshal(configMap)
@@ -68,6 +80,9 @@ func (s *Service) serializeStorage(storage *config.Storage) (string, []Secret, e
 	}
 	if storage.Password != "" {
 		secrets = append(secrets, Secret{FieldName: "password", Value: storage.Password})
+	}
+	if storage.PrivateKeyPassphrase != "" {
+		secrets = append(secrets, Secret{FieldName: "private_key_passphrase", Value: storage.PrivateKeyPassphrase})
 	}
 
 	return string(configJSON), secrets, nil
@@ -118,8 +133,23 @@ func (s *Service) deserializeStorage(name, storageType, configJSON string, keep 
 		if username, ok := configMap["username"].(string); ok {
 			storage.Username = username
 		}
+		if knownHostsPath, ok := configMap["known_hosts_path"].(string); ok {
+			storage.KnownHostsPath = knownHostsPath
+		}
+		if fingerprint, ok := configMap["host_key_fingerprint"].(string); ok {
+			storage.HostKeyFingerprint = fingerprint
+		}
+		if privateKeyPath, ok := configMap["private_key_path"].(string); ok {
+			storage.PrivateKeyPath = privateKeyPath
+		}
+		if insecure, ok := configMap["insecure_skip_host_key_verify"].(bool); ok {
+			storage.InsecureSkipHostKeyVerify = insecure
+		}
 		if password, ok := secrets["password"]; ok {
 			storage.Password = password
+		}
+		if passphrase, ok := secrets["private_key_passphrase"]; ok {
+			storage.PrivateKeyPassphrase = passphrase
 		}
 	}
 

@@ -54,6 +54,29 @@ storages:
     password: ${SFTP_PASSWORD}
     path: /backups/
     keep: 90
+    # Authentication: password (above) and/or an SSH private key. At least one
+    # is required.
+    # private_key_path: /etc/bared/ssh/id_ed25519
+    # private_key_passphrase: ${SFTP_KEY_PASSPHRASE}
+    #
+    # Host key verification is ON by default and BareD refuses to connect to a
+    # server it cannot verify — without it, anything on the network path can
+    # impersonate the backup server and capture both these credentials and the
+    # dumps themselves.
+    #
+    # By default the OpenSSH known_hosts file at ~/.ssh/known_hosts is used.
+    # Point it somewhere else (containers usually need this):
+    # known_hosts_path: /etc/bared/known_hosts
+    #   Populate it with:  ssh-keyscan -H backup.example.com >> /etc/bared/known_hosts
+    #   and verify the key out of band before trusting it.
+    #
+    # Or pin one key instead of maintaining a known_hosts file:
+    # host_key_fingerprint: "SHA256:n3s1XbGVUUdN3iVCQwPq3rXMcTMVLh1nZOtCG0Y5yPo"
+    #   Get it with:  ssh-keyscan -t ed25519 backup.example.com | ssh-keygen -lf -
+    #
+    # Last resort — accepts ANY host key, logs a warning on every start, and
+    # gives up the protection above. Only for a trusted, isolated network.
+    # insecure_skip_host_key_verify: true
 
 # Notification definitions
 # Multiple notifiers can be configured and will all receive notifications

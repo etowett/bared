@@ -110,6 +110,14 @@ func validateStorage(name string, storage *Storage) error {
 		if storage.Username == "" {
 			return fmt.Errorf("storage '%s': username is required for sftp storage", name)
 		}
+		if storage.Password == "" && storage.PrivateKeyPath == "" {
+			return fmt.Errorf("storage '%s': password or private_key_path is required for sftp storage", name)
+		}
+		if storage.InsecureSkipHostKeyVerify && storage.HostKeyFingerprint != "" {
+			return fmt.Errorf(
+				"storage '%s': insecure_skip_host_key_verify and host_key_fingerprint are mutually exclusive; "+
+					"remove insecure_skip_host_key_verify to actually verify the pinned key", name)
+		}
 	default:
 		return fmt.Errorf("storage '%s': unsupported type '%s'", name, storage.Type)
 	}

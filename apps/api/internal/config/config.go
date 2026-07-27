@@ -42,6 +42,30 @@ type Storage struct {
 	Port            int    `yaml:"port,omitempty"`
 	Username        string `yaml:"username,omitempty"`
 	Password        string `yaml:"password,omitempty"`
+
+	// SFTP host key verification.
+	//
+	// The default is OpenSSH known_hosts verification against
+	// KnownHostsPath (~/.ssh/known_hosts when empty). Without it, anything on
+	// the path can impersonate the server and collect both the credentials and
+	// the backup stream.
+	KnownHostsPath string `yaml:"known_hosts_path,omitempty"`
+
+	// HostKeyFingerprint pins a single host key instead of consulting
+	// known_hosts, e.g. "SHA256:n3s1Xb...". Useful for containers with no
+	// known_hosts file to mount.
+	HostKeyFingerprint string `yaml:"host_key_fingerprint,omitempty"`
+
+	// InsecureSkipHostKeyVerify accepts any host key. It is the pre-0.x
+	// behaviour, kept only as an explicit escape hatch, and it logs a warning
+	// every time the backend is constructed.
+	InsecureSkipHostKeyVerify bool `yaml:"insecure_skip_host_key_verify,omitempty"`
+
+	// SFTP public key authentication. PrivateKeyPath is an OpenSSH private key
+	// file; PrivateKeyPassphrase decrypts it when it is encrypted. Either or
+	// both of key auth and Password may be configured — both are offered.
+	PrivateKeyPath       string `yaml:"private_key_path,omitempty"`
+	PrivateKeyPassphrase string `yaml:"private_key_passphrase,omitempty"`
 }
 
 // Notifier configuration

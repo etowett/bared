@@ -899,9 +899,25 @@ func (s *Server) storageToResponse(storage *config.Storage) StorageResponse {
 		if storage.Username != "" {
 			configMap["username"] = storage.Username
 		}
+		if storage.KnownHostsPath != "" {
+			configMap["known_hosts_path"] = storage.KnownHostsPath
+		}
+		if storage.HostKeyFingerprint != "" {
+			configMap["host_key_fingerprint"] = storage.HostKeyFingerprint
+		}
+		if storage.PrivateKeyPath != "" {
+			configMap["private_key_path"] = storage.PrivateKeyPath
+		}
+		// Always reported, so the dashboard can surface an insecure backend
+		// rather than leaving it invisible.
+		configMap["insecure_skip_host_key_verify"] = storage.InsecureSkipHostKeyVerify
 		// password filtered out
 		if storage.Password != "" {
 			configMap["password"] = "***REDACTED***"
+		}
+		// private key passphrase filtered out
+		if storage.PrivateKeyPassphrase != "" {
+			configMap["private_key_passphrase"] = "***REDACTED***"
 		}
 	}
 
@@ -951,7 +967,20 @@ func (s *Server) requestToStorage(req *StorageRequest) *config.Storage {
 		if username, ok := req.Config["username"].(string); ok {
 			storage.Username = username
 		}
+		if knownHostsPath, ok := req.Config["known_hosts_path"].(string); ok {
+			storage.KnownHostsPath = knownHostsPath
+		}
+		if fingerprint, ok := req.Config["host_key_fingerprint"].(string); ok {
+			storage.HostKeyFingerprint = fingerprint
+		}
+		if privateKeyPath, ok := req.Config["private_key_path"].(string); ok {
+			storage.PrivateKeyPath = privateKeyPath
+		}
+		if insecure, ok := req.Config["insecure_skip_host_key_verify"].(bool); ok {
+			storage.InsecureSkipHostKeyVerify = insecure
+		}
 		storage.Password = req.Password
+		storage.PrivateKeyPassphrase = req.PrivateKeyPassphrase
 	}
 
 	return storage
