@@ -17,9 +17,9 @@ Thank you for your interest in contributing to BareD! This document provides gui
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/etowett/bared.git
 cd bared
-```s
+```
 
 2. Set up the development environment:
 
