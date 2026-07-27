@@ -1,5 +1,13 @@
 # Release Uniformity Validation
 
+> **Historical document.** This recorded a point-in-time check that the Docker image,
+> the release binaries and a local `make build` produce the same application. Details
+> below have drifted: the web toolchain is Bun (not Node/npm), the coverage gate is a
+> ratchet in the `Makefile` (34% today, not 75%), and the version numbers used in
+> examples are illustrative. For the release process as it actually runs, see
+> [release-process.md](release-process.md) and
+> [docs/operations/versioning.md](../operations/versioning.md).
+
 ## Overview
 
 This document validates that all distribution methods (Docker images, binary releases, local builds) produce **uniform, identical applications** with the same features and version information.
@@ -226,7 +234,7 @@ docker run --rm ektowett/bared:latest sh -c "ldd /usr/local/bin/brd"
 - ✅ Web frontend built and embedded
 - ✅ `CGO_ENABLED=0` for all platforms
 - ✅ RFC3339 date format (`%Y-%m-%dT%H:%M:%SZ`)
-- ✅ Node.js setup and npm build step added
+- ✅ Web toolchain setup and build step added (Bun; this said Node/npm when written)
 
 ### 2. Makefile (Local Builds)
 
@@ -280,7 +288,7 @@ Git Tag (v1.0.0) Push
 
 All distribution methods must pass:
 
-1. ✅ Go unit tests (75% coverage)
+1. ✅ Go unit tests (coverage ratchet — see `COVERAGE_THRESHOLD` in the `Makefile`)
 2. ✅ Go linting (golangci-lint)
 3. ✅ Web type checking (TypeScript strict)
 4. ✅ Web linting (ESLint)
@@ -304,7 +312,7 @@ docker run -v /backups:/backups -v ./config.yml:/etc/bared/bared.yml \
 **Binary (Linux)**:
 
 ```bash
-wget https://github.com/user/bared/releases/download/v1.0.0/brd-linux-amd64.tar.gz
+wget https://github.com/etowett/bared/releases/download/v0.4.0/brd-linux-amd64.tar.gz
 tar xzf brd-linux-amd64.tar.gz
 sudo mv brd-linux-amd64 /usr/local/bin/brd
 brd daemon --config config.yml --http :8080

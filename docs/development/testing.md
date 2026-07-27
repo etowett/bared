@@ -1,26 +1,49 @@
-# BareD Testing Implementation Plan
+# Testing
 
-**Goal:** Achieve 80%+ test coverage focusing on high-value areas first
+How to run BareD's tests, and the conventions a new test is expected to follow.
 
-**Last Updated:** 2025-12-02
+## Running tests
+
+```bash
+make test-unit          # unit tests
+make test-integration   # integration tests (needs `make setup-test-env`)
+make coverage           # coverage profile + HTML report
+make coverage-check     # the ratchet CI enforces
+make pre-commit         # the full backend gate: fmt → vet → lint → test → coverage
+```
+
+See [Quick Command Reference](#quick-command-reference) for the raw `go test`
+equivalents.
+
+## Coverage is a ratchet
+
+`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **34%**
+today, against roughly **36%** measured, with `internal/testutil/...` excluded because
+test helpers are not production statements. CI enforces the same number.
+
+The threshold only ever moves **up**. If the gate goes red, add tests for what you
+changed; do not lower the threshold. When a change lifts coverage meaningfully, raise
+the threshold in the same PR.
+
+`internal/notify`, `internal/api` and `internal/storage` are the highest-value places
+to add tests — they handle credentials, external I/O and path handling. `cmd/brd` has
+no tests at all.
+
+## Conventions
+
+New tests follow the patterns in [Testing Patterns & Standards](#testing-patterns--standards)
+below: table-driven cases, the shared assertion helpers, and the file/package layout
+described there. Prefer tests that exercise the real pipeline over mock theater, and
+add a regression test that fails before your fix and passes after.
 
 ---
 
-## Quick Reference: Current Status
-
-### ✅ Completed
-
-- Config package (config_test.go, parser_test.go, validator_test.go)
-- Path utilities (paths_test.go)
-- Test infrastructure (testutil/fixtures/helpers.go)
-
-### 🟡 In Progress
-
-- (Track current work here)
-
-### ⏳ Remaining
-
-- See phases below
+> **The rest of this page is a historical work log.** It records the phased push that
+> built out the initial test suite in December 2025 — its priorities, week-by-week
+> plan, and per-phase completion notes. It is kept for context on why the suite is
+> shaped the way it is. **It is not a current status report**, and the coverage figures
+> in it are point-in-time claims from that effort, not measurements of today's tree.
+> For current numbers run `make coverage`.
 
 ---
 
@@ -751,15 +774,19 @@ apps/api/internal/util/retry_test.go - 14 test cases covering:
 
 ### Total Test Files: 25 files
 
-### Coverage Summary by Package
+### Packages Touched by This Effort
 
-- ✅ **apps/api/internal/config**: 100% (27 tests across 3 files)
-- ✅ **apps/api/internal/util**: 100% (26 tests across 3 files)
-- ✅ **apps/api/internal/database**: 100% (76 tests across 4 files)
-- ✅ **apps/api/internal/storage**: 100% (61 tests across 4 files)
-- ✅ **apps/api/internal/compress**: 100% (29 tests across 2 files)
-- ✅ **apps/api/internal/retention**: 100% (13 tests across 1 file)
-- ✅ **apps/api/internal/notify**: 100% (30 tests across 2 files)
+> These were the packages the phased effort added tests to. The "✅" marks a phase that
+> was completed, **not** full statement coverage — several of these sit well below it
+> today. Run `make coverage` for real numbers.
+
+- ✅ **apps/api/internal/config** (27 tests across 3 files)
+- ✅ **apps/api/internal/util** (26 tests across 3 files)
+- ✅ **apps/api/internal/database** (76 tests across 4 files)
+- ✅ **apps/api/internal/storage** (61 tests across 4 files)
+- ✅ **apps/api/internal/compress** (29 tests across 2 files)
+- ✅ **apps/api/internal/retention** (13 tests across 1 file)
+- ✅ **apps/api/internal/notify** (30 tests across 2 files)
 - 🟡 **apps/api/internal/app**: PARTIAL (2 struct tests, integration tests deferred)
 - ⏸️ **apps/api/internal/daemon**: DEFERRED
 - ❌ **apps/api/cmd/brd**: Not tested (CLI entry point)

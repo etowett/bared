@@ -25,7 +25,9 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What is implemented and working:**
 
-- Backup and restore for MySQL/MariaDB, PostgreSQL and Redis
+- Backup for MySQL/MariaDB, PostgreSQL and Redis; restore for MySQL/MariaDB and
+  PostgreSQL (**Redis restore is not implemented** — it needs a manual RDB file
+  replacement, and `brd restore` will tell you so)
 - Local, S3 (and S3-compatible) and SFTP storage backends
 - Streaming tar.gz compression — no temp files, flat memory use
 - Daemon mode with cron scheduling and signal handling
@@ -35,13 +37,13 @@ are not yet frozen and configuration may still change between minor versions.
 
 **What you should weigh before relying on it:**
 
-- **Test coverage is roughly 35%.** There are 43 test files across 16 packages, but
-  `cmd/brd`, `internal/client` and `internal/configservice` have no tests at all, and
-  `internal/storage`, `internal/api` and `internal/notify` sit in the 20s. CI enforces a
-  ratchet (`make coverage-check`) so the number can only go up, but it is low today.
+- **Test coverage is roughly 36%.** There are 50 test files across 18 packages, but
+  `cmd/brd` has no tests at all, and `internal/notify` is still in the 20s. CI enforces
+  a ratchet (`make coverage-check`, currently 34%) so the number can only go up, but it
+  is low today.
 - Known security limitations are documented in [SECURITY.md](SECURITY.md) — read
-  it before deploying. They include SFTP host key verification and encryption key
-  storage.
+  it before deploying. The main one is that an auto-generated encryption key is stored
+  in the same database as the secrets it protects.
 - Restore is destructive by design. Test your restore path on a scratch database
   before you need it in anger.
 - There has been no independent security audit.
@@ -54,11 +56,11 @@ and treat the encryption key as the sensitive material it is.
 ### Installation
 
 ```bash
-# Install the latest release with Go
+# Install the newest tagged module version with Go
 go install github.com/etowett/bared/apps/api/cmd/brd@latest
 
-# Or pin a version
-go install github.com/etowett/bared/apps/api/cmd/brd@v0.5.0
+# Or pin an exact release (see "How versions resolve" below)
+go install github.com/etowett/bared/apps/api/cmd/brd@vX.Y.Z
 
 # Or build from a clone (embeds the web dashboard)
 make build
@@ -71,7 +73,11 @@ go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 > `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that subdirectory
 > prefix as versions of it. Each release therefore pushes two tags for the same commit:
 > `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version). You still
-> write `@v0.5.0` — Go adds the `apps/api/` prefix when it looks the tag up.
+> write `@vX.Y.Z` — Go adds the `apps/api/` prefix when it looks the tag up.
+>
+> **Releases up to and including `v0.4.0` predate the module tag**, so they cannot be
+> pinned with `go install`. Until the next release lands, use `@latest` (which resolves
+> to the tip of `main`), a release binary, or the Docker image.
 >
 > A `go install`ed binary reports its version, recovered from the build info the Go toolchain
 > embeds, but not a commit or build date: builds served from the module proxy carry no VCS
@@ -404,18 +410,19 @@ make test-integration
 make coverage
 ```
 
-Coverage currently sits well below the project's 75% threshold — see
-[Project status](#project-status). New tests are welcome; see
-[docs/development/testing.md](docs/development/testing.md).
+Coverage is enforced as a ratchet, not a target: `make coverage-check` fails below
+`COVERAGE_THRESHOLD` in the `Makefile` (34% today, against ~36% measured), and the
+number only ever moves up. See [Project status](#project-status). New tests are
+welcome; see [docs/development/testing.md](docs/development/testing.md).
 
 ## Security
 
 Found a vulnerability? Report it privately — see [SECURITY.md](SECURITY.md). Do not
 open a public issue for a security problem.
 
-SECURITY.md also documents BareD's known security limitations (SFTP host key
-verification, login rate limiting, encryption key storage) and how to harden a
-deployment. Read it before running BareD against production data.
+SECURITY.md also documents BareD's known security limitations (chiefly encryption key
+storage) and how to harden a deployment. Read it before running BareD against
+production data.
 
 ## License
 
