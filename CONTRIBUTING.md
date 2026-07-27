@@ -473,6 +473,16 @@ threshold; `apps/api/cmd/brd`, `apps/api/internal/client`, and `apps/api/interna
 have no tests at all. Raising it is tracked separately. Everything *before* that step
 (`fmt` → `vet` → `lint` → `test-unit`) must pass.
 
+## Reporting Security Issues
+
+**Do not open a public issue for a security vulnerability.** BareD handles database
+passwords, storage credentials and an encryption key — report privately through
+GitHub's private vulnerability reporting instead. See [SECURITY.md](SECURITY.md) for
+the process, response expectations, and the project's known security limitations.
+
+The same applies to pull requests: if a fix would reveal an unreported vulnerability,
+report it privately first and let the advisory drive the timing.
+
 ## Getting Help
 
 - Check existing issues and pull requests

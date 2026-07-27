@@ -389,6 +389,15 @@ Coverage currently sits well below the project's 75% threshold — see
 [Project status](#project-status). New tests are welcome; see
 [docs/development/testing.md](docs/development/testing.md).
 
+## Security
+
+Found a vulnerability? Report it privately — see [SECURITY.md](SECURITY.md). Do not
+open a public issue for a security problem.
+
+SECURITY.md also documents BareD's known security limitations (SFTP host key
+verification, login rate limiting, encryption key storage) and how to harden a
+deployment. Read it before running BareD against production data.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
