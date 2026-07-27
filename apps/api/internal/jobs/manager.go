@@ -33,6 +33,11 @@ type Manager struct {
 	// horizon of everything the daemon knows: the in-memory map starts empty,
 	// so nothing before it can be counted. See CoversWindow.
 	startedAt time.Time
+
+	// historyMaxAge is how far back the in-memory map is allowed to reach
+	// before CleanupOldJobs prunes it, set by StartCleanupRoutine. Zero means
+	// nothing prunes, so memory reaches back to startedAt. Guarded by mu.
+	historyMaxAge time.Duration
 }
 
 // NewManager creates a new job manager
@@ -644,7 +649,7 @@ func (m *Manager) ListJobsFiltered(ctx context.Context, filter JobFilter) []*Job
 	if err != nil {
 		util.GetLogger().ErrorS("Failed to fetch jobs from database",
 			"component", "job_manager",
-			"error", err)
+			"error", util.RedactErr(err))
 	}
 	return list
 }
@@ -776,13 +781,24 @@ func (m *Manager) HasPersistence() bool {
 // CoversWindow reports whether job history spans the whole of the window
 // ending at now, and so can be summarised without silent truncation.
 //
-// With a store, history outlives the process. Without one it begins when the
-// manager was created: a daemon restarted twenty minutes ago holds twenty
-// minutes of jobs, and a "24h success rate: 100%" computed from them is the
-// same lie as one computed from a truncated page.
+// With a store, history outlives the process. Without one it is bounded at both
+// ends: it begins when the manager was created — a daemon restarted twenty
+// minutes ago holds twenty minutes of jobs, and a "24h success rate: 100%"
+// computed from them is the same lie as one computed from a truncated page —
+// and it ends at the cleanup routine's max age, which deletes everything older.
+// A daemon up for a year with a 72-hour horizon can no more answer for 7 days
+// than one that started this morning.
 func (m *Manager) CoversWindow(window time.Duration, now time.Time) bool {
 	if m.HasPersistence() {
 		return true
+	}
+
+	m.mu.RLock()
+	maxAge := m.historyMaxAge
+	m.mu.RUnlock()
+
+	if maxAge > 0 && window > maxAge {
+		return false
 	}
 	return !m.startedAt.After(now.Add(-window))
 }
@@ -843,6 +859,12 @@ func (m *Manager) CleanupOldJobs(maxAge time.Duration) {
 
 // StartCleanupRoutine starts a background routine to cleanup old jobs
 func (m *Manager) StartCleanupRoutine(interval, maxAge time.Duration) {
+	// maxAge is the in-memory history horizon from here on: anything older is
+	// deleted, so no window longer than it can be summarised without a store.
+	m.mu.Lock()
+	m.historyMaxAge = maxAge
+	m.mu.Unlock()
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()

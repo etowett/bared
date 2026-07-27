@@ -123,11 +123,13 @@ type TargetSummary struct {
 	// job ran. Nil when the job's timestamps are incomplete.
 	LastBackupDurationSeconds *float64 `json:"last_backup_duration_seconds,omitempty"`
 
-	// Overdue is true when the target has a schedule and two of its fires have
-	// passed since the last successful backup. The second fire is a grace
-	// period: a backup is "due" from the moment its slot opens until it
-	// finishes, so flagging the first one would mark a healthy target late for
-	// the whole duration of its own run.
+	// Overdue is true when the target has a schedule, a run has come due since
+	// its last successful backup, and the grace period on top of it has passed
+	// — one whole schedule period, capped at an hour. The grace exists because
+	// a backup is "due" from the moment its slot opens until it finishes, so
+	// flagging the instant it comes due would mark a healthy target late for
+	// the duration of its own run. The cap keeps a daily or yearly target from
+	// inheriting a daily or yearly grace.
 	//
 	// It stays false for targets with a job in flight (IsRunning says that
 	// better), for targets with no schedule, for targets with no job history at
