@@ -81,12 +81,12 @@ shared, not duplicated. Tested by `scripts/test-agent-hooks.sh`, which CI runs.
 |---|---|---|
 | `session-start.sh` | SessionStart | branch, dirty count, and a warning if the toolchain the gate needs is missing |
 | `guard-secrets.sh` | PreToolUse (Bash, Edit/Write) | **blocks** writing, reading, staging, or uploading `config.yml`, `bared.yml`, `*.local.yml`, `.env*`, `*.db` |
-| `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit`/`git push` on `main` (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`) |
+| `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit` on `main`/`master` and any `git push` whose refspec targets them. Judges the working tree the command runs in (so linked worktrees are judged on *their* branch) and reads pushes by refspec, so feature-branch and tag pushes go through from anywhere (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`, exported or written as a prefix on the command) |
 | `format-on-save.sh` | PostToolUse (Edit/Write) | gofmt + goimports on Go, prettier on `apps/web/` |
 | `ensure-newline.sh` | PostToolUse (Edit/Write) | appends a missing trailing newline |
 | `lint-on-stop.sh` | Stop | advisory `gofmt -l` + `go vet` + golangci-lint + eslint over the diff |
 | `typecheck-on-stop.sh` | Stop | advisory `tsc --noEmit` when web TS changed |
-| `lib.sh` | — | shared payload parsing, repo-root detection, and `hook_web_run` (runs `apps/web`'s lockfile-installed tools) |
+| `lib.sh` | — | shared payload parsing, root detection (`hook_repo_root` for installed tooling, `hook_worktree_root` for git state), and `hook_web_run` (runs `apps/web`'s lockfile-installed tools) |
 
 Only the two `guard-*` hooks can block. Everything else always exits 0, so a hook can never trap a
 session in a loop.

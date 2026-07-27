@@ -6,9 +6,33 @@
 #
 #   . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-# Repo root, whichever client is driving.
+# Two roots, and they are not the same thing — pick deliberately.
+#
+#   hook_repo_root      the *project* the session was opened on. Where installed
+#                       tooling lives (apps/web/node_modules). Client env var first.
+#   hook_worktree_root  the working tree the command actually runs in. What git
+#                       state — branch, status — must be read from.
+#
+# They diverge inside a `git worktree`: $CLAUDE_PROJECT_DIR keeps pointing at the
+# main checkout, so anything deciding on a branch through hook_repo_root judges
+# the wrong tree (issue #94). Use hook_worktree_root for git state.
+
+# Project root, whichever client is driving.
 hook_repo_root() {
   printf '%s' "${CLAUDE_PROJECT_DIR:-${CODEX_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
+}
+
+# Root of the working tree the hook is running in. Resolved from the hook's cwd
+# so linked worktrees report themselves; only falls back to the client's project
+# dir when cwd is not inside a repository at all.
+hook_worktree_root() {
+  local top
+  top="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$top" ]; then
+    printf '%s' "$top"
+    return 0
+  fi
+  printf '%s' "${CLAUDE_PROJECT_DIR:-${CODEX_PROJECT_DIR:-$(pwd)}}"
 }
 
 # hook_json_field <payload> <dotted.path> — echo a string field, or nothing.

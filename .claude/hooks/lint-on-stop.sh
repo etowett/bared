@@ -14,7 +14,10 @@ set -uo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-cd "$(hook_repo_root)" 2>/dev/null || exit 0
+# The tree the edits landed in: inside a `git worktree` the client's project dir
+# still points at the main checkout, whose `git status` is somebody else's.
+# (hook_web_run keeps using the project dir — that is where node_modules lives.)
+cd "$(hook_worktree_root)" 2>/dev/null || exit 0
 
 changed="$(git status --porcelain 2>/dev/null | sed 's/^...//')"
 [ -z "$changed" ] && exit 0

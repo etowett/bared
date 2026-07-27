@@ -12,7 +12,8 @@ set -uo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-cd "$(hook_repo_root)" 2>/dev/null || exit 0
+# The tree the edits landed in — see lint-on-stop.sh.
+cd "$(hook_worktree_root)" 2>/dev/null || exit 0
 
 changed="$(git status --porcelain 2>/dev/null | sed 's/^...//')"
 [ -n "$changed" ] || exit 0
