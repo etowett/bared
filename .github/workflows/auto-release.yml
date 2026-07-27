@@ -20,7 +20,9 @@ jobs:
   create-release:
     name: Create Release Tag
     runs-on: [ubuntu-latest]
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    # The repository guard keeps this out of forks, where secrets.PAT_TOKEN is
+    # empty and every gh call would fail red instead of skipping cleanly.
+    if: ${{ github.repository == 'etowett/bared' && !contains(github.event.head_commit.message, '[skip ci]') }}
 
     steps:
       - name: Checkout code

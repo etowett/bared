@@ -24,7 +24,9 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     environment: prod
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    # The repository guard keeps this out of forks, where DOCKERHUB_USERNAME /
+    # DOCKERHUB_TOKEN are empty and docker/login-action fails red.
+    if: github.repository == 'etowett/bared' && (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch')
 
     steps:
       - name: Checkout code

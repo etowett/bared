@@ -17,6 +17,9 @@ jobs:
   sync:
     name: Sync Release Labels
     runs-on: [ubuntu-latest]
+    # GITHUB_TOKEN is always populated, so without this guard a fork syncing its
+    # own main would rewrite the fork's label set from our file.
+    if: github.repository == 'etowett/bared'
 
     steps:
       - name: Checkout code

@@ -19,6 +19,9 @@ jobs:
   release:
     name: Build and Release
     runs-on: [ubuntu-latest]
+    # .goreleaser.yml hardcodes `owner: etowett`, so a fork tagging its own
+    # release would fail in GoReleaser rather than skip.
+    if: github.repository == 'etowett/bared'
 
     steps:
       - name: Checkout code
