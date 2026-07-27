@@ -302,19 +302,28 @@ All distribution methods must pass:
 
 **Docker**:
 
+The image namespace is `ektowett`, not the repository's `etowett`. Pick a tag from
+[the published tags](https://hub.docker.com/r/ektowett/bared/tags) and pin it — `:latest`
+trails several releases behind.
+
 ```bash
-docker pull ektowett/bared:latest
+docker pull ektowett/bared:vX.Y.Z
 docker run -v /backups:/backups -v ./config.yml:/etc/bared/bared.yml \
-  -p 8080:8080 ektowett/bared:latest daemon --http :8080
+  -p 8080:8080 ektowett/bared:vX.Y.Z daemon --http :8080
 # Web UI: http://localhost:8080
 ```
 
 **Binary (Linux)**:
 
+Assets are named `brd-<version>-<os>-<arch>.<ext>` — note the version appears in the
+filename as well as the tag, and the archive extracts a plain `brd` alongside `LICENSE`
+and `docs/`.
+
 ```bash
-wget https://github.com/etowett/bared/releases/download/v0.4.0/brd-linux-amd64.tar.gz
-tar xzf brd-linux-amd64.tar.gz
-sudo mv brd-linux-amd64 /usr/local/bin/brd
+VERSION=X.Y.Z  # from https://github.com/etowett/bared/releases/latest
+wget https://github.com/etowett/bared/releases/download/v${VERSION}/brd-${VERSION}-linux-amd64.tar.gz
+tar xzf brd-${VERSION}-linux-amd64.tar.gz
+sudo mv brd /usr/local/bin/brd
 brd daemon --config config.yml --http :8080
 # Web UI: http://localhost:8080
 ```
