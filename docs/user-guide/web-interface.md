@@ -790,8 +790,9 @@ Planned features:
 For issues, questions, or feature requests:
 
 - GitHub Issues: <https://github.com/etowett/bared/issues>
-- Documentation: <https://github.com/etowett/bared/docs>
+- Documentation: [docs/README.md](../README.md)
+- Security issues: report privately — see [SECURITY.md](../../SECURITY.md)
 
 ## License
 
-Same as BareD project.
+MIT, same as the rest of BareD — see [LICENSE](../../LICENSE).

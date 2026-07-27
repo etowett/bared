@@ -4,21 +4,28 @@ Deep dives into BareD's system design, architectural decisions, and implementati
 
 ## Contents
 
-### [Design Decisions](design-decisions.md)
+> **Note on coverage.** Separate design-decisions, streaming-pipeline,
+> notification-system and persistence-layer pages were planned but never written.
+> This page carries that material; the deeper detail lives in the nested `AGENTS.md`
+> files next to the code, which are kept current because changes to those areas are
+> required to update them.
 
-Key architectural choices, trade-offs considered, and rationale behind major design decisions.
+On this page:
 
-### [Streaming Pipeline](streaming-pipeline.md)
+- **[Key Design Principles](#key-design-principles)** — streaming, interface-driven
+  extension, error handling and the minimal-dependency policy. See also
+  [apps/api/internal/AGENTS.md](../../apps/api/internal/AGENTS.md).
+- **[Data Flow](#data-flow)** — how a backup and a restore move through the pipeline
+  with `io.Pipe`, and why no temporary files are involved.
+- **[Core Components](#core-components)** — including the persistence layer (job
+  history, log storage, distributed locking); configure it with
+  [examples/config.persistence.yml](../../examples/config.persistence.yml).
+- **[Security Architecture](#security-architecture)** — and
+  [SECURITY.md](../../SECURITY.md) for known limitations.
 
-Detailed explanation of the streaming architecture using `io.Pipe`, how data flows through the system without temporary files.
-
-### [Notification System](notification-system.md)
-
-Architecture of the notification system, message structure, delivery guarantees, and extensibility.
-
-### [Persistence Layer](persistence-layer.md)
-
-Database persistence design for job history, log storage, and distributed locking.
+Notification design lives in
+[apps/api/internal/notify/AGENTS.md](../../apps/api/internal/notify/AGENTS.md), with
+configuration in [examples/NOTIFICATIONS.md](../../examples/NOTIFICATIONS.md).
 
 ### Historical Documents
 
@@ -135,7 +142,7 @@ No temporary files are created during backup or restore operations. Data streams
 - Better performance
 - Simpler cleanup
 
-**See**: [Streaming Pipeline](streaming-pipeline.md)
+**See**: [Data Flow](#data-flow) below.
 
 ### 2. Interface-Driven Design
 
@@ -153,7 +160,7 @@ Core functionality is abstracted behind interfaces:
 - Testability
 - Pluggable components
 
-**See**: [Design Decisions](design-decisions.md#interface-driven-design)
+**See**: [apps/api/internal/AGENTS.md](../../apps/api/internal/AGENTS.md), and the nested guides for [storage](../../apps/api/internal/storage/AGENTS.md) and [notify](../../apps/api/internal/notify/AGENTS.md).
 
 ### 3. Graceful Error Handling
 
@@ -164,7 +171,7 @@ Operations handle partial failures gracefully:
 - Detailed error messages
 - Non-blocking notifications
 
-**See**: [Design Decisions](design-decisions.md#error-handling)
+**See**: the error-handling conventions in [CONTRIBUTING.md](../../CONTRIBUTING.md#error-handling).
 
 ### 4. Minimal Dependencies
 
@@ -174,7 +181,7 @@ Prefer standard library over external packages:
 - stdlib for HTTP server
 - Few external dependencies
 
-**See**: [Design Decisions](design-decisions.md#dependency-philosophy)
+**See**: the stdlib-first principle in [AGENTS.md](../../AGENTS.md#engineering-principles).
 
 ## Data Flow
 
@@ -249,7 +256,7 @@ The architecture is designed for extensibility:
 - Buffer size configuration
 - Network retry strategies
 
-**See**: [Streaming Pipeline](streaming-pipeline.md#performance)
+**See**: [Streaming Architecture](#1-streaming-architecture) and [Data Flow](#data-flow).
 
 ## Security Architecture
 
@@ -271,14 +278,15 @@ The architecture is designed for extensibility:
 - Log retention
 - Notification tracking
 
-**See**: [Design Decisions](design-decisions.md#security)
+**See**: [SECURITY.md](../../SECURITY.md) for the security model, its known limitations, and deployment hardening.
 
 ## Further Reading
 
-- [Design Decisions](design-decisions.md) - Why we built it this way
-- [Streaming Pipeline](streaming-pipeline.md) - Deep dive into streaming
-- [Notification System](notification-system.md) - Notification architecture
-- [Persistence Layer](persistence-layer.md) - Database design
+- [apps/api/internal/AGENTS.md](../../apps/api/internal/AGENTS.md) - Backend deep dive, kept current with the code
+- [AGENTS.md](../../AGENTS.md) - Repository map and engineering principles
+- [SECURITY.md](../../SECURITY.md) - Security model and known limitations
+- [Original Implementation Plan](original-plan.md) - Historical design rationale
+- [REST API](../api/endpoints.md) / [WebSocket API](../api/websocket.md) - Interface reference
 
 ---
 

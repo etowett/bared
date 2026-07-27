@@ -1,32 +1,28 @@
 # Operations Guide
 
-This section contains essential guides for deploying, managing, and maintaining BareD in production environments.
+This section covers deploying, managing, and maintaining BareD in production.
+
+> **Note on coverage.** Dedicated deployment, Docker, monitoring and troubleshooting
+> pages do not exist yet. This page carries the checklist and guidance; the links
+> below point at the real deployment artifacts in the repository.
 
 ## Contents
 
-### [Deployment Guide](deployment.md)
-
-General deployment strategies for various environments: bare metal, VMs, containers, and cloud platforms.
-
-### [Docker Deployment](docker.md)
-
-Detailed guide for deploying BareD with Docker and Docker Compose, including multi-service setups and best practices.
-
-### [Systemd Service](systemd.md)
-
-Configure BareD as a systemd service for automatic startup, logging, and management on Linux systems.
-
 ### [Version Management](versioning.md)
 
-Understanding BareD versioning, checking versions, building with version info, and managing releases.
+BareD versioning, checking versions, building with version info, and managing releases.
 
-### [Monitoring](monitoring.md)
+### [Security & Hardening](../../SECURITY.md)
 
-Monitor BareD operations, set up alerts, integrate with monitoring systems, and track backup health.
+Known security limitations and how to harden a deployment. Read this before going to
+production.
 
-### [Troubleshooting](troubleshooting.md)
+### Deployment artifacts
 
-Common issues and their solutions, debugging techniques, and how to get help.
+- **[compose.yml](../../compose.yml)** - Docker Compose stack
+- **[Dockerfile](../../Dockerfile)** - Container image, including the database client tools
+- **[examples/bared.service](../../examples/bared.service)** - systemd unit
+- **[examples/config.persistence.yml](../../examples/config.persistence.yml)** - Job history, log persistence and distributed locking
 
 ## Production Deployment Checklist
 
@@ -40,10 +36,10 @@ Common issues and their solutions, debugging techniques, and how to get help.
 
 ### Deployment Steps
 
-1. [Choose deployment method](deployment.md) (Docker, systemd, bare metal)
-2. [Install and configure](docker.md) or [set up systemd service](systemd.md)
-3. [Configure monitoring](monitoring.md)
-4. [Test backup and restore](../user-guide/backup-operations.md)
+1. Choose a deployment method (Docker, systemd, bare metal)
+2. Deploy with [compose.yml](../../compose.yml) or the [systemd unit](../../examples/bared.service)
+3. Review [SECURITY.md](../../SECURITY.md) and restrict access to the HTTP interface
+4. Test backup **and restore** — see [Usage](../../README.md#usage)
 5. [Verify notifications](../../examples/NOTIFICATIONS.md)
 
 ### Post-Deployment
@@ -67,7 +63,7 @@ For most users, Docker provides the simplest deployment:
 - Isolated from host system
 - Works on any platform
 
-**See**: [Docker Deployment Guide](docker.md)
+**See**: [compose.yml](../../compose.yml) and the [Dockerfile](../../Dockerfile)
 
 ### Bare Metal / VM
 
@@ -78,7 +74,7 @@ For maximum performance or specific requirements:
 - Full control over environment
 - Systemd integration
 
-**See**: [Deployment Guide](deployment.md) + [Systemd Service](systemd.md)
+**See**: the [systemd unit](../../examples/bared.service) and [Installation](../../README.md#installation)
 
 ### Cloud Platforms
 
@@ -89,7 +85,7 @@ Deploy on AWS, GCP, Azure, DigitalOcean:
 - Integrate with cloud monitoring
 - Automated backups to cloud storage
 
-**See**: [Deployment Guide](deployment.md#cloud-platforms)
+**See**: the S3 storage examples in [examples/README.md](../../examples/README.md)
 
 ## Monitoring & Maintenance
 
@@ -101,7 +97,10 @@ Deploy on AWS, GCP, Azure, DigitalOcean:
 - Database connection health
 - Notification delivery
 
-**See**: [Monitoring Guide](monitoring.md)
+**See**: the [WebSocket API](../api/websocket.md) for live job and log streaming, the
+[REST API](../api/endpoints.md) for job history, and
+[examples/NOTIFICATIONS.md](../../examples/NOTIFICATIONS.md) for failure alerts.
+There is no Prometheus/metrics endpoint yet.
 
 ### Regular Maintenance
 
@@ -122,6 +121,10 @@ Deploy on AWS, GCP, Azure, DigitalOcean:
 - ✅ Enable audit logging
 - ✅ Review notification recipients periodically
 
+**See [SECURITY.md](../../SECURITY.md)** for the known limitations these practices are
+working around — in particular SFTP host key verification, login rate limiting, and
+where the encryption key is stored.
+
 ## High Availability
 
 For mission-critical deployments:
@@ -136,9 +139,9 @@ For mission-critical deployments:
 
 ## Getting Help
 
-- **Deployment issues**: Check [Troubleshooting](troubleshooting.md)
-- **Performance problems**: See [Monitoring](monitoring.md)
-- **Configuration questions**: See [User Guide](../user-guide/)
+- **Deployment issues**: check the daemon logs and `brd validate-config`, then search the [issue tracker](https://github.com/etowett/bared/issues)
+- **Configuration questions**: See the [User Guide](../user-guide/) and [examples/](../../examples/)
+- **Security issues**: Report privately — see [SECURITY.md](../../SECURITY.md)
 
 ---
 

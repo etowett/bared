@@ -16,9 +16,11 @@ Development tools, CI/CD pipelines, linters, formatters, and the full developmen
 
 Testing philosophy, unit tests, integration tests, and test coverage practices.
 
-### [System Architecture](architecture.md)
+### [System Architecture](../architecture/README.md)
 
 High-level overview of BareD's architecture, key components, and how they interact.
+For the detail that stays current with the code, read
+[apps/api/internal/AGENTS.md](../../apps/api/internal/AGENTS.md).
 
 ### [Contributing](../../CONTRIBUTING.md)
 
@@ -47,7 +49,7 @@ make test
 
 ### 2. Make Your Changes
 
-- Follow [code style guidelines](../../CONTRIBUTING.md#code-style)
+- Follow [code style guidelines](../../CONTRIBUTING.md#code-style-guidelines)
 - Add tests for new features
 - Update documentation
 - Run `make check` before committing
@@ -154,7 +156,7 @@ Restore: [Retrieve] → [Decompress] → [Restore] → [Cleanup]
 - **Minimal dependencies**: Stdlib-first
 - **Error handling**: Graceful failures with retries
 
-**See**: [System Architecture](architecture.md)
+**See**: [System Architecture](../architecture/README.md)
 
 ## Testing
 

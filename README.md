@@ -262,24 +262,27 @@ Run both scheduled backups AND provide HTTP API access:
 
 **For Users**:
 
-- [Getting Started](docs/user-guide/getting-started.md) - New to BareD? Start here
-- [Configuration Guide](docs/user-guide/configuration.md) - Configure BareD for your needs
-- [Configuration Examples](examples/) - Ready-to-use YAML configs
+- [Quick Start](#quick-start) - Install, configure, and run your first backup
+- [Configuration Examples](examples/README.md) - Annotated YAML configs for every backend
+- [Quick Reference](examples/QUICK-REFERENCE.md) - Config syntax lookup
 - [Notification Setup](examples/NOTIFICATIONS.md) - Set up Slack, Email, or Webhooks
 - [Web Interface](docs/user-guide/web-interface.md) - Use the web dashboard
 
 **For Operators**:
 
-- [Deployment Guide](docs/operations/deployment.md) - Deploy in production
-- [Docker Deployment](docs/operations/docker.md) - Docker and Docker Compose
-- [Systemd Service](docs/operations/systemd.md) - Run as a system service
-- [Troubleshooting](docs/operations/troubleshooting.md) - Fix common issues
+- [Docker Compose](compose.yml) / [Dockerfile](Dockerfile) - Container deployment
+- [systemd unit](examples/bared.service) - Run as a system service
+- [Persistence & HA](examples/config.persistence.yml) - Job history and distributed locking
+- [Version Management](docs/operations/versioning.md) - Versions and releases
+- [Security & Hardening](SECURITY.md) - Known limitations, deployment guidance
 
 **For Developers**:
 
 - [Development Setup](docs/development/setup.md) - Set up dev environment
+- [Tooling](docs/development/tooling.md) - Linters, formatters, CI
+- [Testing](docs/development/testing.md) - Testing strategy
 - [Contributing Guide](CONTRIBUTING.md) - How to contribute
-- [System Architecture](docs/development/architecture.md) - How BareD works
+- [System Architecture](docs/architecture/README.md) - How BareD works
 
 **For Integrators**:
 
