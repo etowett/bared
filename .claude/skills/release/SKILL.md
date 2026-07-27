@@ -16,7 +16,7 @@ BareD releases are **automated**: merging a PR to `main` creates a version tag, 
 2. On merge to `main`, `.github/workflows/auto-release.yml` finds the merged PR, reads its label, computes the next `vMAJOR.MINOR.PATCH` from the latest **root** tag (`git describe --match 'v[0-9]*'`), and pushes **two** annotated tags on that commit with `git push --atomic` (skipped if labeled `release:skip` or no PR found):
    - `vX.Y.Z` — the release tag.
    - `apps/api/vX.Y.Z` — the Go module tag. `go.mod` lives at `apps/api/`, so Go only accepts subdirectory-prefixed tags as versions of `github.com/etowett/bared/apps/api`. Without it, `go install .../cmd/brd@latest` installs a pseudo-version of `main`'s tip instead of the release (issue #106).
-3. The pushed `v*.*.*` tag triggers `.github/workflows/release.yml`: builds the web UI, embeds it, then runs **GoReleaser** (`release --clean`) to publish a GitHub release — binaries for linux/darwin (amd64+arm64) + windows/amd64, `.tar.gz`/`.zip` archives, `checksums.txt`, and a github-native changelog. The `apps/api/vX.Y.Z` tag does **not** re-trigger it: GitHub's ref filter `*` does not match `/`, so that ref fails the `v*.*.*` pattern. GoReleaser is pinned to the right tag via `GORELEASER_CURRENT_TAG: ${{ github.ref_name }}` rather than left to guess between the two.
+3. The pushed `v*.*.*` tag triggers `.github/workflows/release.yml`: builds the web UI, embeds it, then runs **GoReleaser** (`release --clean`) to publish a GitHub release — binaries for linux/darwin (amd64+arm64) + windows/amd64, `.tar.gz`/`.zip` archives, `checksums.txt`, and a github-native changelog. The `apps/api/vX.Y.Z` tag does **not** re-trigger it: GitHub's ref filter `*` does not match `/`, so that ref fails the `v*.*.*` pattern. GoReleaser is pinned to the right tag via `GORELEASER_CURRENT_TAG: ${{ github.ref_name }}` rather than left to guess between the two, and `.goreleaser.yml`'s `git.ignore_tags` drops the `apps/api/*` tags from its lookup entirely so local snapshots resolve the same way.
 4. On the Release workflow's success, `.github/workflows/docker.yml` builds and pushes the `ektowett/bared` image (tags: `vX.Y.Z` + `latest`) to Docker Hub.
 
 Total time is roughly 15–20 min (tag ~1 min, binaries ~5–10 min, Docker ~10–15 min).
@@ -43,6 +43,12 @@ goreleaser check               # validate .goreleaser.yml
 goreleaser release --snapshot --clean   # full build, does NOT publish
 ls -lh dist/                   # inspect built archives + checksums
 ```
+Run it from anywhere — a feature branch is fine. `.goreleaser.yml` sets
+`git.ignore_tags: ["apps/api/*"]` so GoReleaser's tag lookup skips the Go module tags and reads
+the root `vX.Y.Z` tag, the same restriction `--match 'v[0-9]*'` applies elsewhere. `dist/` should
+hold flat `brd-<version>-<os>-<arch>.tar.gz`/`.zip` files plus `checksums.txt`. A nested
+`dist/brd-apps/api/…` path means `{{ .Version }}` picked up `apps/api/vX.Y.Z` again — that was
+issue #120, and the ignore rule is the fix.
 
 ## Verify
 ```sh

@@ -275,6 +275,11 @@ Things worth knowing:
 - **`git describe` needs `--match 'v[0-9]*'`.** Two tags sit on the release commit and a bare
   `git describe` returns `apps/api/v1.2.3`. Both `auto-release.yml`'s version maths and the
   `Makefile`'s `VERSION` filter for root tags; anything new that derives a version must too.
+- **GoReleaser needs the same filter.** It has its own tag lookup, so `.goreleaser.yml` sets
+  `git.ignore_tags: ["apps/api/*"]`; `release.yml` additionally pins
+  `GORELEASER_CURRENT_TAG: ${{ github.ref_name }}`. Without the filter, a run from any commit
+  *after* the tag resolved `{{ .Version }}` to `apps/api/v1.2.3`, and the `/` turned the archive
+  `name_template` into a nested directory (`dist/brd-apps/api/…`) — see #120.
 - **Users still write `@v1.2.3`.** Go adds the `apps/api/` prefix when resolving the tag;
   `@apps/api/v1.2.3` is rejected as a disallowed version string.
 
@@ -336,6 +341,12 @@ goreleaser release --snapshot --clean
 # Check built binaries
 ls -lh dist/
 ```
+
+The dry run works from any commit, not just one sitting exactly on a tag: `.goreleaser.yml`
+ignores the `apps/api/*` module tags, so the snapshot version comes from the latest root
+`vX.Y.Z` tag. Expect flat, release-shaped names —
+`brd-1.2.3-SNAPSHOT-<sha>-linux-amd64.tar.gz` — plus `checksums.txt`. A nested
+`dist/brd-apps/` directory means the module tag leaked back in (#120).
 
 ### Version Numbering Guidelines
 
