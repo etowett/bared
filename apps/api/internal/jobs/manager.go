@@ -248,7 +248,7 @@ func (m *Manager) executeJob(job *Job) {
 					"job_id", job.ID,
 					"job_type", "backup",
 					"target", job.TargetName,
-					"error", wrappedErr)
+					"error", util.RedactErr(wrappedErr))
 
 				// Send failure notification
 				m.sendFailureNotification(job.Context(), job, wrappedErr, "backup")
@@ -306,7 +306,7 @@ func (m *Manager) executeJob(job *Job) {
 					"job_id", job.ID,
 					"job_type", "restore",
 					"target", job.TargetName,
-					"error", wrappedErr)
+					"error", util.RedactErr(wrappedErr))
 
 				// Send failure notification
 				m.sendFailureNotification(job.Context(), job, wrappedErr, "restore")
@@ -829,12 +829,13 @@ func (m *Manager) sendFailureNotification(ctx context.Context, job *Job, err err
 		return
 	}
 
-	// Build notification message
+	// Build notification message. The error goes out to Slack/email/webhook, so
+	// it gets the same scrubbing as the persisted one (issue #133).
 	msg := &notify.Message{
 		Target:    job.TargetName,
 		Operation: operation,
 		Duration:  0, // No duration for early failures
-		Error:     err,
+		Error:     util.RedactErr(err),
 		Timestamp: time.Now(),
 		Manual:    job.Manual,
 	}

@@ -473,7 +473,9 @@ func sendRestoreNotifications(ctx context.Context, cfg *config.Config, target *c
 		Target:    target.Name,
 		Operation: "restore",
 		Duration:  result.Duration,
-		Error:     err,
+		// Scrubbed: notifications leave the host, and a dump error can carry
+		// the command line that produced it (issue #133).
+		Error:     util.RedactErr(err),
 		Timestamp: time.Now(),
 
 		// File path and size metrics

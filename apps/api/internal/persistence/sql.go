@@ -78,7 +78,107 @@ func NewSQLStore(driver, dsn string) (*SQLStore, error) {
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
+	// Rewrite rows written by builds that persisted raw command lines. Best
+	// effort: a failure here (read-only replica, permissions) must not stop the
+	// daemon booting, because reads are scrubbed too — see scrubJobErrors.
+	// Bounded, because this sits on the startup path and NewSQLStore takes no
+	// context of its own.
+	scrubCtx, cancelScrub := context.WithTimeout(context.Background(), scrubTimeout)
+	defer cancelScrub()
+
+	if scrubbed, err := store.scrubJobErrors(scrubCtx); err != nil {
+		logger.ErrorS("Failed to scrub credentials from persisted job errors",
+			"component", "persistence",
+			"error", err)
+	} else if scrubbed > 0 {
+		logger.InfoS("Scrubbed credentials from persisted job errors",
+			"component", "persistence",
+			"rows", scrubbed)
+	}
+
 	return store, nil
+}
+
+// scrubTimeout bounds the startup rewrite below.
+const scrubTimeout = 30 * time.Second
+
+// scrubJobErrors rewrites jobs.error for rows persisted before the redaction
+// fix, which could contain a plaintext database password (issue #133).
+//
+// This runs on every startup and is idempotent: only rows util.RedactSecrets
+// actually changes are written back, so it is a no-op from the second start
+// onwards. Every non-empty error is offered to the redactor rather than
+// prefiltered by keyword in SQL — a second, hand-maintained copy of the
+// keyword list would silently drift from util.secretKeywords and miss shapes
+// it does not know about. Only failed jobs carry an error, so the candidate
+// set is small.
+//
+// It is a data fix, not a schema change — the schema is bootstrapped with
+// CREATE TABLE IF NOT EXISTS rather than versioned migrations, so there is no
+// migration table to hang this off.
+func (s *SQLStore) scrubJobErrors(ctx context.Context) (int, error) {
+	const candidates = `SELECT id, error FROM jobs WHERE error IS NOT NULL AND error <> ''`
+
+	rows, err := s.db.QueryContext(ctx, candidates)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query job errors: %w", err)
+	}
+
+	type rewrite struct {
+		id      string
+		errText string
+	}
+
+	var pending []rewrite
+	for rows.Next() {
+		var id, errText string
+		if err := rows.Scan(&id, &errText); err != nil {
+			//nolint:errcheck // errcheck has check-blank on; the scan error is the one worth reporting
+			_ = rows.Close()
+			return 0, fmt.Errorf("failed to scan job error: %w", err)
+		}
+		if redacted := util.RedactSecrets(errText); redacted != errText {
+			pending = append(pending, rewrite{id: id, errText: redacted})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		//nolint:errcheck // errcheck has check-blank on; iteration already failed
+		_ = rows.Close()
+		return 0, fmt.Errorf("failed to iterate job errors: %w", err)
+	}
+	// Closed before the writes: SQLite will not let them run while the read
+	// cursor still holds the single connection.
+	if err := rows.Close(); err != nil {
+		return 0, fmt.Errorf("failed to close job error rows: %w", err)
+	}
+	if len(pending) == 0 {
+		return 0, nil
+	}
+
+	// One transaction, so a partial rewrite can never be reported as a whole
+	// one — the count returned is either all of them or none.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			_ = err
+		}
+	}()
+
+	// `?` placeholders, matching the rest of this file (sqlite/mysql style).
+	for _, r := range pending {
+		if _, err := tx.ExecContext(ctx, `UPDATE jobs SET error = ? WHERE id = ?`, r.errText, r.id); err != nil {
+			return 0, fmt.Errorf("failed to rewrite job error: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit job error rewrite: %w", err)
+	}
+
+	return len(pending), nil
 }
 
 func (s *SQLStore) initSchema() error {
@@ -379,7 +479,9 @@ func (s *SQLStore) GetJob(ctx context.Context, id jobs.JobID) (*jobs.Job, error)
 		job.CompletedAt = &t
 	}
 	if errorStr.Valid && errorStr.String != "" {
-		job.Error = errorStr.String
+		// Scrubbed on read as well as on write: a row could have been written
+		// by an older binary sharing the same database (issue #133).
+		job.Error = util.RedactSecrets(errorStr.String)
 	}
 	if schedule.Valid {
 		job.ScheduledBy = schedule.String
@@ -463,7 +565,7 @@ func (s *SQLStore) ListJobs(ctx context.Context, filter jobs.JobFilter) ([]*jobs
 			job.CompletedAt = &t
 		}
 		if errorStr.Valid {
-			job.Error = errorStr.String
+			job.Error = util.RedactSecrets(errorStr.String)
 		}
 		decodeJobResult(&job, resultJSON)
 

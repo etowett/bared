@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 func TestNewJob(t *testing.T) {
@@ -222,6 +224,52 @@ func TestJob_MarkFailed(t *testing.T) {
 	assert.Equal(t, testErr.Error(), job.Error)
 	assert.True(t, job.CompletedAt.After(beforeMark) || job.CompletedAt.Equal(beforeMark))
 	assert.True(t, job.CompletedAt.Before(afterMark) || job.CompletedAt.Equal(afterMark))
+}
+
+// TestJob_MarkFailed_RedactsCredentials guards the last hop before the error is
+// persisted and served by /api/jobs (issue #133).
+func TestJob_MarkFailed_RedactsCredentials(t *testing.T) {
+	const password = "Xk9pQ2mZvR7t" // deliberately contains none of the redactor keywords
+
+	tests := []struct {
+		name        string
+		err         error
+		wantMasked  string
+		wantVisible string
+	}{
+		{
+			name:        "mysqldump attached password",
+			err:         fmt.Errorf("backup failed: mysqldump [--host=db --user=root --password=%s]: exit status 1", password),
+			wantMasked:  "--password=" + util.Redacted,
+			wantVisible: "--host=db",
+		},
+		{
+			name:        "redis-cli auth flag",
+			err:         fmt.Errorf("backup failed: redis-cli [-h db -p 6379 -a %s]: exit status 1", password),
+			wantMasked:  "-a " + util.Redacted,
+			wantVisible: "-p 6379",
+		},
+		{
+			name:        "postgres password environment variable",
+			err:         fmt.Errorf("backup failed: pg_dump (PGPASSWORD=%s): exit status 1", password),
+			wantMasked:  "PGPASSWORD=" + util.Redacted,
+			wantVisible: "pg_dump",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := NewJob(JobTypeBackup, "test-target", true)
+			job.MarkStarted()
+
+			job.MarkFailed(tt.err)
+
+			assert.Equal(t, JobStatusFailed, job.GetStatus())
+			assert.NotContains(t, job.Error, password, "credential persisted into Job.Error")
+			assert.Contains(t, job.Error, tt.wantMasked)
+			assert.Contains(t, job.Error, tt.wantVisible, "non-secret context should stay debuggable")
+		})
+	}
 }
 
 func TestJob_MarkCancelled(t *testing.T) {

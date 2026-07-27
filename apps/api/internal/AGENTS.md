@@ -986,6 +986,23 @@ slog.Info("connecting to database", "password", conn.Password)
 slog.Info("connecting to database", "host", conn.Host, "database", conn.Database)
 ```
 
+**1a. Never format a raw argv slice or command output into an error or a log line.**
+`internal/util/redact.go` holds the single redaction rule:
+
+- `util.RedactArgs(args)` — masks `--password=…`, `--password …`, redis-cli `-a …`,
+  attached `-p…`, `PGPASSWORD=…` and any flag whose name contains
+  `pass`/`pwd`/`secret`/`token`/`key`/`auth`, keeping the flag name so failures stay
+  debuggable. The token after a secret flag is masked whatever it looks like — a password
+  can start with `-`.
+- `util.RedactSecrets(text)` — the same rule over free-form text (stderr, an error string).
+- `util.RedactErr(err)` — masks an error's message, keeping the chain for `errors.Is/As`.
+
+Every error path in `util/shell.go` already runs both, `Job.MarkFailed` scrubs before the
+error is persisted, and `persistence.SQLStore` scrubs on read plus rewrites legacy rows at
+startup. Add to the keyword list rather than writing a second redactor — the per-engine
+`sanitizeArgs` helpers delegate here. A `jobs.Job.Error` is persisted **and** served by
+`/api/jobs`; treat it as public. (Issue #133.)
+
 **2. Validate user input**:
 
 ```go
