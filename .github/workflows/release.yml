@@ -66,21 +66,15 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Release version: ${VERSION}"
 
-      - name: Build web frontend
-        run: |
-          cd apps/web
-          bun install --frozen-lockfile
-          bun run build
-          cd ../..
-          echo "✅ Web frontend built successfully"
-          ls -lh apps/web/dist/
-
-      - name: Copy web dist to embed location
-        run: |
-          mkdir -p apps/api/internal/web
-          rm -rf apps/api/internal/web/dist
-          cp -r apps/web/dist apps/api/internal/web/dist
-          echo "✅ Web frontend copied to apps/api/internal/web/dist for embedding"
+      # No "build web / copy dist" steps here on purpose. They used to
+      # duplicate .goreleaser.yml's `before` hooks verbatim, and that
+      # duplication broke every release (#115): the copy step's
+      # `rm -rf apps/api/internal/web/dist` deleted the tracked .gitkeep
+      # (#78), and GoReleaser validates git state *before* running its own
+      # hooks — so it saw a dirty tree and aborted. Building the UI only
+      # inside the hooks leaves the tree pristine at validation time, and
+      # makes CI run exactly what `goreleaser release --clean` runs locally.
+      # The Bun setup above is what those hooks need on PATH.
 
       # SHA-pinned: runs with `contents: write` and GITHUB_TOKEN, and publishes
       # the release artifacts. See #85.
