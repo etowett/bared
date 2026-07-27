@@ -86,7 +86,14 @@ jobs:
         id: get_tag
         if: steps.check_skip.outputs.skip == 'false'
         run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          # --match is load-bearing. Every release also pushes a module tag
+          # (apps/api/vX.Y.Z — see "Create and push tags" below), and a bare
+          # `git describe --tags --abbrev=0` returns THAT one: git sorts the two
+          # tags on the same commit and "apps/api/v0.5.0" wins. The next step
+          # would then strip the leading "v" off nothing, split "apps/api/v0" on
+          # ".", and do arithmetic on a non-number. Restricting to root vX.Y.Z
+          # tags keeps the version maths reading the version tags only.
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "v0.0.0")
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "Latest tag: ${LATEST_TAG}"
 
@@ -148,19 +155,45 @@ jobs:
           echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
           echo "Next version: ${NEXT_VERSION}"
 
-      - name: Create and push tag
+      # Every release pushes TWO tags for the same commit:
+      #
+      #   vX.Y.Z            the release tag. Triggers release.yml -> GoReleaser
+      #                     -> GitHub release -> docker.yml. This is the tag
+      #                     humans and the changelog refer to.
+      #   apps/api/vX.Y.Z   the Go module tag. go.mod lives at apps/api/, so the
+      #                     module is github.com/etowett/bared/apps/api, and Go
+      #                     only accepts tags prefixed with the module's
+      #                     subdirectory as versions of it. Without this tag
+      #                     `go install .../cmd/brd@latest` silently installs a
+      #                     pseudo-version of main's tip instead of the release,
+      #                     and `@vX.Y.Z` fails outright with
+      #                     "unknown revision apps/api/vX.Y.Z". See issue #106.
+      #
+      # --atomic is what keeps them from drifting: git either updates both refs
+      # or neither, so a re-run that collides on one tag cannot leave the other
+      # half-published. Without it, a rejected module tag would still leave a
+      # release tag behind and ship a release `go install` cannot see.
+      #
+      # This does NOT double-fire release.yml. That workflow filters on
+      # `tags: v*.*.*`, and GitHub's ref filter `*` does not match `/`, so
+      # `apps/api/v0.5.0` fails the pattern (it does not even start with "v").
+      # Only the vX.Y.Z ref triggers a build.
+      - name: Create and push tags
         if: steps.check_skip.outputs.skip == 'false'
         run: |
           NEXT_VERSION="${{ steps.next_version.outputs.next_version }}"
+          MODULE_TAG="apps/api/${NEXT_VERSION}"
           PR_TITLE=$(gh pr view ${{ steps.pr.outputs.pr_number }} --json title --jq '.title')
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git tag -a "${NEXT_VERSION}" -m "Release ${NEXT_VERSION}" -m "" -m "${PR_TITLE}"
-          git push origin "${NEXT_VERSION}"
+          git tag -a "${MODULE_TAG}" -m "Release ${NEXT_VERSION}" -m "" -m "${PR_TITLE}"
 
-          echo "✅ Created and pushed tag: ${NEXT_VERSION}"
+          git push --atomic origin "${NEXT_VERSION}" "${MODULE_TAG}"
+
+          echo "✅ Created and pushed tags: ${NEXT_VERSION} and ${MODULE_TAG}"
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
 
@@ -173,6 +206,7 @@ jobs:
           echo "**Previous:** ${{ steps.get_tag.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "**Bump Type:** ${{ steps.version_bump.outputs.bump }}" >> $GITHUB_STEP_SUMMARY
           echo "**PR:** #${{ steps.pr.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags pushed:** \`${{ steps.next_version.outputs.next_version }}\` (release) + \`apps/api/${{ steps.next_version.outputs.next_version }}\` (Go module)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The release workflow will now build binaries and create a GitHub release." >> $GITHUB_STEP_SUMMARY
 

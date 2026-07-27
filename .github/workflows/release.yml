@@ -92,6 +92,15 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Two tags point at the release commit — vX.Y.Z and the Go module tag
+          # apps/api/vX.Y.Z (see auto-release.yml). Left to itself GoReleaser
+          # picks the first of `git tag --sort=-version:refname`, which happens
+          # to be vX.Y.Z only because "apps/..." sorts before "v...". That is an
+          # accident of the prefix, not a guarantee, and it decides the release
+          # name, the archive names and the version stamped into the binary.
+          # This workflow only ever runs for a v*.*.* tag, so github.ref_name is
+          # the tag we mean — pin it instead of relying on the sort.
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
 
       - name: Generate summary
         run: |

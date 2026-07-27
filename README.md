@@ -57,6 +57,9 @@ and treat the encryption key as the sensitive material it is.
 # Install the latest release with Go
 go install github.com/etowett/bared/apps/api/cmd/brd@latest
 
+# Or pin a version
+go install github.com/etowett/bared/apps/api/cmd/brd@v0.5.0
+
 # Or build from a clone (embeds the web dashboard)
 make build
 
@@ -64,11 +67,15 @@ make build
 go -C apps/api build -o "$PWD/bin/brd" ./cmd/brd
 ```
 
-> Two caveats with `go install`: it builds without the release ldflags, so `brd --version`
-> reports `dev`; and because the module is rooted at `apps/api/`, Go only treats
-> `apps/api/vX.Y.Z` tags as releases — the repo tags `vX.Y.Z`, so `@latest` resolves to the
-> tip of `main` rather than the last release. For a stamped, released build use `make build`,
-> a release binary, or the Docker image.
+> **How versions resolve.** `go.mod` lives at `apps/api/`, so the module is
+> `github.com/etowett/bared/apps/api` and Go only accepts tags carrying that subdirectory
+> prefix as versions of it. Each release therefore pushes two tags for the same commit:
+> `vX.Y.Z` (the GitHub release) and `apps/api/vX.Y.Z` (the Go module version). You still
+> write `@v0.5.0` — Go adds the `apps/api/` prefix when it looks the tag up.
+>
+> A `go install`ed binary reports its version, recovered from the build info the Go toolchain
+> embeds, but not a commit or build date: builds served from the module proxy carry no VCS
+> stamps. `make build`, the release binaries and the Docker image report all three.
 
 ### Configuration
 

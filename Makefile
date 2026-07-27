@@ -22,7 +22,11 @@ BUN ?= bun
 # Build variables
 BINARY_NAME=brd
 BIN_DIR=bin
-VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# --match is load-bearing: releases also push an apps/api/vX.Y.Z Go module tag
+# (see .github/workflows/auto-release.yml), and a bare `git describe` picks that
+# one over vX.Y.Z, stamping the binary "apps/api/v0.5.0-2-gabc1234". Restrict to
+# root version tags so `brd --version` reports a version and not a module path.
+VERSION=$(shell git describe --tags --always --dirty --match 'v[0-9]*' 2>/dev/null || echo "dev")
 COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X github.com/etowett/bared/apps/api/internal/version.Version=${VERSION} -X github.com/etowett/bared/apps/api/internal/version.Commit=${COMMIT} -X github.com/etowett/bared/apps/api/internal/version.BuildDate=${BUILD_TIME}"
