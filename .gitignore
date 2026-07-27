@@ -91,6 +91,9 @@ temp/
 .claude/settings.local.json
 .claude/*.local.json
 .claude/local/
+# Scratch git worktrees created for parallel agent sessions. They are real
+# checkouts of this repo, so committing one would nest the tree inside itself.
+.claude/worktrees/
 
 # Codex CLI — mirrors .claude/. Codex writes a lot of local state into .codex/,
 # so ignore the directory and re-include only what's shared.
