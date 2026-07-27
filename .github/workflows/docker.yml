@@ -29,9 +29,16 @@ jobs:
     if: github.repository == 'etowett/bared' && (github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch')
 
     steps:
+      # Pin the checkout to the commit the Release run was built from. Without a
+      # `ref` this took whatever the default branch HEAD was at the moment the
+      # workflow_run fired, so an image tagged vX.Y.Z could contain commits that
+      # are not in vX.Y.Z. workflow_dispatch carries no workflow_run payload, so
+      # fall back to github.sha — the SHA of the ref the dispatch was aimed at,
+      # which is exactly what the operator selected.
       - name: Checkout code
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Extract version metadata
@@ -43,26 +50,28 @@ jobs:
           BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
 
-          if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            git fetch --tags
-            VERSION=$(git tag --sort=-creatordate | head -n 1)
-            if [[ "$VERSION" == v*.*.* ]]; then
-              echo "version=${VERSION}" >> $GITHUB_OUTPUT
-              echo "is_tag=true" >> $GITHUB_OUTPUT
-            else
-              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
-              echo "is_tag=false" >> $GITHUB_OUTPUT
-            fi
+          # Both trigger paths resolve the version from the checked-out commit
+          # rather than from "newest tag anywhere in the repo". The old
+          # workflow_run branch used `git tag --sort=-creatordate | head -n 1`,
+          # which on a busy main could name a tag the checkout does not contain.
+          git fetch --tags --force
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
+          if [[ "$VERSION" == v*.*.* ]]; then
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
           else
-            VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "main-${COMMIT_SHA}")
-            if [[ "$VERSION" == v*.*.* ]]; then
-              echo "version=${VERSION}" >> $GITHUB_OUTPUT
-              echo "is_tag=true" >> $GITHUB_OUTPUT
-            else
-              echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
-              echo "is_tag=false" >> $GITHUB_OUTPUT
-            fi
+            echo "version=main-${COMMIT_SHA}" >> $GITHUB_OUTPUT
+            echo "is_tag=false" >> $GITHUB_OUTPUT
           fi
+
+      # The Dockerfile builds with CGO_ENABLED=1 and no cross-compilation setup,
+      # so linux/arm64 is produced under emulation. This is the same QEMU step
+      # that produced the multi-arch v0.3.0-v0.3.3 images; it was dropped in #38
+      # and arm64 support went with it.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -96,7 +105,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
