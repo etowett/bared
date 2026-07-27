@@ -25,8 +25,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      # SHA-pinned: this action runs with `issues: write`. A retagged v6 would
+      # inherit that. Dependabot's github-actions ecosystem updates SHA pins and
+      # rewrites the version comment, so this stays current.
       - name: Sync labels
-        uses: crazy-max/ghaction-github-labeler@v6
+        uses: crazy-max/ghaction-github-labeler@548a7c3603594ec17c819e1239f281a3b801ab4d # v6.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           yaml-file: .github/release-labels.yml

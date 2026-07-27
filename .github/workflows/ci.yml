@@ -81,7 +81,10 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          # Pinned rather than `latest`: a new golangci-lint release turns green
+          # CI red with no change on our side, and `latest` re-resolves on every
+          # run. Bump deliberately.
+          version: v2.12.2
           working-directory: apps/api
           args: --timeout=5m
 

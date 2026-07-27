@@ -91,6 +91,9 @@ jobs:
           mkdir -p apps/api/internal/web/dist
           echo "placeholder" > apps/api/internal/web/dist/.placeholder
 
+      # Pinned rather than `@latest`: `latest` re-resolves an unreviewed version
+      # of a tool that runs in CI on every invocation. The advisory database is
+      # fetched at run time, so pinning the scanner does not stale the findings.
       - name: Run govulncheck
         working-directory: apps/api
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
