@@ -122,9 +122,15 @@ const apiFetch = async (url: string, options: RequestInit = {}) => {
 
 // API methods
 export const apiClient = {
-  // Health check
+  // Health check. Unauthenticated on purpose: the header's reachability
+  // indicator must be able to tell "daemon is down" from "session expired", so
+  // a non-2xx has to reject rather than resolve with whatever body came back.
   async health(): Promise<{ status: string; version: string }> {
-    return fetch('/api/health').then((r) => r.json())
+    const response = await fetch('/api/health')
+    if (!response.ok) {
+      throw new Error(`Daemon health check failed (${response.status})`)
+    }
+    return response.json()
   },
 
   // Dashboard

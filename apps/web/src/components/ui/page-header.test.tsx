@@ -1,19 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '../../test/utils'
-
-// The header links with TanStack Router; routing itself is covered by
-// `routes/routes.test.tsx`, so here the Link is reduced to an anchor.
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, children, ...props }: any) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-}))
-
 import { PageHeader } from './page-header'
 import { StatusBadge } from './status-badge'
+
+// The router is real: `test/utils.tsx` supplies one, so the breadcrumb renders
+// a real `<Link>` and the href it resolves to is the thing under test. Add a
+// path to that wrapper's stub tree when a crumb needs a new destination.
 
 describe('PageHeader', () => {
   it('renders the title as the single level-2 heading', () => {

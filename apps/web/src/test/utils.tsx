@@ -30,9 +30,17 @@ const createTestQueryClient = () =>
 // route modules' own imports; add a path here when a test needs to link to it.
 const stubRootRoute = createRootRoute()
 const stubRouteTree = stubRootRoute.addChildren(
-  ['/', '/config', '/config/import', '/jobs', '/backup/jobs', '/restore/jobs'].map((path) =>
-    createRoute({ getParentRoute: () => stubRootRoute, path })
-  )
+  [
+    '/',
+    '/config',
+    '/config/import',
+    '/jobs',
+    '/jobs/$id',
+    '/backup',
+    '/backup/jobs',
+    '/restore',
+    '/restore/jobs',
+  ].map((path) => createRoute({ getParentRoute: () => stubRootRoute, path }))
 )
 
 const createTestRouter = () =>

@@ -51,7 +51,8 @@ export function TargetList({ targets }: TargetListProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      {/* Same floor as JobList: scroll sideways rather than crush the cells. */}
+      <Table className="min-w-[52rem]">
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
