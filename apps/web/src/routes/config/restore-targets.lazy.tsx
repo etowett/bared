@@ -1,6 +1,5 @@
-import { SourceBadge } from '@/components/config/SourceBadge'
-import { TargetForm } from '@/components/config/TargetForm'
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
+import { createLazyFileRoute } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -11,33 +10,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { RestoreTargetForm } from '@/components/config/RestoreTargetForm'
+import { SourceBadge } from '@/components/config/SourceBadge'
 import {
-  useCreateTargetConfig,
-  useDeleteTargetConfig,
-  useTargetsConfig,
-  useUpdateTargetConfig,
+  useRestoreTargetsConfig,
+  useCreateRestoreTargetConfig,
+  useUpdateRestoreTargetConfig,
+  useDeleteRestoreTargetConfig,
 } from '@/hooks/useConfig'
 import { useConfirm } from '@/hooks/useConfirm'
-import type { ConfigSource, ConnectionConfig, TargetConfig, TargetConfigRequest } from '@/types'
-import { createFileRoute } from '@tanstack/react-router'
-import { Calendar, Database, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, Pencil, Trash2, ArrowDownToLine } from 'lucide-react'
+import type {
+  RestoreTargetConfig,
+  RestoreTargetConfigRequest,
+  ConfigSource,
+  ConnectionConfig,
+} from '@/types'
 
-export const Route = createFileRoute('/config/targets')({
-  component: TargetsPage,
+export const Route = createLazyFileRoute('/config/restore-targets')({
+  component: RestoreTargetsPage,
 })
 
-export function TargetsPage() {
+export function RestoreTargetsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingTarget, setEditingTarget] = useState<TargetConfig | undefined>(undefined)
+  const [editingTarget, setEditingTarget] = useState<RestoreTargetConfig | undefined>(undefined)
 
-  const { data, isLoading, error } = useTargetsConfig()
-  const createMutation = useCreateTargetConfig()
-  const updateMutation = useUpdateTargetConfig()
-  const deleteMutation = useDeleteTargetConfig()
+  const { data, isLoading, error } = useRestoreTargetsConfig()
+  const createMutation = useCreateRestoreTargetConfig()
+  const updateMutation = useUpdateRestoreTargetConfig()
+  const deleteMutation = useDeleteRestoreTargetConfig()
   const { confirm } = useConfirm()
 
-  const targets = data?.targets ?? []
+  const targets = data?.restore_targets ?? []
   const source: ConfigSource = (data?.source as ConfigSource) ?? 'yaml'
 
   const handleCreate = () => {
@@ -45,14 +50,14 @@ export function TargetsPage() {
     setIsFormOpen(true)
   }
 
-  const handleEdit = (target: TargetConfig) => {
+  const handleEdit = (target: RestoreTargetConfig) => {
     setEditingTarget(target)
     setIsFormOpen(true)
   }
 
-  const handleDelete = async (target: TargetConfig) => {
+  const handleDelete = async (target: RestoreTargetConfig) => {
     const confirmed = await confirm({
-      title: 'Delete Target',
+      title: 'Delete Restore Target',
       description: `Are you sure you want to delete "${target.name}"? This action cannot be undone.`,
     })
 
@@ -60,12 +65,12 @@ export function TargetsPage() {
       try {
         await deleteMutation.mutateAsync(target.name)
       } catch (err) {
-        console.error('Failed to delete target:', err)
+        console.error('Failed to delete restore target:', err)
       }
     }
   }
 
-  const handleSubmit = async (targetData: TargetConfigRequest) => {
+  const handleSubmit = async (targetData: RestoreTargetConfigRequest) => {
     if (editingTarget) {
       await updateMutation.mutateAsync({
         name: editingTarget.name,
@@ -93,21 +98,21 @@ export function TargetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Target Management</h2>
+          <h2 className="text-2xl font-semibold">Restore Target Management</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Configure backup targets with database connections and schedules
+            Configure restore destinations for testing and recovery
           </p>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Target
+          Add Restore Target
         </Button>
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>
-            {targets.length} Target{targets.length !== 1 ? 's' : ''}
+            {targets.length} Restore Target{targets.length !== 1 ? 's' : ''}
           </CardTitle>
           <SourceBadge source={source} />
         </CardHeader>
@@ -115,18 +120,19 @@ export function TargetsPage() {
           {error ? (
             <div className="text-center py-12">
               <div className="text-destructive mb-4">
-                Failed to load targets: {error instanceof Error ? error.message : String(error)}
+                Failed to load restore targets:{' '}
+                {error instanceof Error ? error.message : String(error)}
               </div>
             </div>
           ) : isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">Loading targets...</div>
+            <div className="text-center py-6 text-muted-foreground">Loading restore targets...</div>
           ) : targets.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No backup targets configured</p>
+              <ArrowDownToLine className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No restore targets configured</p>
               <Button onClick={handleCreate} variant="outline" className="mt-4">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Your First Target
+                Add Your First Restore Target
               </Button>
             </div>
           ) : (
@@ -136,8 +142,8 @@ export function TargetsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Connection</TableHead>
+                  <TableHead>Source Target</TableHead>
                   <TableHead>Storage</TableHead>
-                  <TableHead>Schedule</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -147,7 +153,14 @@ export function TargetsPage() {
                   const conn = target.connection as ConnectionConfig
                   return (
                     <TableRow key={target.name}>
-                      <TableCell className="font-medium">{target.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div>
+                          <div>{target.name}</div>
+                          {target.description && (
+                            <div className="text-xs text-gray-500 mt-1">{target.description}</div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge className={getTypeBadgeColor(conn.type)}>
                           {conn.type?.toUpperCase()}
@@ -167,21 +180,18 @@ export function TargetsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {target.source_target ? (
+                          <Badge variant="outline" className="text-xs">
+                            {target.source_target}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-gray-500">Any</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <span className="text-sm">
                           {target.storage_name || <span className="text-gray-500">Default</span>}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        {target.schedule ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-3 w-3" />
-                            <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">
-                              {target.schedule}
-                            </code>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-500">Manual only</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         {target.enabled ? (
@@ -227,7 +237,7 @@ export function TargetsPage() {
         </CardContent>
       </Card>
 
-      <TargetForm
+      <RestoreTargetForm
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         target={editingTarget}

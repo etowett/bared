@@ -12,11 +12,11 @@ import {
 } from '@/components/ui/select'
 import { useJobs } from '@/hooks/useJobs'
 import type { Job } from '@/types'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-export const Route = createFileRoute('/backup/jobs')({
+export const Route = createLazyFileRoute('/backup/jobs')({
   component: BackupJobsPage,
 })
 
