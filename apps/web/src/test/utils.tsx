@@ -34,6 +34,7 @@ const stubRouteTree = stubRootRoute.addChildren(
     '/',
     '/config',
     '/config/import',
+    '/config/targets',
     '/jobs',
     '/jobs/$id',
     '/backup',

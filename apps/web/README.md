@@ -72,7 +72,7 @@ apps/web/
 │   ├── api/
 │   │   └── client.ts          # API client with auth
 │   ├── components/
-│   │   ├── Dashboard.tsx      # Main dashboard layout
+│   │   ├── dashboard/         # Operator Overview panels (routes/index.tsx)
 │   │   ├── TargetList.tsx     # List of backup targets
 │   │   ├── JobList.tsx        # Job history table
 │   │   ├── JobDetail.tsx      # Job details modal
