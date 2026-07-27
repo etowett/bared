@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"bared/internal/config"
-	"bared/internal/encryption"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/encryption"
 )
 
 // Service handles configuration storage and retrieval

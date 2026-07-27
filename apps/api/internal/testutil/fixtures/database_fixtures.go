@@ -2,7 +2,7 @@
 package fixtures
 
 import (
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // MySQLConnection returns a valid MySQL connection config for testing

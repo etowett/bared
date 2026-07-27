@@ -152,9 +152,9 @@ Key sections:
 3. **LDFLAGS:** Version injection
    ```yaml
    ldflags:
-     - -X bared/internal/version.Version={{.Version}}
-     - -X bared/internal/version.Commit={{.ShortCommit}}
-     - -X bared/internal/version.BuildDate={{.Date}}
+     - -X github.com/etowett/bared/apps/api/internal/version.Version={{.Version}}
+     - -X github.com/etowett/bared/apps/api/internal/version.Commit={{.ShortCommit}}
+     - -X github.com/etowett/bared/apps/api/internal/version.BuildDate={{.Date}}
    ```
 
 4. **Archives:** Platform-specific formats

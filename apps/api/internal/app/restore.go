@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"bared/internal/compress"
-	"bared/internal/config"
-	"bared/internal/database"
-	"bared/internal/notify"
-	"bared/internal/storage"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/compress"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/database"
+	"github.com/etowett/bared/apps/api/internal/notify"
+	"github.com/etowett/bared/apps/api/internal/storage"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // RestoreOptions contains options for restore operations

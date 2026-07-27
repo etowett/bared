@@ -4,7 +4,7 @@ package notify
 import (
 	"fmt"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // New creates a new notifier based on the configuration

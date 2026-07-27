@@ -47,7 +47,7 @@ ARG BUILD_DATE=unknown
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=1 go build \
-    -ldflags "-X bared/internal/version.Version=${VERSION} -X bared/internal/version.Commit=${COMMIT} -X bared/internal/version.BuildDate=${BUILD_DATE}" \
+    -ldflags "-X github.com/etowett/bared/apps/api/internal/version.Version=${VERSION} -X github.com/etowett/bared/apps/api/internal/version.Commit=${COMMIT} -X github.com/etowett/bared/apps/api/internal/version.BuildDate=${BUILD_DATE}" \
     -o brd ./cmd/brd
 
 # Stage 3: Runtime

@@ -17,8 +17,8 @@ import (
     "context"
     "fmt"
     "io"
-    "bared/internal/config"
-    "bared/internal/util"
+    "github.com/etowett/bared/apps/api/internal/config"
+    "github.com/etowett/bared/apps/api/internal/util"
 )
 
 type MongoDB struct {
@@ -165,7 +165,7 @@ import (
     "testing"
     "context"
     "bytes"
-    "bared/internal/config"
+    "github.com/etowett/bared/apps/api/internal/config"
     "github.com/stretchr/testify/assert"
 )
 

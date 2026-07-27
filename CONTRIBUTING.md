@@ -67,8 +67,9 @@ bared/
 
 > **Where to run commands.** The `Makefile` at the repo root drives everything and already
 > knows where each app lives — prefer it. If you invoke Go directly, run it from `apps/api/`
-> (or use `go -C apps/api …`), and Bun from `apps/web/`. The Go module is still named `bared`,
-> so import paths are unchanged: `bared/internal/storage`, `bared/cmd/brd`.
+> (or use `go -C apps/api …`), and Bun from `apps/web/`. The Go module path is
+> `github.com/etowett/bared/apps/api`, so imports look like
+> `github.com/etowett/bared/apps/api/internal/storage` and `github.com/etowett/bared/apps/api/cmd/brd`.
 
 ## Development Workflow
 

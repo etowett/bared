@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/app"
+	"github.com/etowett/bared/apps/api/internal/app"
 )
 
 func TestNewJob(t *testing.T) {

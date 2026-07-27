@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // Secret represents a key-value pair to be encrypted

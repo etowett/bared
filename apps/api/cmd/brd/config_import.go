@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"bared/internal/client"
-	"bared/internal/config"
-	"bared/internal/configservice"
+	"github.com/etowett/bared/apps/api/internal/client"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/configservice"
 )
 
 var configCmd = &cobra.Command{

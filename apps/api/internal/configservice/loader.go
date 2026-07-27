@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // Loader handles loading configuration from database or YAML fallback

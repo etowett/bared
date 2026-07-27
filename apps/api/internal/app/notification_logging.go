@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 func notifierDestination(cfg *config.Notifier) string {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // authContext is the authenticated identity attached to a request.

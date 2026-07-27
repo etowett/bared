@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"bared/internal/app"
+	"github.com/etowett/bared/apps/api/internal/app"
 )
 
 // JobID is a unique identifier for a job

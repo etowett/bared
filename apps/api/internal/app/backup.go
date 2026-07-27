@@ -7,13 +7,13 @@ import (
 	"io"
 	"time"
 
-	"bared/internal/compress"
-	"bared/internal/config"
-	"bared/internal/database"
-	"bared/internal/notify"
-	"bared/internal/retention"
-	"bared/internal/storage"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/compress"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/database"
+	"github.com/etowett/bared/apps/api/internal/notify"
+	"github.com/etowett/bared/apps/api/internal/retention"
+	"github.com/etowett/bared/apps/api/internal/storage"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // BackupResult contains information about a backup operation

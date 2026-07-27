@@ -387,7 +387,7 @@ import (
     "bytes"
     "context"
     "testing"
-    "bared/internal/config"
+    "github.com/etowett/bared/apps/api/internal/config"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )
@@ -794,8 +794,8 @@ package app
 import (
     "context"
     "testing"
-    "bared/internal/config"
-    "bared/internal/testutil"
+    "github.com/etowett/bared/apps/api/internal/config"
+    "github.com/etowett/bared/apps/api/internal/testutil"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // newKeyTestDB returns an empty in-memory DB with just the encryption_keys

@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 
-	"bared/internal/jobs"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/jobs"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // upgrader builds the WebSocket upgrader for this server.

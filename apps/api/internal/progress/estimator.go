@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"bared/internal/config"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // EstimateDatabaseSize estimates the size of a database before backup

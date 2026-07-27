@@ -1,7 +1,7 @@
 package fixtures
 
 import (
-	"bared/internal/config"
+	"github.com/etowett/bared/apps/api/internal/config"
 )
 
 // LocalStorage returns a valid local storage config for testing

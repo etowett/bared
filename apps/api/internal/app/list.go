@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"bared/internal/config"
-	"bared/internal/storage"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/storage"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // ListBackups lists all backups for a target

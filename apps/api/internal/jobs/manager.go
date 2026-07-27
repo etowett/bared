@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"bared/internal/app"
-	"bared/internal/config"
-	"bared/internal/configservice"
-	"bared/internal/notify"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/app"
+	"github.com/etowett/bared/apps/api/internal/config"
+	"github.com/etowett/bared/apps/api/internal/configservice"
+	"github.com/etowett/bared/apps/api/internal/notify"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // Manager orchestrates job queue, worker pool, and lifecycle

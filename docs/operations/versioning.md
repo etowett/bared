@@ -67,9 +67,9 @@ COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_DATE=$(date -u '+%Y-%m-%d_%H:%M:%S')
 
 go build -ldflags "\
-  -X bared/internal/version.Version=${VERSION} \
-  -X bared/internal/version.Commit=${COMMIT} \
-  -X bared/internal/version.BuildDate=${BUILD_DATE}" \
+  -X github.com/etowett/bared/apps/api/internal/version.Version=${VERSION} \
+  -X github.com/etowett/bared/apps/api/internal/version.Commit=${COMMIT} \
+  -X github.com/etowett/bared/apps/api/internal/version.BuildDate=${BUILD_DATE}" \
   -o brd ./cmd/brd
 ```
 
@@ -238,7 +238,7 @@ go build -o brd ./cmd/brd
 ### Check if Version is Development
 
 ```go
-import "bared/internal/version"
+import "github.com/etowett/bared/apps/api/internal/version"
 
 if version.Version == "dev" {
     log.Println("Running development build")
@@ -249,7 +249,7 @@ if version.Version == "dev" {
 
 ```go
 import (
-    "bared/internal/version"
+    "github.com/etowett/bared/apps/api/internal/version"
     "github.com/hashicorp/go-version"
 )
 

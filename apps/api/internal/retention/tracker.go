@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"bared/internal/storage"
-	"bared/internal/util"
+	"github.com/etowett/bared/apps/api/internal/storage"
+	"github.com/etowett/bared/apps/api/internal/util"
 )
 
 // BackupRecord represents a backup in the tracker

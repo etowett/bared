@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"bared/internal/database"
+	"github.com/etowett/bared/apps/api/internal/database"
 )
 
 // MockDumper is a mock implementation of the database.Dumper interface
