@@ -1,8 +1,12 @@
 # BareD (Backup-Restore Daemon) - Implementation Plan
 
+> **Historical document.** This is the original design plan that guided BareD's
+> initial development. It is kept for context; it is not maintained and may not
+> match the current code. Start at [docs/README.md](../README.md) instead.
+
 ## Executive Summary
 
-BareD is a production-ready backup/restore daemon to be built from scratch in Go, inspired by gobackup but simplified for your specific needs. Target: ~2-3K lines of clean, maintainable code.
+BareD is a backup/restore daemon built from scratch in Go, inspired by gobackup but deliberately narrower in scope. Target: ~2-3K lines of clean, maintainable code.
 
 **Core Features:**
 
