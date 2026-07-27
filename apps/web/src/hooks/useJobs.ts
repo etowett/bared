@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../api/client'
 
 interface UseJobsFilters {
@@ -16,6 +16,9 @@ export function useJobs(filters?: UseJobsFilters) {
     queryFn: () => apiClient.getJobs(filters),
     refetchInterval: 3000, // Auto-refresh every 3 seconds for real-time updates
     staleTime: 1000,
+    // Changing a filter or page keeps the current rows on screen while the new
+    // ones load, instead of collapsing the table to a skeleton every keystroke.
+    placeholderData: keepPreviousData,
   })
 }
 

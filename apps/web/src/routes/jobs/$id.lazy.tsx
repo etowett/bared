@@ -1,8 +1,11 @@
 import { JobDetailContent } from '@/components/JobDetailContent'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { PageHeader } from '@/components/ui/page-header'
+import { Skeleton } from '@/components/ui/skeleton'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { useJob } from '@/hooks/useJobs'
-import { createLazyFileRoute, useNavigate } from '@tanstack/react-router'
+import { createLazyFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 
 export const Route = createLazyFileRoute('/jobs/$id')({
@@ -11,51 +14,82 @@ export const Route = createLazyFileRoute('/jobs/$id')({
 
 export function JobDetailPage() {
   const { id } = Route.useParams()
-  const navigate = useNavigate()
-  const { data: job, isLoading, error } = useJob(id)
+  const { data: job, isPending, error } = useJob(id)
+  const shortId = id.slice(0, 8)
 
-  if (isLoading) {
-    return <div className="text-center py-12 text-muted-foreground">Loading job details...</div>
-  }
-
-  if (error || !job) {
+  if (isPending) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate({ to: '/' })}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-        </div>
+        <PageHeader
+          breadcrumbs={[
+            { label: 'Jobs', to: '/jobs' },
+            { label: shortId, mono: true },
+          ]}
+          title={`Job ${shortId}`}
+        />
         <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              Job not found. The job may have been deleted or the ID is incorrect.
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ))}
             </div>
+            <Skeleton className="h-64 w-full" />
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  const getBackLink = () => {
-    if (job.type === 'backup') {
-      return '/backup/jobs'
-    } else if (job.type === 'restore') {
-      return '/restore/jobs'
-    }
-    return '/'
+  if (error || !job) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          breadcrumbs={[
+            { label: 'Jobs', to: '/jobs' },
+            { label: shortId, mono: true },
+          ]}
+          title="Job not found"
+          description="The job may have been deleted, or the id in the address is wrong."
+          actions={
+            <Button asChild variant="outline">
+              <Link to="/jobs">
+                <ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" />
+                All jobs
+              </Link>
+            </Button>
+          }
+        />
+      </div>
+    )
   }
+
+  // Breadcrumbs, not history: a back button lands wherever the user came from,
+  // which after a deep link is somewhere else entirely.
+  const historyCrumb =
+    job.type === 'restore'
+      ? ({ label: 'Restore history', to: '/restore/jobs' } as const)
+      : ({ label: 'Backup history', to: '/backup/jobs' } as const)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => navigate({ to: getBackLink() })}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Job History
-        </Button>
-        <h2 className="text-2xl font-semibold">Job Details: {job.id.slice(0, 8)}...</h2>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Jobs', to: '/jobs' }, historyCrumb, { label: shortId, mono: true }]}
+        title={`Job ${shortId}`}
+        description={`${job.type === 'restore' ? 'Restore' : 'Backup'} of ${job.target}`}
+        status={<StatusBadge status={job.status} />}
+        actions={
+          <Button asChild variant="outline">
+            <Link to={historyCrumb.to}>
+              <ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" />
+              Back to Job History
+            </Link>
+          </Button>
+        }
+      />
 
       <Card>
         <CardContent className="pt-6">

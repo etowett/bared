@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import {
@@ -69,7 +68,7 @@ export function TargetList({ targets }: TargetListProps) {
             <TableRow key={target.name}>
               <TableCell className="font-medium">{target.name}</TableCell>
               <TableCell>
-                <Badge variant="outline">{target.type}</Badge>
+                <StatusBadge kind="database" status={target.type} />
               </TableCell>
               <TableCell className="font-mono text-sm">{target.database}</TableCell>
               <TableCell>
@@ -80,8 +79,8 @@ export function TargetList({ targets }: TargetListProps) {
                   <div className="flex flex-col gap-0.5">
                     <span>{describeSchedule(target.schedule, target.next_scheduled)}</span>
                     {/* The cron line states the daemon's zone; this one is the
-                          same schedule in the viewer's, which is what someone
-                          actually wants to know. */}
+                        same schedule in the viewer's, which is what someone
+                        actually wants to know. */}
                     {target.next_scheduled && (
                       <span className="text-xs text-muted-foreground">
                         next {formatNextRun(target.next_scheduled)}

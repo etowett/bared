@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import {
@@ -99,40 +98,12 @@ export function JobList({
               <TableCell>{job.type}</TableCell>
               <TableCell>{job.target}</TableCell>
               <TableCell>
-                <div className="flex items-center gap-2">
-                  <StatusBadge
-                    status={
-                      job.status as
-                        | 'running'
-                        | 'idle'
-                        | 'queued'
-                        | 'completed'
-                        | 'failed'
-                        | 'cancelled'
-                        | 'cancelling'
-                    }
-                  />
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={job.status} />
                   {job.triggered_by === 'schedule' ? (
-                    <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs flex items-center gap-1">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Scheduled
-                    </Badge>
+                    <StatusBadge kind="trigger" status="schedule" />
                   ) : job.manual ? (
-                    <Badge className="bg-terminal-warning/20 text-terminal-yellow border border-terminal-warning/30 text-xs">
-                      Manual
-                    </Badge>
+                    <StatusBadge kind="trigger" status="manual" />
                   ) : null}
                 </div>
               </TableCell>

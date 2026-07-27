@@ -41,16 +41,59 @@
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
 
-  --color-success: #10b981;
-  --color-success-foreground: #ffffff;
+  /*
+    Semantic status tokens. Each status has three roles:
+      --color-x            the signal colour — legible as *text* on both
+                           `background`/`card` and on `x-subtle`
+      --color-x-foreground text sitting on top of a solid `--color-x` fill
+      --color-x-subtle     the tinted surface a soft status pill sits on
+    Every pair is verified at >= 4.5:1 in both themes (see the PR body).
+    Status is never carried by colour alone — `StatusBadge` always pairs the
+    tint with a glyph and a word.
+  */
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-success-subtle: hsl(var(--success-subtle));
 
-  --color-warning: #f59e0b;
-  --color-warning-foreground: #ffffff;
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-warning-subtle: hsl(var(--warning-subtle));
 
-  --color-terminal-success: hsl(142 76% 46%);
-  --color-terminal-error: hsl(0 72% 60%);
-  --color-terminal-info: hsl(188 94% 60%);
-  --color-terminal-warning: hsl(38 92% 50%);
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-info-subtle: hsl(var(--info-subtle));
+
+  --color-danger: hsl(var(--danger));
+  --color-danger-foreground: hsl(var(--danger-foreground));
+  --color-danger-subtle: hsl(var(--danger-subtle));
+
+  /*
+    The log viewer is machine output, so it keeps its own fixed dark slab in
+    both themes rather than following the page. These are the single source for
+    it — nothing should hardcode a slate value alongside them.
+  */
+  --color-terminal: hsl(var(--terminal));
+  --color-terminal-foreground: hsl(var(--terminal-foreground));
+  --color-terminal-muted: hsl(var(--terminal-muted));
+  --color-terminal-border: hsl(var(--terminal-border));
+  --color-terminal-success: hsl(var(--terminal-success));
+  --color-terminal-error: hsl(var(--terminal-error));
+  --color-terminal-warning: hsl(var(--terminal-warning));
+  --color-terminal-info: hsl(var(--terminal-info));
+  --color-terminal-debug: hsl(var(--terminal-debug));
+
+  /*
+    Typography scale. Page title 28 · section 18 · card 15 · metric 30, so a
+    card title can never compete with the page heading again.
+  */
+  --text-page-title: 1.75rem;
+  --text-page-title--line-height: 2.125rem;
+  --text-section-title: 1.125rem;
+  --text-section-title--line-height: 1.625rem;
+  --text-card-title: 0.9375rem;
+  --text-card-title--line-height: 1.375rem;
+  --text-metric: 1.875rem;
+  --text-metric--line-height: 2.25rem;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -79,37 +122,12 @@
   }
 }
 
-/* Terminal color utilities */
-
-@utility font-mono-terminal {
-  font-family:
-    'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
-}
-
-@utility text-terminal-green {
-  color: hsl(142 76% 46%);
-}
-
-@utility text-terminal-red {
-  color: hsl(0 72% 60%);
-}
-
-@utility text-terminal-cyan {
-  color: hsl(188 94% 60%);
-}
-
-@utility text-terminal-yellow {
-  color: hsl(38 92% 50%);
-}
-
-@utility bg-terminal-dark {
-  background-color: hsl(218 18% 12%);
-}
-
-/* Custom terminal/logs styling */
-
-@utility logs-viewer-dark {
-  @apply bg-slate-800 text-slate-200 rounded p-4 font-mono text-xs leading-relaxed;
+/*
+  The one definition of the log viewer surface. The `terminal-*` colour tokens
+  in the @theme block above supply every value; nothing here is a literal.
+*/
+@utility logs-viewer {
+  @apply bg-terminal text-terminal-foreground rounded-md p-4 font-mono text-xs leading-relaxed;
 }
 
 @layer base {
@@ -134,6 +152,38 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* Status — dark ink on a pale tint, so the signal reads as text. */
+    --success: 163 94% 24%; /* #047857 — 5.48:1 on white, 5.20:1 on its subtle */
+    --success-foreground: 0 0% 100%;
+    --success-subtle: 152 81% 96%; /* #ecfdf5 */
+    --warning: 26 90% 37%; /* #b45309 — 5.02:1 on white, 4.84:1 on its subtle */
+    --warning-foreground: 0 0% 100%;
+    --warning-subtle: 48 100% 96%; /* #fffbeb */
+    --info: 224 76% 48%; /* #1d4ed8 — 6.70:1 on white, 6.16:1 on its subtle */
+    --info-foreground: 0 0% 100%;
+    --info-subtle: 214 100% 97%; /* #eff6ff */
+    --danger: 0 74% 42%; /* #b91c1c — 6.47:1 on white, 5.93:1 on its subtle */
+    --danger-foreground: 0 0% 100%;
+    --danger-subtle: 0 86% 97%; /* #fef2f2 */
+  }
+
+  /*
+    The log viewer keeps the same slab in both themes — it is a transcript of
+    what the daemon printed, not part of the page's chrome. Declared once,
+    outside `:root`/`.dark`, so there is nothing to keep in sync.
+  */
+  :root,
+  .dark {
+    --terminal: 218 24% 10%;
+    --terminal-foreground: 210 20% 88%; /* 13.5:1 on the slab */
+    --terminal-muted: 215 14% 55%; /* 5.05:1 on the slab */
+    --terminal-border: 218 16% 20%;
+    --terminal-success: 158 64% 52%;
+    --terminal-error: 0 91% 71%; /* 6.4:1 */
+    --terminal-warning: 43 96% 56%; /* 10.7:1 */
+    --terminal-info: 188 94% 60%; /* 9.9:1 */
+    --terminal-debug: 234 89% 74%; /* 6.0:1 */
   }
 
   .dark {
@@ -173,6 +223,21 @@
     --border: 220 13% 24%; /* #353b4a */
     --input: 220 13% 24%;
     --ring: 188 94% 60%; /* Cyan focus ring */
+
+    /* Status — bright ink on a deep tint. Ratios measured against `--card`,
+       which is the lighter of the two surfaces and therefore the worse case. */
+    --success: 158 64% 52%; /* #34d399 — 7.80:1 on card, 7.06:1 on its subtle */
+    --success-foreground: 218 18% 12%;
+    --success-subtle: 160 45% 14%;
+    --warning: 43 96% 56%; /* #fbbf24 — 8.98:1 on card, 8.45:1 on its subtle */
+    --warning-foreground: 218 18% 12%;
+    --warning-subtle: 38 55% 14%;
+    --info: 188 94% 60%; /* #22d3ee — 8.30:1 on card, 7.78:1 on its subtle */
+    --info-foreground: 218 18% 12%;
+    --info-subtle: 190 50% 14%;
+    --danger: 0 91% 71%; /* #f87171 — 5.42:1 on card, 5.92:1 on its subtle */
+    --danger-foreground: 218 18% 12%;
+    --danger-subtle: 0 45% 15%;
   }
 
   * {

@@ -3,6 +3,8 @@ import { JobList } from '@/components/JobList'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
+import { TableSkeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -34,7 +36,7 @@ export function BackupJobsPage() {
     return filterObj
   }, [statusFilter])
 
-  const { data: jobsData, isLoading } = useJobs(filters)
+  const { data: jobsData, isPending } = useJobs(filters)
 
   // Filter by target name (client-side)
   const backupJobs = useMemo(() => {
@@ -49,30 +51,34 @@ export function BackupJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Backup Job History</h2>
-        <Button asChild variant="outline">
-          <Link to="/backup">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Targets
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        breadcrumbs={[{ label: 'Backup', to: '/backup' }, { label: 'Job history' }]}
+        title="Backup Job History"
+        description="Every backup this daemon has attempted, whatever the outcome."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/backup">
+              <ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" />
+              Back to Targets
+            </Link>
+          </Button>
+        }
+      />
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col gap-4 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>
             {backupJobs.length} Backup Job{backupJobs.length !== 1 ? 's' : ''}
           </CardTitle>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Input
               placeholder="Filter by target..."
               value={targetFilter}
               onChange={(e) => setTargetFilter(e.target.value)}
-              className="w-[200px]"
+              className="w-full sm:w-[200px]"
             />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -87,8 +93,8 @@ export function BackupJobsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">Loading jobs...</div>
+          {isPending ? (
+            <TableSkeleton rows={5} columns={7} />
           ) : backupJobs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               No backup jobs found. {targetFilter && 'Try adjusting your filters.'}

@@ -1,8 +1,11 @@
 import { JobDetail } from '@/components/JobDetail'
 import { JobList } from '@/components/JobList'
 import { RestoreForm } from '@/components/RestoreForm'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PageHeader } from '@/components/ui/page-header'
+import { TableSkeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -12,7 +15,8 @@ import {
 } from '@/components/ui/select'
 import { useJobs } from '@/hooks/useJobs'
 import type { Job } from '@/types'
-import { createLazyFileRoute } from '@tanstack/react-router'
+import { createLazyFileRoute, Link } from '@tanstack/react-router'
+import { History } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 export const Route = createLazyFileRoute('/restore/')({
@@ -24,7 +28,7 @@ export function RestorePage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [targetFilter, setTargetFilter] = useState<string>('')
 
-  const { data: jobsData, isLoading } = useJobs(
+  const { data: jobsData, isPending } = useJobs(
     statusFilter !== 'all' ? { status: statusFilter } : undefined
   )
 
@@ -41,9 +45,18 @@ export function RestorePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Restore</h2>
-      </div>
+      <PageHeader
+        title="Restore"
+        description="Write a stored backup back into a database. This overwrites the target."
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/restore/jobs">
+              <History aria-hidden="true" className="mr-2 h-4 w-4" />
+              Job history
+            </Link>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -56,19 +69,19 @@ export function RestorePage() {
 
       {/* Job History Section */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col gap-4 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle>
             Restore Job History ({restoreJobs.length} Job{restoreJobs.length !== 1 ? 's' : ''})
           </CardTitle>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Input
               placeholder="Filter by target..."
               value={targetFilter}
               onChange={(e) => setTargetFilter(e.target.value)}
-              className="w-[200px]"
+              className="w-full sm:w-[200px]"
             />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
@@ -83,8 +96,8 @@ export function RestorePage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-6 text-muted-foreground">Loading jobs...</div>
+          {isPending ? (
+            <TableSkeleton rows={4} columns={7} />
           ) : restoreJobs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               No restore jobs found. {targetFilter && 'Try adjusting your filters.'}

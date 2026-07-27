@@ -1,9 +1,10 @@
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { StatusBadge } from '@/components/ui/status-badge'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { cn, formatDate } from '@/lib/utils'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, LoaderCircle, RefreshCw, Radio, WifiOff } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useJob, useJobLogs } from '../hooks/useJobs'
 import { useWebSocket } from '../hooks/useWebSocket'
@@ -15,39 +16,41 @@ interface JobDetailContentProps {
   compact?: boolean
 }
 
+/** Log levels map onto the terminal palette — no literal colours at the call site. */
+const logLevelClasses: Record<string, string> = {
+  error: 'text-terminal-error',
+  warn: 'text-terminal-warning',
+  warning: 'text-terminal-warning',
+  info: 'text-terminal-info',
+  debug: 'text-terminal-debug',
+  success: 'text-terminal-success',
+}
+
 export function JobDetailContent({ job, compact: _compact = false }: JobDetailContentProps) {
   const logsEndRef = useRef<HTMLDivElement>(null)
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const { data: updatedJob } = useJob(job.id)
   const currentJob = updatedJob || job
 
   const { data: logsData } = useJobLogs(job.id)
 
-  const { messages: wsMessages, connected } = useWebSocket(job.id, {
-    enabled: currentJob.status === 'running' || currentJob.status === 'queued',
-  })
+  const isStreaming = currentJob.status === 'running' || currentJob.status === 'queued'
+  const {
+    messages: wsMessages,
+    connected,
+    error: streamError,
+    reconnect,
+  } = useWebSocket(job.id, { enabled: isStreaming })
 
   const allLogs = [...(logsData?.logs || []), ...wsMessages]
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [allLogs.length])
-
-  const getLogLevelClass = (level: string): string => {
-    switch (level.toLowerCase()) {
-      case 'error':
-        return 'text-red-400'
-      case 'warn':
-      case 'warning':
-        return 'text-yellow-400'
-      case 'info':
-        return 'text-blue-400'
-      case 'debug':
-        return 'text-indigo-400'
-      default:
-        return ''
-    }
-  }
+    // `behavior: 'smooth'` ignores prefers-reduced-motion, so honour it here.
+    logsEndRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    })
+  }, [allLogs.length, prefersReducedMotion])
 
   return (
     <ScrollArea className="h-full">
@@ -76,22 +79,9 @@ export function JobDetailContent({ job, compact: _compact = false }: JobDetailCo
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Status
             </p>
-            <div className="flex items-center gap-2">
-              <StatusBadge
-                status={
-                  currentJob.status as
-                    | 'running'
-                    | 'idle'
-                    | 'queued'
-                    | 'completed'
-                    | 'failed'
-                    | 'cancelled'
-                    | 'cancelling'
-                }
-              />
-              {currentJob.manual && (
-                <Badge className="bg-yellow-100 text-yellow-800 text-xs">Manual</Badge>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={currentJob.status} />
+              {currentJob.manual && <StatusBadge kind="trigger" status="manual" />}
             </div>
           </div>
           <div className="space-y-1">
@@ -137,7 +127,7 @@ export function JobDetailContent({ job, compact: _compact = false }: JobDetailCo
         {/* Progress Section */}
         {currentJob.progress && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Progress</h3>
+            <h3 className="text-section-title font-semibold tracking-tight">Progress</h3>
             <JobProgress progress={currentJob.progress} />
           </div>
         )}
@@ -145,7 +135,7 @@ export function JobDetailContent({ job, compact: _compact = false }: JobDetailCo
         {/* Error Section */}
         {currentJob.error && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold">Error</h3>
+            <h3 className="text-section-title font-semibold tracking-tight">Error</h3>
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -159,25 +149,48 @@ export function JobDetailContent({ job, compact: _compact = false }: JobDetailCo
 
         {/* Logs Section */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Logs</h3>
-            {connected && <span className="text-xs font-semibold text-green-600">● Live</span>}
-            {!connected && (currentJob.status === 'running' || currentJob.status === 'queued') && (
-              <span className="text-xs font-semibold text-yellow-600">● Connecting...</span>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-section-title font-semibold tracking-tight">Logs</h3>
+
+            {/* Every stream state is a glyph plus a word — the tint only
+                reinforces it, so the state survives with colour removed. */}
+            {connected ? (
+              <StatusBadge kind="custom" tone="success" label="Live" icon={Radio} />
+            ) : isStreaming && streamError ? (
+              <div className="flex items-center gap-2">
+                <StatusBadge kind="custom" tone="danger" label="Disconnected" icon={WifiOff} />
+                <Button variant="outline" size="sm" onClick={reconnect} className="gap-1.5">
+                  <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+                  Reconnect
+                </Button>
+              </div>
+            ) : isStreaming ? (
+              <StatusBadge
+                kind="custom"
+                tone="warning"
+                label="Connecting"
+                icon={LoaderCircle}
+                className="[&>svg]:motion-safe:animate-spin"
+              />
+            ) : null}
           </div>
 
-          <div className="bg-slate-800 text-slate-200 rounded p-4 max-h-96 overflow-y-auto font-mono text-xs leading-relaxed">
+          <div className="logs-viewer max-h-96 overflow-y-auto">
             {allLogs.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">No logs available</div>
+              <div className="py-8 text-center text-terminal-muted">No logs available</div>
             ) : (
               allLogs.map((log, index) => (
                 <div
                   key={index}
-                  className="flex gap-2 py-1 border-b border-slate-700 last:border-0"
+                  className="flex gap-2 border-b border-terminal-border py-1 last:border-0"
                 >
-                  <span className="text-slate-500 shrink-0">{log.timestamp}</span>
-                  <span className={cn('shrink-0 font-semibold', getLogLevelClass(log.level))}>
+                  <span className="shrink-0 text-terminal-muted">{log.timestamp}</span>
+                  <span
+                    className={cn(
+                      'shrink-0 font-semibold',
+                      logLevelClasses[log.level.toLowerCase()] ?? 'text-terminal-foreground'
+                    )}
+                  >
                     [{log.level.toUpperCase()}]
                   </span>
                   <span className="flex-1 wrap-break-word">{log.message}</span>
