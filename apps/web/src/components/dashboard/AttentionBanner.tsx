@@ -7,7 +7,7 @@ import type { AttentionReason, TargetAttention } from './health'
 interface AttentionBannerProps {
   attention: TargetAttention[]
   total: number
-  /** Targets whose daemon sent no health fields. Never counted as healthy. */
+  /** Targets whose daemon reported no usable health. Never counted as healthy. */
   unreported: number
 }
 
@@ -43,7 +43,7 @@ export function AttentionBanner({ attention, total, unreported }: AttentionBanne
         <p className="text-sm text-muted-foreground">
           {allAccountedFor
             ? `All ${total} configured ${total === 1 ? 'target is' : 'targets are'} backed up and on schedule.`
-            : `${unreported} of ${total} ${unreported === 1 ? 'target reports' : 'targets report'} no health data — this daemon predates it.${
+            : `${unreported} of ${total} ${unreported === 1 ? 'target reports' : 'targets report'} no usable health data — an older daemon, or one that cannot read its job history.${
                 unreported < total ? ' The rest are on schedule.' : ''
               }`}
         </p>

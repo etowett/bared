@@ -24,6 +24,20 @@ describe('summarizeFleet', () => {
     expect(isUnreported(target({ name: 'legacy' }))).toBe(true)
   })
 
+  it('does not count a target the daemon could not read as healthy', () => {
+    // `last_backup_status: 'unknown'` is the daemon saying its job store was
+    // unreachable (#134). Landing in no bucket at all would let the banner
+    // claim "All current" during a persistence outage — the false all-clear
+    // the backend contract exists to prevent.
+    const unreadable = target({ name: 'orders', last_backup_status: 'unknown' })
+    const fleet = summarizeFleet([unreadable], now)
+
+    expect(isHealthy(unreadable)).toBe(false)
+    expect(isUnreported(unreadable)).toBe(true)
+    expect(fleet.healthy).toBe(0)
+    expect(fleet.unreported).toBe(1)
+  })
+
   it('keeps a running target healthy while its backup is in flight', () => {
     expect(isHealthy(target({ last_backup_status: 'success', is_running: true }))).toBe(true)
   })

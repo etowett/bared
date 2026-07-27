@@ -139,6 +139,19 @@ func TestSQLStore_BackupResultRoundTrip(t *testing.T) {
 		t.Fatalf("expected 1 job, got %d", len(listed))
 	}
 	assertSize(t, "ListJobs", listed[0])
+
+	// Writing back a job that was listed without its result must not erase the
+	// stored one. Orphan recovery does exactly this round trip on restart.
+	plain[0].Error = "cancelled on restart"
+	if err := store.UpdateJob(ctx, plain[0]); err != nil {
+		t.Fatalf("UpdateJob failed: %v", err)
+	}
+
+	after, err := store.GetJob(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("GetJob failed: %v", err)
+	}
+	assertSize(t, "after resultless update", after)
 }
 
 func TestSQLStore(t *testing.T) {

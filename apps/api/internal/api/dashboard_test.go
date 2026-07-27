@@ -387,6 +387,24 @@ func TestHandleDashboard_StoreFailureIsUnknownNotNever(t *testing.T) {
 	assert.Nil(t, resp.SuccessRate7d)
 	assert.Nil(t, resp.FailedJobs24h, "zero failures is a claim; we have no basis for it")
 
+	// A queued or running job puts the target in the rollup with nothing
+	// finished in it. That must not read as "never": the outcome is what is
+	// unknown, not merely the target's presence in the sample.
+	queued := &jobs.Job{
+		ID:         "queued-1",
+		Type:       jobs.JobTypeBackup,
+		TargetName: "prod",
+		Status:     jobs.JobStatusQueued,
+		CreatedAt:  time.Now().Add(-time.Minute),
+	}
+	withQueued := dashboardServerWithStore(targets, store)
+	summaries := withQueued.buildTargetSummaries(
+		targets, historySample{jobs: []*jobs.Job{queued}, degraded: true}, time.Now(),
+	)
+	require.Len(t, summaries, 2)
+	assert.Equal(t, backupOutcomeUnknown, summaries[0].LastBackupStatus,
+		"a target with only an unfinished job in a degraded sample is not 'never'")
+
 	// And the omission has to survive serialization: a present 0 would be read
 	// as "nothing failed".
 	rr := httptest.NewRecorder()
@@ -519,16 +537,31 @@ func TestIsOverdue(t *testing.T) {
 			want:     false,
 		},
 		{
-			name:     "one missed fire is the grace period, not an alarm",
+			name:     "a run due this minute is inside the grace, not an alarm",
 			schedule: "0 * * * *",
 			health:   &targetHealth{lastSuccessAt: &hourlyLastSuccess},
 			want:     false,
 		},
 		{
-			name:     "the second missed fire is overdue",
+			name:     "an hour past the due run is overdue",
 			schedule: "0 * * * *",
 			health:   &targetHealth{lastSuccessAt: &twoHoursOfMisses},
 			want:     true,
+		},
+		{
+			// The grace is capped, so a rare schedule does not get a rare
+			// grace: waiting for the second fire here would mean noticing a
+			// dead yearly backup in two years.
+			name:     "a yearly target is late an hour after its fire, not a year",
+			schedule: "0 0 1 1 *",
+			health:   &targetHealth{lastSuccessAt: ptr(now.AddDate(-1, 0, 0))},
+			want:     true,
+		},
+		{
+			name:     "a yearly target whose fire is still ahead is not late",
+			schedule: "0 0 1 1 *",
+			health:   &targetHealth{lastSuccessAt: ptr(now.AddDate(0, -1, 0))},
+			want:     false,
 		},
 		{
 			name:     "a target with a job in flight is not overdue",

@@ -31,6 +31,10 @@ const (
 	window7d  = 7 * 24 * time.Hour
 )
 
+// overdueGrace caps how long after a due run a target is given before it counts
+// as late. See isOverdue.
+const overdueGrace = time.Hour
+
 // historySample is the backup job history every rollup is derived from,
 // together with what is missing from it.
 //
@@ -126,6 +130,15 @@ func backupArtifactSize(job *jobs.Job) (int64, bool) {
 func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 	health := make(map[string]*targetHealth)
 
+	// Failures are replayed once lastSuccessAt has settled, so each job's
+	// status is read exactly once: a job that finishes between two passes would
+	// otherwise be counted by one and missed by the other.
+	type failedJob struct {
+		entry      *targetHealth
+		finishedAt time.Time
+	}
+	failures := make([]failedJob, 0, len(history))
+
 	for _, job := range history {
 		if job.Type != jobs.JobTypeBackup {
 			continue
@@ -159,9 +172,11 @@ func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 			}
 		}
 
-		if status != jobs.JobStatusCompleted {
+		if status == jobs.JobStatusFailed {
+			failures = append(failures, failedJob{entry: entry, finishedAt: finishedAt})
 			continue
 		}
+
 		if entry.lastSuccessAt != nil && !finishedAt.After(*entry.lastSuccessAt) {
 			continue
 		}
@@ -179,20 +194,11 @@ func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 		}
 	}
 
-	// Consecutive failures need the final lastSuccessAt, which the loop above
-	// only settles once it has seen every job, so they are counted separately.
-	for _, job := range history {
-		if job.Type != jobs.JobTypeBackup || job.GetStatus() != jobs.JobStatusFailed {
-			continue
-		}
-
-		entry := health[job.TargetName]
-		if entry == nil {
-			continue
-		}
-		// Only failures newer than the last success are consecutive.
-		if entry.lastSuccessAt == nil || jobFinishedAt(job).After(*entry.lastSuccessAt) {
-			entry.consecutiveFailures++
+	// Only failures newer than the last success are consecutive, and the loop
+	// above only settles lastSuccessAt once it has seen every job.
+	for _, failure := range failures {
+		if failure.entry.lastSuccessAt == nil || failure.finishedAt.After(*failure.entry.lastSuccessAt) {
+			failure.entry.consecutiveFailures++
 		}
 	}
 
@@ -208,13 +214,18 @@ func computeTargetHealth(history []*jobs.Job) map[string]*targetHealth {
 // a target was configured, and claiming a brand-new target is overdue would be
 // a guess.
 //
-// One missed fire is not enough. A backup that takes four minutes on an hourly
-// schedule is "due" from the top of every hour until it finishes, so flagging
-// the first missed fire paints a healthy target red on every poll of its own
-// run — while is_running says it is working. We require the fire *after* the
-// due one to have passed too: a grace period that scales with the schedule
-// instead of a constant that would be wrong for both hourly and monthly jobs.
-// A target with a job in flight is never overdue for the same reason.
+// The due time alone is not enough. A backup that takes four minutes on an
+// hourly schedule is "due" from the top of every hour until it finishes, so
+// flagging the moment the slot opens paints a healthy target red for the whole
+// duration of its own run — while is_running says it is working. A target with
+// a job in flight is therefore never overdue, and on top of that we allow
+// overdueGrace: the seconds between a slot opening and the scheduler actually
+// starting the job, plus a run that was skipped because the previous one was
+// still going.
+//
+// The grace is capped rather than "the next fire" so lateness is still caught
+// within an hour of a daily, monthly or yearly target going quiet. Waiting for
+// the second fire of an @yearly schedule would mean noticing in two years.
 func isOverdue(schedule string, entry *targetHealth, running bool, now time.Time) bool {
 	if schedule == "" || entry == nil || running {
 		return false
@@ -236,7 +247,15 @@ func isOverdue(schedule string, entry *targetHealth, running bool, now time.Time
 	}
 
 	due := parsed.Next(since)
-	return parsed.Next(due).Before(now)
+
+	// One whole period, for schedules short enough that a period is the natural
+	// grace — an every-5-minutes target is not late at 5 minutes and one second.
+	grace := parsed.Next(due).Sub(due)
+	if grace > overdueGrace {
+		grace = overdueGrace
+	}
+
+	return due.Add(grace).Before(now)
 }
 
 // backupWindowStats returns the percentage of backup jobs finishing within the

@@ -66,7 +66,7 @@ func (s *Server) resolveTargets(ctx context.Context) []*config.Target {
 		// of targets would be invisible to the operator watching it.
 		util.GetLogger().ErrorS("Failed to read targets from config store, falling back to static config",
 			"component", "api",
-			"error", err)
+			"error", util.RedactErr(err))
 	}
 	return s.cfg.Targets
 }
@@ -75,10 +75,12 @@ func (s *Server) resolveTargets(ctx context.Context) []*config.Target {
 // Both /api/targets and /api/dashboard go through here so the two endpoints
 // cannot disagree about a target's state.
 //
-// A target missing from the sample reports "never" only when the sample is
-// complete. Otherwise it reports "unknown": a target whose history was cut off
-// by the row cap, or lost with the job store, is not a brand-new target, and
-// rendering it as one turns an alarming state into a reassuring one.
+// "never" is only reported when the sample is complete. Otherwise a target with
+// no finished backup in it reports "unknown": a target whose history was cut
+// off by the row cap, or lost with the job store, is not a brand-new target,
+// and rendering it as one turns an alarming state into a reassuring one. Note
+// that a target can have an entry and still have nothing finished in it — one
+// queued job is enough — so the test is on the outcome, not on the entry.
 func (s *Server) buildTargetSummaries(targets []*config.Target, history historySample, now time.Time) []TargetSummary {
 	health := computeTargetHealth(history.jobs)
 	summaries := make([]TargetSummary, 0, len(targets))
@@ -97,8 +99,7 @@ func (s *Server) buildTargetSummaries(targets []*config.Target, history historyS
 			LastBackupStatus: backupOutcomeNever,
 		}
 
-		switch {
-		case entry != nil:
+		if entry != nil {
 			summary.LastBackupStatus = entry.outcome
 			summary.ConsecutiveFailures = entry.consecutiveFailures
 			summary.LastBackupBytes = entry.lastSuccessBytes
@@ -113,8 +114,9 @@ func (s *Server) buildTargetSummaries(targets []*config.Target, history historyS
 			// since this process started", not "not for two days" — measuring
 			// lateness from it would invent an alarm.
 			summary.Overdue = !history.degraded && isOverdue(target.Schedule, entry, running, now)
+		}
 
-		case !history.complete():
+		if summary.LastBackupStatus == backupOutcomeNever && !history.complete() {
 			summary.LastBackupStatus = backupOutcomeUnknown
 		}
 
@@ -137,7 +139,7 @@ func (s *Server) backupHistory(ctx context.Context) historySample {
 	if err != nil {
 		util.GetLogger().ErrorS("Backup history is incomplete: job store read failed",
 			"component", "api",
-			"error", err)
+			"error", util.RedactErr(err))
 		return historySample{jobs: history, degraded: true}
 	}
 

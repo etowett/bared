@@ -37,9 +37,17 @@ export function isFailing(target: Target): boolean {
   return target.last_backup_status === 'failed' || (target.consecutive_failures ?? 0) > 0
 }
 
-/** The daemon sent no health fields — an older build, not a clean bill of health. */
+/**
+ * The daemon reported no usable health for this target — not a clean bill of
+ * health.
+ *
+ * Two causes, one meaning. An older build sends the fields not at all; a
+ * current one sends `last_backup_status: 'unknown'` when it could not read the
+ * job history behind them (#134). Either way the dashboard knows nothing, and
+ * the banner must stop short of "all current".
+ */
 export function isUnreported(target: Target): boolean {
-  return target.last_backup_status === undefined
+  return target.last_backup_status === undefined || target.last_backup_status === 'unknown'
 }
 
 /**
