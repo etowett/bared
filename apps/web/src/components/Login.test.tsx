@@ -83,9 +83,47 @@ describe('Login Component', () => {
       expect(mockOnLogin).not.toHaveBeenCalled()
     })
 
-    // Verify inputs are cleared on error
-    expect(screen.getByLabelText(/username/i)).toHaveValue('')
-    expect(screen.getByLabelText(/password/i)).toHaveValue('')
+    // Both inputs keep what the user typed (#124)
+    expect(screen.getByLabelText(/username/i)).toHaveValue('wronguser')
+    expect(screen.getByLabelText(/password/i)).toHaveValue('wrongpass')
+  })
+
+  it('retains both credentials after a network failure', async () => {
+    const user = userEvent.setup()
+    mockLogin.mockRejectedValueOnce(new Error('Failed to connect to server'))
+
+    render(<Login onLogin={mockOnLogin} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'testuser')
+    await user.type(screen.getByLabelText(/password/i), 'testpass')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/failed to connect to server/i)
+    })
+
+    expect(screen.getByLabelText(/username/i)).toHaveValue('testuser')
+    expect(screen.getByLabelText(/password/i)).toHaveValue('testpass')
+  })
+
+  it('focuses and selects the password field after a failed sign-in', async () => {
+    const user = userEvent.setup()
+    mockLogin.mockRejectedValueOnce(new Error('Invalid username or password'))
+
+    render(<Login onLogin={mockOnLogin} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'wronguser')
+    await user.type(screen.getByLabelText(/password/i), 'wrongpass')
+    await user.click(screen.getByRole('button', { name: /sign in/i }))
+
+    const passwordInput = screen.getByLabelText(/password/i) as HTMLInputElement
+    await waitFor(() => {
+      expect(passwordInput).toHaveFocus()
+    })
+
+    // Contents are selected, so retyping is a single keystroke away.
+    expect(passwordInput.selectionStart).toBe(0)
+    expect(passwordInput.selectionEnd).toBe('wrongpass'.length)
   })
 
   it('handles network errors', async () => {
