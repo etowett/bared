@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
@@ -10,6 +10,8 @@ interface PasswordInputProps {
   isEdit?: boolean
   label?: string
   required?: boolean
+  /** Overrides the generated input id, e.g. to match an external `htmlFor`. */
+  id?: string
 }
 
 export function PasswordInput({
@@ -19,21 +21,25 @@ export function PasswordInput({
   isEdit = false,
   label,
   required = false,
+  id,
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false)
+  const generatedId = useId()
+  const inputId = id ?? generatedId
 
   const displayPlaceholder = isEdit && !value ? 'Leave blank to keep existing value' : placeholder
 
   return (
     <div className="space-y-2">
       {label && (
-        <label className="text-sm font-medium">
+        <label htmlFor={inputId} className="text-sm font-medium">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
         <Input
+          id={inputId}
           type={showPassword ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}

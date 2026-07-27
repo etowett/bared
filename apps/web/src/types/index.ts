@@ -79,13 +79,57 @@ export interface Storage {
   updated_at: string
 }
 
+export type StorageType = 'local' | 's3' | 'sftp'
+
+/**
+ * Storage config payloads.
+ *
+ * These key names are the wire contract with the Go API: `requestToStorage` in
+ * `apps/api/internal/api/config_handlers.go` reads exactly these keys off
+ * `StorageRequest.Config` and silently drops anything else, so a typo here is a
+ * setting the server never sees. Keep them in sync with `config.Storage` in
+ * `apps/api/internal/config/config.go`.
+ */
+export interface LocalStorageConfigRequest {
+  path: string
+}
+
+export interface S3StorageConfigRequest {
+  bucket: string
+  region: string
+  access_key_id: string
+  /** `endpoint_url` — not `endpoint`; blank means AWS S3. */
+  endpoint_url: string
+}
+
+export interface SftpStorageConfigRequest {
+  host: string
+  /** Decoded as a JSON number by the API; never send a string. */
+  port: number
+  /** `username` — not `user`; the API ignores `user` entirely. */
+  username: string
+  path: string
+  /** Blank falls back to `~/.ssh/known_hosts`. */
+  known_hosts_path: string
+  /** e.g. `SHA256:…`; mutually exclusive with insecure_skip_host_key_verify. */
+  host_key_fingerprint: string
+  private_key_path: string
+  /** Disables MITM protection. The API rejects this alongside a fingerprint. */
+  insecure_skip_host_key_verify: boolean
+}
+
+export type StorageConfigRequest =
+  LocalStorageConfigRequest | S3StorageConfigRequest | SftpStorageConfigRequest
+
 export interface StorageRequest {
   name: string
-  type: 'local' | 's3' | 'sftp'
+  type: StorageType
   keep: number
-  config: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any -- Dynamic storage config
+  config: StorageConfigRequest
+  // Secrets ride outside `config` so the API never echoes them back.
   secret_access_key?: string
   password?: string
+  private_key_passphrase?: string
 }
 
 // Webhook notifier config for type narrowing
