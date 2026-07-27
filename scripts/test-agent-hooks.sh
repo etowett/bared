@@ -164,7 +164,7 @@ rm -rf "$FIXTURE"
 unset PROJECT WORKTREE FIXTURE
 
 echo "ensure-newline.sh"
-tmp="$(mktemp -t bared-hook-test)"
+tmp="$(mktemp "${TMPDIR:-/tmp}/bared-hook-test.XXXXXX")"
 printf 'no trailing newline' >"$tmp"
 printf '%s' "$(file_payload "$tmp")" | "$HOOKS/ensure-newline.sh" >/dev/null 2>&1
 if [ "$(tail -c1 "$tmp" | wc -l | tr -d ' ')" -eq 1 ]; then
