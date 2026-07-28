@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmProvider } from '@/contexts/ConfirmContext'
@@ -17,14 +17,18 @@ import type { Job } from '@/types'
  * show — but it costs far more than a unit test's default 5s allows on a
  * two-core CI runner.
  *
- * It compounds, too. `useJobs` sets `refetchInterval: 3000`, so any test that
- * runs longer than three seconds triggers a refetch and a re-render, which
- * makes it slower, which invites the next refetch.
- *
  * Measured on an unloaded 12-core machine the whole file takes ~4s; under
  * enough CPU contention to model a shared runner, single tests reach 6s. So the
  * ceiling is raised here, for this file only, rather than globally — a global
  * bump would slow the failure feedback of every genuinely-hung unit test.
+ *
+ * The other rule this file learned the hard way: **do not use a name-based role
+ * query against the whole document.** `getByRole(role, { name })` computes an
+ * accessible name for every element of that role, calling `getComputedStyle`
+ * each time. Against this page's button count that pass ran long enough on CI
+ * to block the event loop, so the query's own timeout could not fire and the
+ * test stalled rather than failed. Scope to a container first, then query by
+ * role alone — see the sort test below.
  */
 vi.setConfig({ testTimeout: 30_000 })
 
@@ -146,48 +150,32 @@ describe('job table state in the URL', () => {
     expect(header).toHaveAttribute('aria-sort', 'ascending')
   })
 
-  // Races a step against its own deadline so a stall reports which step stalled
-  // rather than surfacing as a bare test-level timeout pointing at the `it`.
-  const step = <T,>(label: string, work: Promise<T>, ms = 8000): Promise<T> =>
-    Promise.race([
-      work,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`step stalled: ${label}`)), ms)
-      ),
-    ])
-
   it('writes a changed sort back to the URL', async () => {
     const user = userEvent.setup()
-    const router = await step('renderAt(/jobs)', renderAt('/jobs'))
+    const router = await renderAt('/jobs')
 
-    // Every await here carries an explicit timeout well under the file's
-    // ceiling. Without them a failure in this test presents as "timed out in
-    // 30000ms" with no indication of which step stalled or what the router
-    // actually held — which is exactly how it wasted two CI rounds. Bounded
-    // steps turn that into an assertion message naming the stage.
-    const button = await step(
-      'findByRole(button, /duration/i)',
-      screen.findByRole('button', { name: /duration/i }, { timeout: 5000 })
-    )
+    // Find the column, then the button inside it — never `getByRole('button',
+    // { name })` against the whole document.
+    //
+    // A name-based role query computes an accessible name for *every* element
+    // of that role, and each computation calls `getComputedStyle` for the
+    // visibility check. This page now renders a lot of buttons: sidebar nav,
+    // theme toggle, logout, density, pagination, and one overflow menu per row.
+    // On a loaded CI runner that single synchronous pass ran long enough to
+    // block the event loop, so the query's own 5s timeout could not fire and
+    // the test stalled past a 30s ceiling instead of failing. Scoping to the
+    // header cell reduces it to one role query over ~8 columns and one
+    // name-free query inside a single cell.
+    const header = await screen.findByRole('columnheader', { name: /duration/i })
 
     // `userEvent`, not `fireEvent`: the click starts a router navigation, and
     // `fireEvent` returns without flushing the React work that queues.
-    await step('user.click(sort button)', user.click(button))
+    await user.click(within(header).getByRole('button'))
 
-    try {
-      await waitFor(
-        () =>
-          expect(router.state.location.search).toMatchObject({ sort: 'duration', order: 'desc' }),
-        { timeout: 5000 }
-      )
-    } catch (cause) {
-      throw new Error(
-        `sort click did not reach the URL. router.state.location.search=${JSON.stringify(
-          router.state.location.search
-        )} status=${router.state.status}`,
-        { cause }
-      )
-    }
+    await waitFor(
+      () => expect(router.state.location.search).toMatchObject({ sort: 'duration', order: 'desc' }),
+      { timeout: 5000 }
+    )
   })
 
   it('keeps the backup history pinned to backup jobs whatever the URL says', async () => {
