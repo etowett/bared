@@ -16,6 +16,11 @@
 # They diverge inside a `git worktree`: $CLAUDE_PROJECT_DIR keeps pointing at the
 # main checkout, so anything deciding on a branch through hook_repo_root judges
 # the wrong tree (issue #94). Use hook_worktree_root for git state.
+#
+# One more step for a PreToolUse hook: it runs BEFORE the command, in the
+# session's directory, so neither root describes a tree the command `cd`s into
+# or names with `git -C`. Reading those out of the command text is the hook's
+# own job — see guard-main-branch.sh (issue #147).
 
 # Project root, whichever client is driving.
 hook_repo_root() {
