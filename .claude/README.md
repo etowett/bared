@@ -81,7 +81,7 @@ shared, not duplicated. Tested by `scripts/test-agent-hooks.sh`, which CI runs.
 |---|---|---|
 | `session-start.sh` | SessionStart | branch, dirty count, and a warning if the toolchain the gate needs is missing |
 | `guard-secrets.sh` | PreToolUse (Bash, Edit/Write) | **blocks** writing, reading, staging, or uploading `config.yml`, `bared.yml`, `*.local.yml`, `.env*`, `*.db` |
-| `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit` on `main`/`master` and any `git push` whose refspec targets them. Judges the working tree the command runs in (so linked worktrees are judged on *their* branch) and reads pushes by refspec, so feature-branch and tag pushes go through from anywhere (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`, exported or written as a prefix on the command) |
+| `guard-main-branch.sh` | PreToolUse (Bash) | **blocks** `git commit` on `main`/`master` and any `git push` whose refspec targets them. Judges the tree the command will actually run in — a `cd` into a worktree and `git -C <dir>` are both followed — and reads pushes by refspec, so feature-branch and tag pushes go through from anywhere. Only text a shell would execute is walked: heredoc bodies are skipped and quoted punctuation cannot manufacture a command, so an issue or PR body that discusses committing is not a violation (escape hatch: `BARED_ALLOW_MAIN_COMMIT=1`, exported or written as a prefix on the command) |
 | `format-on-save.sh` | PostToolUse (Edit/Write) | gofmt + goimports on Go, prettier on `apps/web/` |
 | `ensure-newline.sh` | PostToolUse (Edit/Write) | appends a missing trailing newline |
 | `lint-on-stop.sh` | Stop | advisory `gofmt -l` + `go vet` + golangci-lint + eslint over the diff |

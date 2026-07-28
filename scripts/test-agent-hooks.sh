@@ -103,14 +103,19 @@ BARED_ALLOW_MAIN_COMMIT=1 expect 0 "the documented escape hatch" guard-main-bran
 # depend on what branch this repo happens to be on.
 echo "guard-main-branch.sh — worktrees, refspecs, compound commands (issue #94)"
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/bared-hooks.XXXXXX")"
-PROJECT="$FIXTURE/main"     # the "project dir" the client would report: on main
-WORKTREE="$FIXTURE/feature" # a linked worktree on a feature branch
+PROJECT="$FIXTURE/main"       # the "project dir" the client would report: on main
+WORKTREE="$FIXTURE/feature"   # a linked worktree on a feature branch
+PROTECTED="$FIXTURE/protected" # a linked worktree on a protected branch (master)
+PLAIN="$FIXTURE/plain"        # a directory that is not a repository at all
 git init -q "$PROJECT" >/dev/null 2>&1
 git -C "$PROJECT" symbolic-ref HEAD refs/heads/main
 git -C "$PROJECT" -c user.email=hooks@bared.test -c user.name=hooks -c commit.gpgsign=false \
   commit -q --allow-empty --no-verify -m init
 git -C "$PROJECT" branch existing-feature >/dev/null 2>&1
 git -C "$PROJECT" worktree add -q -b feature/x "$WORKTREE" >/dev/null 2>&1
+# git will not check main out twice, and master is protected by the same rule.
+git -C "$PROJECT" worktree add -q -b master "$PROTECTED" >/dev/null 2>&1
+mkdir -p "$WORKTREE/sub" "$PLAIN"
 
 if [ -d "$WORKTREE/.git" ] || [ -f "$WORKTREE/.git" ]; then
   echo "  · from the worktree (feature/x) while the project dir is on main"
@@ -155,13 +160,99 @@ if [ -d "$WORKTREE/.git" ] || [ -f "$WORKTREE/.git" ]; then
   expect_at "$PROJECT" 0 "the escape hatch as a command prefix" guard-main-branch.sh "$(cmd_payload 'BARED_ALLOW_MAIN_COMMIT=1 git commit -m wip')"
   expect_at "$PROJECT" 2 "an unrelated env prefix"         guard-main-branch.sh "$(cmd_payload 'GIT_EDITOR=true git commit')"
   expect_at "$PROJECT" 0 "git log, not a commit"           guard-main-branch.sh "$(cmd_payload 'git log --oneline -5')"
+
+  # Issue #147: a PreToolUse hook runs BEFORE the command, in the session's
+  # directory, so the tree it reads is not the tree the command will run in.
+  # `cd <worktree> && git commit` is the normal shape of agent work here.
+  echo "  · a cd is followed into the tree the command will actually run in (issue #147)"
+  expect_at "$PROJECT" 0 "cd to a feature worktree, then commit"    guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git commit -m wip")"
+  expect_at "$PROJECT" 0 "cd, add, then commit"                    guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git add -A && git commit -m wip")"
+  expect_at "$PROJECT" 2 "cd to a worktree on master, then commit"  guard-main-branch.sh "$(cmd_payload "cd $PROTECTED && git commit -m wip")"
+  expect_at "$WORKTREE" 2 "cd back to the main checkout, then commit" guard-main-branch.sh "$(cmd_payload "cd $PROJECT && git commit -m wip")"
+  expect_at "$WORKTREE" 2 "a relative cd to the main checkout"      guard-main-branch.sh "$(cmd_payload 'cd ../main && git commit -m wip')"
+  expect_at "$PROJECT" 0 "cd into a subdirectory of a worktree"     guard-main-branch.sh "$(cmd_payload "cd $WORKTREE/sub && git commit -m wip")"
+  expect_at "$WORKTREE" 0 "a relative cd inside the same worktree"  guard-main-branch.sh "$(cmd_payload 'cd sub && git commit -m wip')"
+  expect_at "$PROJECT" 0 "cd somewhere that is not a repository"    guard-main-branch.sh "$(cmd_payload "cd $PLAIN && git commit -m wip")"
+  expect_at "$PROJECT" 2 "cd to a directory that does not exist"    guard-main-branch.sh "$(cmd_payload 'cd /no/such/place && git commit -m wip')"
+  expect_at "$PROJECT" 2 "cd through an unexpanded variable"        guard-main-branch.sh "$(cmd_payload 'cd "$WORKTREE" && git commit -m wip')"
+  expect_at "$PROJECT" 2 "cd - is an unknown destination"           guard-main-branch.sh "$(cmd_payload 'cd - && git commit -m wip')"
+  HOME="$WORKTREE" expect_at "$PROJECT" 0 "a bare cd goes home"     guard-main-branch.sh "$(cmd_payload 'cd && git commit -m wip')"
+  HOME="$PROJECT" expect_at "$WORKTREE" 2 "a bare cd goes home"     guard-main-branch.sh "$(cmd_payload 'cd && git commit -m wip')"
+  HOME="$WORKTREE" expect_at "$PROJECT" 0 "cd ~ goes home"          guard-main-branch.sh "$(cmd_payload 'cd ~ && git commit -m wip')"
+  HOME="$FIXTURE" expect_at "$PROJECT" 0 "cd ~/<worktree> goes home" guard-main-branch.sh "$(cmd_payload 'cd ~/feature && git commit -m wip')"
+  expect_at "$PROJECT" 0 "cd -P then commit"                       guard-main-branch.sh "$(cmd_payload "cd -P $WORKTREE && git commit -m wip")"
+  expect_at "$PROJECT" 0 "cd to a worktree, then push HEAD"         guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git push -u origin HEAD")"
+  expect_at "$PROJECT" 0 "cd to a worktree, then push a tag"        guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git push origin refs/tags/v1.2.3")"
+  expect_at "$PROJECT" 2 "cd to a worktree, then push main"         guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git push origin main")"
+  expect_at "$PROJECT" 2 "cd to a worktree, then push --all"        guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git push --all origin")"
+  expect_at "$WORKTREE" 2 "cd to the main checkout, then bare push" guard-main-branch.sh "$(cmd_payload "cd $PROJECT && git push")"
+
+  echo "  · -C names the tree the command operates on (issue #147)"
+  expect_at "$PROJECT" 0 "-C a worktree on a branch"                guard-main-branch.sh "$(cmd_payload "git -C $WORKTREE commit -m wip")"
+  expect_at "$PROJECT" 0 "-C glued to its value"                    guard-main-branch.sh "$(cmd_payload "git -C$WORKTREE commit -m wip")"
+  expect_at "$PROJECT" 2 "-C a worktree on master"                  guard-main-branch.sh "$(cmd_payload "git -C $PROTECTED commit -m wip")"
+  expect_at "$WORKTREE" 2 "-C the main checkout"                    guard-main-branch.sh "$(cmd_payload "git -C $PROJECT commit -m wip")"
+  expect_at "$WORKTREE" 2 "-C the main checkout, bare push"         guard-main-branch.sh "$(cmd_payload "git -C $PROJECT push")"
+  expect_at "$PROJECT" 0 "-C a worktree, push HEAD"                 guard-main-branch.sh "$(cmd_payload "git -C $WORKTREE push -u origin HEAD")"
+  expect_at "$PROJECT" 2 "-C a worktree, push main"                 guard-main-branch.sh "$(cmd_payload "git -C $WORKTREE push origin main")"
+  expect_at "$PROJECT" 0 "-C somewhere that is not a repository"    guard-main-branch.sh "$(cmd_payload "git -C $PLAIN commit -m wip")"
+  # A checkout under -C moves *another* tree; this one is still on main.
+  expect_at "$PROJECT" 2 "-C checkout frees only the tree it names" guard-main-branch.sh "$(cmd_payload "git -C $WORKTREE checkout -b fix/thing && git commit -m wip")"
+  expect_at "$PROJECT" 2 "-C is not -c"                             guard-main-branch.sh "$(cmd_payload 'git -c core.hooksPath=/dev/null commit -m wip')"
+  expect_at "$PROJECT" 0 "-c takes a value and is skipped"          guard-main-branch.sh "$(cmd_payload 'git -c core.hooksPath=/dev/null checkout -b fix/thing && git commit -m wip')"
+
+  echo "  · quoted text is data, not script (issue #147)"
+  expect_at "$PROJECT" 0 "an issue body that discusses committing" guard-main-branch.sh "$(cmd_payload 'gh issue create --title "guard" --body "$(cat <<EOF
+## Problem
+
+The hook denies this:
+
+    git commit -m wip && git push origin main
+
+because the heredoc body is parsed as script.
+EOF
+)"')"
+  expect_at "$PROJECT" 0 "a PR body naming a push"         guard-main-branch.sh "$(cmd_payload 'gh pr create --body "then run: git push origin main"')"
+  expect_at "$PROJECT" 0 "prose spanning lines in quotes"  guard-main-branch.sh "$(cmd_payload 'echo "first git commit
+then git push origin main"')"
+  expect_at "$PROJECT" 0 "a single-quoted mention"         guard-main-branch.sh "$(cmd_payload "printf '%s' 'git commit; git push origin main'")"
+  expect_at "$PROJECT" 0 "a comment mentioning a commit"   guard-main-branch.sh "$(cmd_payload 'make test # then git commit -m wip')"
+  expect_at "$PROJECT" 0 "a commit message full of shell"  guard-main-branch.sh "$(cmd_payload "cd $WORKTREE && git commit -m \"wip && git push origin main\"")"
+
+  # …and the other direction: quoting must not become a way around the guard.
+  echo "  · quoting is not an escape hatch (issue #147)"
+  expect_at "$PROJECT" 2 "a quoted command word"           guard-main-branch.sh "$(cmd_payload '"git" commit -m wip')"
+  expect_at "$PROJECT" 2 "quotes spliced into the word"    guard-main-branch.sh "$(cmd_payload 'g"it" com'"'"'mit'"'"' -m wip')"
+  expect_at "$PROJECT" 2 "a quoted push target"            guard-main-branch.sh "$(cmd_payload "git push origin 'main'")"
+  expect_at "$PROJECT" 2 "an ANSI-C quoted command word"   guard-main-branch.sh "$(cmd_payload "git \$'commit' -m wip")"
+  expect_at "$PROJECT" 2 "a line continuation is one word" guard-main-branch.sh "$(cmd_payload 'git \
+    commit -m wip')"
+  expect_at "$PROJECT" 2 "a quoted refs/heads/main"        guard-main-branch.sh "$(cmd_payload 'git push origin "refs/heads/main"')"
+  expect_at "$PROJECT" 2 "a command substitution runs"     guard-main-branch.sh "$(cmd_payload 'echo "$(git commit -m wip)"')"
+  expect_at "$PROJECT" 2 "backticks run"                   guard-main-branch.sh "$(cmd_payload 'echo `git commit -m wip`')"
+  expect_at "$PROJECT" 2 "a subshell is walked"            guard-main-branch.sh "$(cmd_payload '(git commit -m wip)')"
+  expect_at "$PROJECT" 2 "the command after a heredoc"     guard-main-branch.sh "$(cmd_payload 'cat > /tmp/note.md <<EOF
+prose about nothing
+EOF
+git commit -m wip')"
+  # The delimiter must match exactly: end the body early and the prose after it
+  # would be read as script again.
+  expect_at "$PROJECT" 0 "an inexact delimiter does not end it" guard-main-branch.sh "$(cmd_payload 'cat <<EOF
+NOTEOF
+git commit -m wip
+EOF
+echo done')"
+  # A cd is scoped to the subshell it happens in, so it must not free the parent.
+  expect_at "$PROJECT" 2 "a cd inside a subshell"          guard-main-branch.sh "$(cmd_payload "(cd $WORKTREE && git status) && git commit -m wip")"
+  expect_at "$PROJECT" 2 "a cd inside a substitution"      guard-main-branch.sh "$(cmd_payload "echo \"\$(cd $WORKTREE && git rev-parse HEAD)\" && git commit -m wip")"
 else
   fail=$((fail + 1))
   echo "  ✗ could not create the git worktree fixture in $FIXTURE"
 fi
 git -C "$PROJECT" worktree remove --force "$WORKTREE" >/dev/null 2>&1
+git -C "$PROJECT" worktree remove --force "$PROTECTED" >/dev/null 2>&1
 rm -rf "$FIXTURE"
-unset PROJECT WORKTREE FIXTURE
+unset PROJECT WORKTREE PROTECTED PLAIN FIXTURE
 
 echo "ensure-newline.sh"
 tmp="$(mktemp "${TMPDIR:-/tmp}/bared-hook-test.XXXXXX")"
