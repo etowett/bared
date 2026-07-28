@@ -91,7 +91,7 @@ describe('RestoreForm Component', () => {
     const user = userEvent.setup()
     render(<RestoreForm />)
 
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
 
     await waitFor(() => {
@@ -108,7 +108,7 @@ describe('RestoreForm Component', () => {
     const user = userEvent.setup()
     render(<RestoreForm />)
 
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
 
     await waitFor(() => {
@@ -150,7 +150,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Select target
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -172,7 +172,14 @@ describe('RestoreForm Component', () => {
         backup_path: '/backups/test.sql',
         dry_run: true,
       })
-      expect(mockToastSuccess).toHaveBeenCalledWith('Restore validation job queued successfully!')
+      // The toast is the only place the new job's id is shown, so it links there.
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Restore validation job queued successfully!',
+        expect.objectContaining({
+          description: 'Job test-job',
+          action: expect.objectContaining({ label: 'View job' }),
+        })
+      )
     })
   })
 
@@ -181,7 +188,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Select target
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -209,7 +216,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Select target
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -234,7 +241,10 @@ describe('RestoreForm Component', () => {
         backup_path: '/backups/test.sql',
         dry_run: false,
       })
-      expect(mockToastSuccess).toHaveBeenCalledWith('Restore job queued successfully!')
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Restore job queued successfully!',
+        expect.objectContaining({ action: expect.objectContaining({ label: 'View job' }) })
+      )
     })
   })
 
@@ -243,7 +253,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Select target and path
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -274,7 +284,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Fill form
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -300,7 +310,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Fill form
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -332,7 +342,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Fill and submit form
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -400,11 +410,14 @@ describe('RestoreForm Component', () => {
       expect(screen.getByText('/backups/test.sql')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('/backups/test.sql'))
+    await user.click(screen.getByRole('option', { name: '/backups/test.sql' }))
 
     expect(input).toHaveValue('/backups/test.sql')
     await waitFor(() => {
-      expect(screen.queryByText('/backups/test.sql')).not.toBeInTheDocument() // Suggestions hidden
+      // The listbox stays in the DOM so `aria-controls` always resolves; what
+      // changes is whether it is exposed at all.
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('option')).not.toBeInTheDocument()
     })
   })
 
@@ -449,7 +462,43 @@ describe('RestoreForm Component', () => {
     await user.keyboard('{Escape}')
 
     await waitFor(() => {
-      expect(screen.queryByText('/backups/test.sql')).not.toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('option')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('combobox semantics', () => {
+    const openWithHistory = async (user: ReturnType<typeof userEvent.setup>) => {
+      ;(window.localStorage.getItem as any).mockReturnValue(
+        JSON.stringify(['/backups/path1.sql', '/backups/path2.sql'])
+      )
+      render(<RestoreForm />)
+      const input = screen.getByRole('combobox', { name: /backup path/i })
+      await user.type(input, 'path')
+      await screen.findByRole('listbox')
+      return input
+    }
+
+    it('exposes the input as a combobox controlling a listbox', async () => {
+      const user = userEvent.setup()
+      const input = await openWithHistory(user)
+
+      expect(input).toHaveAttribute('aria-expanded', 'true')
+      expect(input).toHaveAttribute('aria-autocomplete', 'list')
+      expect(input).toHaveAttribute('aria-controls', screen.getByRole('listbox').getAttribute('id'))
+      expect(screen.getAllByRole('option')).toHaveLength(2)
+    })
+
+    it('names the active option without moving focus off the input', async () => {
+      const user = userEvent.setup()
+      const input = await openWithHistory(user)
+
+      await user.keyboard('{ArrowDown}')
+
+      const [first] = screen.getAllByRole('option')
+      expect(input).toHaveFocus()
+      expect(input).toHaveAttribute('aria-activedescendant', first.getAttribute('id'))
+      expect(first).toHaveAttribute('aria-selected', 'true')
     })
   })
 
@@ -467,7 +516,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm />)
 
     // Fill form
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()
@@ -487,7 +536,7 @@ describe('RestoreForm Component', () => {
     render(<RestoreForm onSuccess={onSuccess} />)
 
     // Fill and submit form
-    const select = screen.getByRole('combobox')
+    const select = screen.getByRole('combobox', { name: /restore target/i })
     await user.click(select)
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /restore-db1/i })).toBeInTheDocument()

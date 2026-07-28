@@ -154,11 +154,11 @@ export function JobList({
   }
 
   return (
-    <Table density={density} className="min-w-[20rem]">
+    <Table density={density}>
       <TableHeader>
         <TableRow>
-          <TableHead>ID</TableHead>
-          <TableHead>Type</TableHead>
+          <TableHead className="w-24 sm:w-auto">ID</TableHead>
+          <TableHead priority="sm">Type</TableHead>
           {heading('target', 'Target')}
           {heading('status', 'Status')}
           <TableHead priority="lg">Progress</TableHead>
@@ -188,7 +188,13 @@ export function JobList({
                 mode there is no URL to link to, so it is a button — either way
                 it takes focus and shows a focus ring.
               */}
-              <TableCell className="font-mono text-sm">
+              {/*
+                Held to a fixed width at the narrowest sizes so the metadata
+                folded in below the id cannot push Status and the actions menu
+                off the screen. A `max-width` would not do it — an auto-layout
+                table ignores that on a cell.
+              */}
+              <TableCell className="w-24 font-mono text-sm sm:w-auto">
                 {navigationMode ? (
                   <Link
                     to="/jobs/$id"
@@ -217,14 +223,16 @@ export function JobList({
                   </button>
                 )}
                 {/*
-                  `Created` is hidden below `sm`, and a hidden column must not
-                  be the only place a value appears — so it folds in here.
+                  `Type` and `Created` are hidden below `sm`, and a hidden
+                  column must not be the only place a value appears — so they
+                  fold in here, as one string rather than two so a text query
+                  still finds exactly one "backup" cell.
                 */}
-                <div className="mt-1 text-xs font-normal text-muted-foreground sm:hidden">
-                  {formatDate(job.created_at)}
+                <div className="mt-1 wrap-break-word text-xs font-normal text-muted-foreground sm:hidden">
+                  {job.type} · {formatDate(job.created_at)}
                 </div>
               </TableCell>
-              <TableCell>{job.type}</TableCell>
+              <TableCell priority="sm">{job.type}</TableCell>
               <TableCell>{job.target}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-2">

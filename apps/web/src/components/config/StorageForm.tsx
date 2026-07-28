@@ -2,14 +2,8 @@ import { useState } from 'react'
 import { ShieldAlert } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { Dialog, DialogDescription, DialogTitle } from '../ui/dialog'
+import { FormDialogBody, FormDialogContent, FormDialogFooter, FormDialogHeader } from './FormLayout'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -146,7 +140,7 @@ function buildPayload(state: StorageFormState): StorageRequest {
 export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <FormDialogContent className="max-w-2xl">
         {/*
           The page keeps this dialog mounted and swaps `storage` underneath it,
           so the fields live in a child that is mounted fresh on every open.
@@ -160,7 +154,7 @@ export function StorageForm({ open, onOpenChange, storage, onSubmit }: StorageFo
             onSubmit={onSubmit}
           />
         )}
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   )
 }
@@ -192,347 +186,353 @@ function StorageFormFields({ storage, onOpenChange, onSubmit }: Omit<StorageForm
 
   return (
     <>
-      <DialogHeader>
+      <FormDialogHeader>
         <DialogTitle>{isEdit ? 'Edit Storage' : 'Create Storage'}</DialogTitle>
         <DialogDescription>
           {isEdit
             ? 'Update storage backend configuration'
             : 'Configure a new storage backend for backups'}
         </DialogDescription>
-      </DialogHeader>
+      </FormDialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
-            {error}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <FormDialogBody className="space-y-4">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-danger/25 bg-danger-subtle p-3 text-sm text-danger"
+            >
+              {error}
+            </div>
+          )}
 
-        <div className="space-y-2">
-          <Label htmlFor="name">
-            Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => update('name', e.target.value)}
-            placeholder="my-storage"
-            required
-            disabled={isEdit}
-          />
-          {isEdit && <p className="text-xs text-gray-500">Storage name cannot be changed</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="type">
-            Type <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={formData.type}
-            onValueChange={(value) => update('type', value as StorageType)}
-            disabled={isEdit}
-          >
-            <SelectTrigger id="type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="local">Local</SelectItem>
-              <SelectItem value="s3">S3</SelectItem>
-              <SelectItem value="sftp">SFTP</SelectItem>
-            </SelectContent>
-          </Select>
-          {isEdit && <p className="text-xs text-gray-500">Storage type cannot be changed</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="keep">
-            Retention (days) <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="keep"
-            type="number"
-            min="1"
-            value={formData.keep}
-            onChange={(e) => update('keep', parseInt(e.target.value))}
-            required
-          />
-          <p className="text-xs text-gray-500">Number of days to keep backups</p>
-        </div>
-
-        {formData.type === 'local' && (
           <div className="space-y-2">
-            <Label htmlFor="local_path">
-              Path <span className="text-red-500">*</span>
+            <Label htmlFor="name">
+              Name <span className="text-danger">*</span>
             </Label>
             <Input
-              id="local_path"
-              value={formData.path}
-              onChange={(e) => update('path', e.target.value)}
-              placeholder="/var/backups"
+              id="name"
+              value={formData.name}
+              onChange={(e) => update('name', e.target.value)}
+              placeholder="my-storage"
+              required
+              disabled={isEdit}
+            />
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Storage name cannot be changed</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="type">
+              Type <span className="text-danger">*</span>
+            </Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value) => update('type', value as StorageType)}
+              disabled={isEdit}
+            >
+              <SelectTrigger id="type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="s3">S3</SelectItem>
+                <SelectItem value="sftp">SFTP</SelectItem>
+              </SelectContent>
+            </Select>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Storage type cannot be changed</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="keep">
+              Retention (days) <span className="text-danger">*</span>
+            </Label>
+            <Input
+              id="keep"
+              type="number"
+              min="1"
+              value={formData.keep}
+              onChange={(e) => update('keep', parseInt(e.target.value))}
               required
             />
+            <p className="text-xs text-muted-foreground">Number of days to keep backups</p>
           </div>
-        )}
 
-        {formData.type === 's3' && (
-          <>
+          {formData.type === 'local' && (
             <div className="space-y-2">
-              <Label htmlFor="s3_bucket">
-                Bucket <span className="text-red-500">*</span>
+              <Label htmlFor="local_path">
+                Path <span className="text-danger">*</span>
               </Label>
               <Input
-                id="s3_bucket"
-                value={formData.bucket}
-                onChange={(e) => update('bucket', e.target.value)}
-                placeholder="my-backup-bucket"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="s3_region">
-                Region <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="s3_region"
-                value={formData.region}
-                onChange={(e) => update('region', e.target.value)}
-                placeholder="us-east-1"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="s3_access_key_id">
-                Access Key ID <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="s3_access_key_id"
-                value={formData.accessKeyId}
-                onChange={(e) => update('accessKeyId', e.target.value)}
-                placeholder="AKIAIOSFODNN7EXAMPLE"
-                required
-              />
-            </div>
-
-            <PasswordInput
-              label="Secret Access Key"
-              value={formData.secretAccessKey}
-              onChange={(value) => update('secretAccessKey', value)}
-              placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-              required={!isEdit}
-              isEdit={isEdit}
-            />
-
-            <div className="space-y-2">
-              <Label htmlFor="s3_endpoint_url">Endpoint URL (optional)</Label>
-              <Input
-                id="s3_endpoint_url"
-                value={formData.endpointUrl}
-                onChange={(e) => update('endpointUrl', e.target.value)}
-                placeholder="https://s3.amazonaws.com"
-              />
-              <p className="text-xs text-gray-500">Leave blank for AWS S3</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="s3_path">Path prefix (optional)</Label>
-              <Input
-                id="s3_path"
+                id="local_path"
                 value={formData.path}
                 onChange={(e) => update('path', e.target.value)}
-                placeholder="backups/"
-              />
-              <p className="text-xs text-gray-500">
-                Key prefix inside the bucket. Leave blank to store at the bucket root.
-              </p>
-            </div>
-          </>
-        )}
-
-        {formData.type === 'sftp' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="sftp_host">
-                Host <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="sftp_host"
-                value={formData.host}
-                onChange={(e) => update('host', e.target.value)}
-                placeholder="sftp.example.com"
+                placeholder="/var/backups"
                 required
               />
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="sftp_port">
-                Port <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="sftp_port"
-                type="number"
-                min="1"
-                value={formData.port}
-                onChange={(e) => update('port', e.target.value)}
-                placeholder="22"
-                required
-              />
-            </div>
+          {formData.type === 's3' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="s3_bucket">
+                  Bucket <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="s3_bucket"
+                  value={formData.bucket}
+                  onChange={(e) => update('bucket', e.target.value)}
+                  placeholder="my-backup-bucket"
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sftp_username">
-                Username <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="sftp_username"
-                value={formData.username}
-                onChange={(e) => update('username', e.target.value)}
-                placeholder="backup"
-                required
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="s3_region">
+                  Region <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="s3_region"
+                  value={formData.region}
+                  onChange={(e) => update('region', e.target.value)}
+                  placeholder="us-east-1"
+                  required
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="sftp_path">
-                Remote Path <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="sftp_path"
-                value={formData.path}
-                onChange={(e) => update('path', e.target.value)}
-                placeholder="/backups"
-                required
-              />
-            </div>
-
-            <fieldset className="space-y-4 rounded-md border p-4">
-              <legend className="px-1 text-sm font-medium">Authentication</legend>
-              <p className="text-xs text-gray-500">
-                Provide a password, a private key, or both — the server offers whichever is
-                configured.
-              </p>
+              <div className="space-y-2">
+                <Label htmlFor="s3_access_key_id">
+                  Access Key ID <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="s3_access_key_id"
+                  value={formData.accessKeyId}
+                  onChange={(e) => update('accessKeyId', e.target.value)}
+                  placeholder="AKIAIOSFODNN7EXAMPLE"
+                  required
+                />
+              </div>
 
               <PasswordInput
-                label="Password"
-                value={formData.password}
-                onChange={(value) => update('password', value)}
-                placeholder="••••••••"
+                label="Secret Access Key"
+                value={formData.secretAccessKey}
+                onChange={(value) => update('secretAccessKey', value)}
+                placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                required={!isEdit}
                 isEdit={isEdit}
               />
 
               <div className="space-y-2">
-                <Label htmlFor="sftp_private_key_path">Private Key Path</Label>
+                <Label htmlFor="s3_endpoint_url">Endpoint URL (optional)</Label>
                 <Input
-                  id="sftp_private_key_path"
-                  value={formData.privateKeyPath}
-                  onChange={(e) => update('privateKeyPath', e.target.value)}
-                  placeholder="/etc/bared/id_ed25519"
+                  id="s3_endpoint_url"
+                  value={formData.endpointUrl}
+                  onChange={(e) => update('endpointUrl', e.target.value)}
+                  placeholder="https://s3.amazonaws.com"
                 />
-                <p className="text-xs text-gray-500">
-                  OpenSSH private key file, readable by the daemon
-                </p>
-              </div>
-
-              <PasswordInput
-                label="Private Key Passphrase"
-                value={formData.privateKeyPassphrase}
-                onChange={(value) => update('privateKeyPassphrase', value)}
-                placeholder="••••••••"
-                isEdit={isEdit}
-              />
-            </fieldset>
-
-            <fieldset className="space-y-4 rounded-md border p-4">
-              <legend className="px-1 text-sm font-medium">Host key verification</legend>
-              <p className="text-xs text-gray-500">
-                SFTP fails closed: an unknown host key aborts the transfer. Pin a fingerprint or
-                point at a known_hosts file the daemon can read.
-              </p>
-
-              <div className="space-y-2">
-                <Label htmlFor="sftp_known_hosts_path">Known Hosts Path</Label>
-                <Input
-                  id="sftp_known_hosts_path"
-                  value={formData.knownHostsPath}
-                  onChange={(e) => update('knownHostsPath', e.target.value)}
-                  placeholder="~/.ssh/known_hosts"
-                  disabled={formData.insecureSkipHostKeyVerify}
-                />
-                <p className="text-xs text-gray-500">
-                  Leave blank to use <code>~/.ssh/known_hosts</code>
-                </p>
+                <p className="text-xs text-muted-foreground">Leave blank for AWS S3</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sftp_host_key_fingerprint">Host Key Fingerprint</Label>
+                <Label htmlFor="s3_path">Path prefix (optional)</Label>
                 <Input
-                  id="sftp_host_key_fingerprint"
-                  value={formData.hostKeyFingerprint}
-                  onChange={(e) => update('hostKeyFingerprint', e.target.value)}
-                  placeholder="SHA256:n3s1Xb…"
-                  disabled={formData.insecureSkipHostKeyVerify}
+                  id="s3_path"
+                  value={formData.path}
+                  onChange={(e) => update('path', e.target.value)}
+                  placeholder="backups/"
                 />
-                <p className="text-xs text-gray-500">
-                  Pins one key instead of consulting known_hosts. Useful in containers with no
-                  known_hosts file. Run <code>ssh-keyscan host | ssh-keygen -lf -</code> to obtain
-                  it.
+                <p className="text-xs text-muted-foreground">
+                  Key prefix inside the bucket. Leave blank to store at the bucket root.
                 </p>
               </div>
+            </>
+          )}
 
-              <div
-                className={
-                  formData.insecureSkipHostKeyVerify
-                    ? 'rounded-md border-2 border-red-500 bg-red-50 dark:bg-red-900/20 p-3'
-                    : 'rounded-md border border-red-300 dark:border-red-900 p-3'
-                }
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="sftp_insecure_skip_host_key_verify"
-                    checked={formData.insecureSkipHostKeyVerify}
-                    onCheckedChange={(checked) =>
-                      update('insecureSkipHostKeyVerify', checked === true)
-                    }
-                    className="mt-0.5 border-red-500 data-[state=checked]:bg-red-600 data-[state=checked]:text-white"
+          {formData.type === 'sftp' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="sftp_host">
+                  Host <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="sftp_host"
+                  value={formData.host}
+                  onChange={(e) => update('host', e.target.value)}
+                  placeholder="sftp.example.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sftp_port">
+                  Port <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="sftp_port"
+                  type="number"
+                  min="1"
+                  value={formData.port}
+                  onChange={(e) => update('port', e.target.value)}
+                  placeholder="22"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sftp_username">
+                  Username <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="sftp_username"
+                  value={formData.username}
+                  onChange={(e) => update('username', e.target.value)}
+                  placeholder="backup"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sftp_path">
+                  Remote Path <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="sftp_path"
+                  value={formData.path}
+                  onChange={(e) => update('path', e.target.value)}
+                  placeholder="/backups"
+                  required
+                />
+              </div>
+
+              <fieldset className="space-y-4 rounded-md border p-4">
+                <legend className="px-1 text-sm font-medium">Authentication</legend>
+                <p className="text-xs text-muted-foreground">
+                  Provide a password, a private key, or both — the server offers whichever is
+                  configured.
+                </p>
+
+                <PasswordInput
+                  label="Password"
+                  value={formData.password}
+                  onChange={(value) => update('password', value)}
+                  placeholder="••••••••"
+                  isEdit={isEdit}
+                />
+
+                <div className="space-y-2">
+                  <Label htmlFor="sftp_private_key_path">Private Key Path</Label>
+                  <Input
+                    id="sftp_private_key_path"
+                    value={formData.privateKeyPath}
+                    onChange={(e) => update('privateKeyPath', e.target.value)}
+                    placeholder="/etc/bared/id_ed25519"
                   />
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="sftp_insecure_skip_host_key_verify"
-                      className="flex items-center gap-1.5 font-semibold text-red-600 dark:text-red-400"
-                    >
-                      <ShieldAlert className="h-4 w-4" aria-hidden="true" />
-                      Danger: accept any host key
-                    </Label>
-                    <p className="text-xs text-red-600 dark:text-red-400">
-                      Disables MITM protection. Anything on the network path can impersonate the
-                      server and capture both these credentials and every backup you upload. Use
-                      only against a host you control on a trusted network.
-                    </p>
-                    {formData.insecureSkipHostKeyVerify && (
-                      <p
-                        role="alert"
-                        className="text-xs font-semibold text-red-700 dark:text-red-300"
+                  <p className="text-xs text-muted-foreground">
+                    OpenSSH private key file, readable by the daemon
+                  </p>
+                </div>
+
+                <PasswordInput
+                  label="Private Key Passphrase"
+                  value={formData.privateKeyPassphrase}
+                  onChange={(value) => update('privateKeyPassphrase', value)}
+                  placeholder="••••••••"
+                  isEdit={isEdit}
+                />
+              </fieldset>
+
+              <fieldset className="space-y-4 rounded-md border p-4">
+                <legend className="px-1 text-sm font-medium">Host key verification</legend>
+                <p className="text-xs text-muted-foreground">
+                  SFTP fails closed: an unknown host key aborts the transfer. Pin a fingerprint or
+                  point at a known_hosts file the daemon can read.
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sftp_known_hosts_path">Known Hosts Path</Label>
+                  <Input
+                    id="sftp_known_hosts_path"
+                    value={formData.knownHostsPath}
+                    onChange={(e) => update('knownHostsPath', e.target.value)}
+                    placeholder="~/.ssh/known_hosts"
+                    disabled={formData.insecureSkipHostKeyVerify}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to use <code>~/.ssh/known_hosts</code>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sftp_host_key_fingerprint">Host Key Fingerprint</Label>
+                  <Input
+                    id="sftp_host_key_fingerprint"
+                    value={formData.hostKeyFingerprint}
+                    onChange={(e) => update('hostKeyFingerprint', e.target.value)}
+                    placeholder="SHA256:n3s1Xb…"
+                    disabled={formData.insecureSkipHostKeyVerify}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Pins one key instead of consulting known_hosts. Useful in containers with no
+                    known_hosts file. Run <code>ssh-keyscan host | ssh-keygen -lf -</code> to obtain
+                    it.
+                  </p>
+                </div>
+
+                <div
+                  className={
+                    formData.insecureSkipHostKeyVerify
+                      ? 'rounded-md border-2 border-danger bg-danger-subtle p-3'
+                      : 'rounded-md border border-red-300 dark:border-red-900 p-3'
+                  }
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="sftp_insecure_skip_host_key_verify"
+                      checked={formData.insecureSkipHostKeyVerify}
+                      onCheckedChange={(checked) =>
+                        update('insecureSkipHostKeyVerify', checked === true)
+                      }
+                      className="mt-0.5 border-danger data-[state=checked]:bg-danger data-[state=checked]:text-danger-foreground"
+                    />
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="sftp_insecure_skip_host_key_verify"
+                        className="flex items-center gap-1.5 font-semibold text-danger"
                       >
-                        Host key verification is off for this backend. Any pinned fingerprint or
-                        known_hosts path will be ignored.
+                        <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+                        Danger: accept any host key
+                      </Label>
+                      <p className="text-xs text-danger">
+                        Disables MITM protection. Anything on the network path can impersonate the
+                        server and capture both these credentials and every backup you upload. Use
+                        only against a host you control on a trusted network.
                       </p>
-                    )}
+                      {formData.insecureSkipHostKeyVerify && (
+                        <p role="alert" className="text-xs font-semibold text-danger">
+                          Host key verification is off for this backend. Any pinned fingerprint or
+                          known_hosts path will be ignored.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </fieldset>
-          </>
-        )}
+              </fieldset>
+            </>
+          )}
+        </FormDialogBody>
 
-        <DialogFooter>
+        <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </Button>
-        </DialogFooter>
+        </FormDialogFooter>
       </form>
     </>
   )
