@@ -124,20 +124,33 @@ describe('TargetList Component', () => {
   })
 
   it('shows the next run in the viewer timezone alongside the schedule', () => {
-    const nextScheduled = '2026-12-10T02:00:00Z'
-    const targets = [createMockTarget({ schedule: '0 2 * * *', next_scheduled: nextScheduled })]
+    // The clock has to be pinned. `formatNextRun` measures against the real
+    // `new Date()` and short-circuits to "Overdue" for any past instant, so a
+    // hardcoded next_scheduled is a time bomb — this assertion would have
+    // started failing on every branch at 02:00 UTC on 2026-12-10. See #145.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-12-09T12:00:00Z'))
 
-    render(<TargetList targets={targets} />)
+    try {
+      const nextScheduled = '2026-12-10T02:00:00Z'
+      const targets = [createMockTarget({ schedule: '0 2 * * *', next_scheduled: nextScheduled })]
 
-    // 02:00 at the daemon renders as whatever that instant is for the viewer, so
-    // derive the expectation the same way rather than hardcoding a zone.
-    const localTime = new Date(nextScheduled).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
+      render(<TargetList targets={targets} />)
 
-    expect(screen.getByText(new RegExp(`^next .*${localTime}$`))).toBeInTheDocument()
+      // 02:00 at the daemon renders as whatever that instant is for the viewer, so
+      // derive the expectation the same way rather than hardcoding a zone.
+      const localTime = new Date(nextScheduled).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
+      expect(screen.getByText(new RegExp(`^next .*${localTime}$`))).toBeInTheDocument()
+    } finally {
+      // A failure must not leak fake timers into the rest of the file — the
+      // userEvent-driven tests below hang for their full timeout if it does.
+      vi.useRealTimers()
+    }
   })
 
   it('omits the next run line when the daemon reports no next occurrence', () => {
