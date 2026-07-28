@@ -523,10 +523,15 @@ make lint
 
 **`make pre-commit` fails at the end, on `coverage-check`.**
 
-The ratchet passes on a clean checkout, so this almost always means your change added
-statements without tests. Run `make coverage` and open `coverage.html` to see which of your
-new lines are uncovered, and add tests for them. Do not lower `COVERAGE_THRESHOLD` — CI checks
-the same value, so a local edit only moves the failure.
+Read the last few lines before assuming it is about coverage. `coverage-check` runs the suite
+first, so it fails for two different reasons and says which:
+
+- **"Coverage (x%) is below the ratchet"** — your change added statements without tests. Run
+  `make coverage`, open `coverage.html`, and add tests for your uncovered lines. Do not lower
+  `COVERAGE_THRESHOLD`; CI checks the same value, so a local edit only moves the failure.
+- **"Tests failed — a test failed, coverage was not even measured"** — a test broke. The step
+  ends with the failing test names, the path to the full log, and the `-count`/`-shuffle`
+  re-runs that expose an order-dependent flake. Fix the test; never paper over it with a retry.
 
 ## Working with AI Coding Agents
 

@@ -181,12 +181,36 @@ coverage-filter:
 	fi
 
 # Run the suite, then check the profile against the ratchet.
+#
+# A failure in the test step is a *test* failure, not a coverage failure, and the
+# output has to say so (#117). This used to dump the raw log and exit, which
+# buried the one line naming the failing test under every other package's
+# `ok ...` — a one-off flake scrolled off the top of the terminal and left
+# nothing to diagnose. So: the log is kept on disk, and the *last* thing printed
+# is a distilled summary — failing packages, failing test and subtest names,
+# panics, data races — because the tail is what a reader still has on screen.
+COVERAGE_TEST_LOG = $(CURDIR)/coverage-check.log
 coverage-check:
-	@log=$$(mktemp); \
-	if ! $(GO) test -coverprofile=$(COVERAGE_OUT) $(GO_PKGS) > $$log 2>&1; then \
-		echo "❌ Tests failed:"; cat $$log; rm -f $$log; exit 1; \
-	fi; \
-	rm -f $$log
+	@log=$(COVERAGE_TEST_LOG); \
+	if $(GO) test -coverprofile=$(COVERAGE_OUT) $(GO_PKGS) > $$log 2>&1; then \
+		rm -f $$log; \
+	else \
+		cat $$log; \
+		echo ""; \
+		echo "❌ Tests failed — a test failed, coverage was not even measured."; \
+		echo ""; \
+		summary=$$(grep -E '^[[:space:]]*--- FAIL:|^FAIL[[:space:]]|^panic:|^fatal error:|^WARNING: DATA RACE' $$log); \
+		if [ -n "$$summary" ]; then \
+			echo "$$summary" | sed 's/^/   /'; \
+		else \
+			echo "   (no test-level failure markers — see the full log above)"; \
+		fi; \
+		echo ""; \
+		echo "   Full log: $$log"; \
+		echo "   Re-run one test:  go -C $(API_DIR) test -run '<TestName>' -count=10 -race ./internal/<pkg>/"; \
+		echo "   Suspect a flake:  go -C $(API_DIR) test -shuffle=on -count=10 -race ./internal/<pkg>/"; \
+		exit 1; \
+	fi
 	@$(MAKE) --no-print-directory coverage-verify
 
 # Check an *existing* profile against the ratchet. Split out from coverage-check

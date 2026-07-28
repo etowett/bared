@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -379,29 +380,38 @@ func TestGetFileSize_ClosedFile(t *testing.T) {
 
 func TestCreateBackupTempFile_ConcurrentCreation(t *testing.T) {
 	// Create multiple temp files concurrently
-	count := 10
-	done := make(chan string, count)
+	const count = 10
 
-	for i := 0; i < count; i++ {
+	var (
+		wg        sync.WaitGroup
+		mu        sync.Mutex
+		filenames = make(map[string]bool, count)
+	)
+
+	for range count {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			file, cleanup, err := CreateBackupTempFile("test-target")
 			if err != nil {
-				done <- ""
 				return
 			}
 			defer cleanup()
-			done <- file.Name()
+
+			mu.Lock()
+			filenames[file.Name()] = true
+			mu.Unlock()
 		}()
 	}
 
-	// Collect all filenames
-	filenames := make(map[string]bool)
-	for i := 0; i < count; i++ {
-		filename := <-done
-		if filename != "" {
-			filenames[filename] = true
-		}
-	}
+	// Join before asserting. This used to publish each name over a channel and
+	// return as soon as all ten arrived, which left the goroutines running their
+	// deferred cleanup() after the test had finished — and cleanup() logs through
+	// the package-global logger that the logger tests reset. Any logger test
+	// scheduled after this one then raced those stragglers, so the package failed
+	// under -shuffle=on or -count>1 and passed on a re-run (#117).
+	wg.Wait()
 
 	// All should be unique
 	assert.Len(t, filenames, count, "concurrent file creation should produce unique filenames")

@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // LogLevel represents logging levels
@@ -32,7 +33,13 @@ type Logger struct {
 }
 
 var (
-	globalLogger *Logger
+	// globalLogger is atomic because GetLogger is called from every goroutine in
+	// the daemon — job workers, the scheduler, the API server — and it lazily
+	// initialises the logger on first use. A plain pointer made that first-use
+	// check a data race: one goroutine reading the nil guard while another wrote
+	// the pointer inside once.Do. sync.Once orders the callers of Do, not a read
+	// that happens before Do is ever reached. See #117.
+	globalLogger atomic.Pointer[Logger]
 	once         sync.Once
 	globalHook   LogHook
 	hookMu       sync.RWMutex
@@ -259,29 +266,32 @@ func InitLoggerWithOptions(level LogLevel, logFormat string, logOpts *LoggerOpti
 			},
 		}
 
-		globalLogger = &Logger{
+		logger := &Logger{
 			slog:  slog.New(hooked),
 			level: levelVar,
 		}
+		globalLogger.Store(logger)
 
 		// Redirect standard library log to slog to prevent duplicate output
-		slog.SetDefault(globalLogger.slog)
+		slog.SetDefault(logger.slog)
 		log.SetOutput(io.Discard)
 		log.SetFlags(0)
 	})
 
 	// Allow re-initialization of level
-	if globalLogger != nil {
-		globalLogger.SetLevel(level)
+	if logger := globalLogger.Load(); logger != nil {
+		logger.SetLevel(level)
 	}
 }
 
-// GetLogger returns the global logger instance
+// GetLogger returns the global logger instance, initializing it at INFO if
+// nothing has initialized it yet.
 func GetLogger() *Logger {
-	if globalLogger == nil {
-		InitLogger(INFO) // Default to INFO level
+	if logger := globalLogger.Load(); logger != nil {
+		return logger
 	}
-	return globalLogger
+	InitLogger(INFO) // Default to INFO level
+	return globalLogger.Load()
 }
 
 // SetLevel sets the logging level
