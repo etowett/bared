@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmProvider } from '@/contexts/ConfirmContext'
@@ -147,9 +147,17 @@ describe('job table state in the URL', () => {
   })
 
   it('writes a changed sort back to the URL', async () => {
+    const user = userEvent.setup()
     const router = await renderAt('/jobs')
 
-    fireEvent.click(await screen.findByRole('button', { name: /duration/i }))
+    // `userEvent`, not `fireEvent`. The click starts a router navigation, and
+    // `fireEvent` returns without flushing the React work that navigation
+    // queues — on a fast machine the following `waitFor` picks it up anyway,
+    // but on a loaded CI runner this test hung past both the 5s and the 30s
+    // ceilings rather than merely running slowly, which is the signature of
+    // waiting on work that was never flushed. `user.click` wraps in `act` and
+    // drains it.
+    await user.click(await screen.findByRole('button', { name: /duration/i }))
 
     await waitFor(() =>
       expect(router.state.location.search).toMatchObject({ sort: 'duration', order: 'desc' })
