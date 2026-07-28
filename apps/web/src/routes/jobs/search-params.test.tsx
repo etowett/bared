@@ -150,18 +150,31 @@ describe('job table state in the URL', () => {
     const user = userEvent.setup()
     const router = await renderAt('/jobs')
 
-    // `userEvent`, not `fireEvent`. The click starts a router navigation, and
-    // `fireEvent` returns without flushing the React work that navigation
-    // queues — on a fast machine the following `waitFor` picks it up anyway,
-    // but on a loaded CI runner this test hung past both the 5s and the 30s
-    // ceilings rather than merely running slowly, which is the signature of
-    // waiting on work that was never flushed. `user.click` wraps in `act` and
-    // drains it.
-    await user.click(await screen.findByRole('button', { name: /duration/i }))
+    // Every await here carries an explicit timeout well under the file's
+    // ceiling. Without them a failure in this test presents as "timed out in
+    // 30000ms" with no indication of which step stalled or what the router
+    // actually held — which is exactly how it wasted two CI rounds. Bounded
+    // steps turn that into an assertion message naming the stage.
+    const button = await screen.findByRole('button', { name: /duration/i }, { timeout: 5000 })
 
-    await waitFor(() =>
-      expect(router.state.location.search).toMatchObject({ sort: 'duration', order: 'desc' })
-    )
+    // `userEvent`, not `fireEvent`: the click starts a router navigation, and
+    // `fireEvent` returns without flushing the React work that queues.
+    await user.click(button)
+
+    try {
+      await waitFor(
+        () =>
+          expect(router.state.location.search).toMatchObject({ sort: 'duration', order: 'desc' }),
+        { timeout: 5000 }
+      )
+    } catch (cause) {
+      throw new Error(
+        `sort click did not reach the URL. router.state.location.search=${JSON.stringify(
+          router.state.location.search
+        )} status=${router.state.status}`,
+        { cause }
+      )
+    }
   })
 
   it('keeps the backup history pinned to backup jobs whatever the URL says', async () => {
