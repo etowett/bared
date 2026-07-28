@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { describeSchedule, formatNextRun, serverZoneLabel } from './cron'
 
 describe('serverZoneLabel', () => {
@@ -64,18 +64,30 @@ describe('describeSchedule', () => {
 
 describe('formatNextRun', () => {
   it('renders the absolute instant in the viewer zone, not the daemon zone', () => {
-    // 02:00 UTC is 05:00 for a UTC+3 viewer. Pinning the viewer's zone via the
-    // Date the diff is measured against keeps this deterministic, and asserting
-    // on toLocaleTimeString output means the assertion tracks the environment's
-    // zone the same way the component does.
-    const nextRun = new Date('2026-07-28T02:00:00Z')
-    const expectedTime = nextRun.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
+    // 02:00 UTC is 05:00 for a UTC+3 viewer. Asserting on toLocaleTimeString
+    // output means the assertion tracks the environment's zone the same way the
+    // component does.
+    //
+    // The clock has to be pinned. `formatNextRun` measures against the real
+    // `new Date()` and short-circuits to "Overdue" for any past instant, so a
+    // hardcoded date here is a time bomb: this assertion passed until 02:00 UTC
+    // on 2026-07-28 and then failed on every branch at once. See #145.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-28T01:00:00Z'))
 
-    expect(formatNextRun(nextRun.toISOString())).toContain(expectedTime)
+    try {
+      const nextRun = new Date('2026-07-28T02:00:00Z')
+      const expectedTime = nextRun.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+
+      expect(formatNextRun(nextRun.toISOString())).toContain(expectedTime)
+    } finally {
+      // A failure must not leak fake timers into the rest of the file.
+      vi.useRealTimers()
+    }
   })
 
   it('reports a past instant as overdue', () => {
