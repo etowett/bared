@@ -777,10 +777,19 @@ box because the API matches `target` exactly; a partial name would silently retu
 `TableHead`/`TableCell` that hides a column below a breakpoint. A hidden column must never be the
 only place a value appears — `JobList` folds the hidden `Created` value into the row's first cell.
 
-**Vitest ordering gotcha:** opening a Radix `Select` mounts `react-remove-scroll`, which injects a
-stylesheet that RTL's cleanup does not remove. Every later `getByRole(…, { name })` in that file
-then pays for it in `getComputedStyle` — a 100ms query becomes a 25s one. Keep Select-driven tests
-last in a file (see `routes/jobs/search-params.test.tsx`).
+**Route-level tests need a raised timeout, not a reordering.** A test that mounts the real
+`routeTree` runs the router's loaders and renders the whole app shell, which does not fit the 5s
+default on a two-core CI runner. It compounds: `useJobs` sets `refetchInterval: 3000`, so a test
+that passes three seconds triggers a refetch and re-render that makes it slower still. Raise
+`testTimeout` for that file with `vi.setConfig({ testTimeout: 30_000 })` and say why — never
+globally, which would blunt the feedback on genuinely-hung unit tests. See
+`routes/jobs/search-params.test.tsx`.
+
+An earlier version of this guide blamed `react-remove-scroll`, claiming an opened Radix `Select`
+leaves a stylesheet behind that turns every later `getByRole(…, { name })` into a 25s query, and
+prescribed keeping Select-driven tests last. That was measured and found false: after opening a
+real `Select`, `document.head` holds the same number of `<style>` elements as before, and a
+name-based query in the real route tree costs ~54ms. Ordering was never the fix.
 
 **Confirming a destructive action**: call `useConfirm()` from
 [`src/contexts/ConfirmContext.tsx`](./src/contexts/ConfirmContext.tsx). It returns a single

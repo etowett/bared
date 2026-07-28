@@ -10,6 +10,24 @@ import { routeTree } from '@/routeTree.gen'
 import { useAuthStore } from '@/stores/auth'
 import type { Job } from '@/types'
 
+/**
+ * These are integration tests: each one mounts the real route tree, runs the
+ * router's loaders and renders the whole app shell. That is the point — they
+ * assert that URL and table state round-trip, which a shallow render cannot
+ * show — but it costs far more than a unit test's default 5s allows on a
+ * two-core CI runner.
+ *
+ * It compounds, too. `useJobs` sets `refetchInterval: 3000`, so any test that
+ * runs longer than three seconds triggers a refetch and a re-render, which
+ * makes it slower, which invites the next refetch.
+ *
+ * Measured on an unloaded 12-core machine the whole file takes ~4s; under
+ * enough CPU contention to model a shared runner, single tests reach 6s. So the
+ * ceiling is raised here, for this file only, rather than globally — a global
+ * bump would slow the failure feedback of every genuinely-hung unit test.
+ */
+vi.setConfig({ testTimeout: 30_000 })
+
 const job = (overrides: Partial<Job> = {}): Job => ({
   id: '12345678-1234-1234-1234-123456789012',
   type: 'backup',
@@ -146,10 +164,8 @@ describe('job table state in the URL', () => {
     )
   })
 
-  // Last on purpose. Opening a Radix Select mounts `react-remove-scroll`, which
-  // injects a stylesheet that this test's cleanup cannot take back out — and
-  // every later `getByRole(…, { name })` then pays for it in `getComputedStyle`,
-  // turning a 100ms query into a 25s one. Keep Select-driven tests at the end.
+  // Slowest test in the file: a Select interaction on top of a full app mount.
+  // Kept last so its cost lands at the end of the run rather than in the middle.
   it('writes a changed filter back to the URL so the view stays linkable', async () => {
     const user = userEvent.setup()
     const router = await renderAt('/jobs')
