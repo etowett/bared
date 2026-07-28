@@ -363,5 +363,68 @@ describe('useJobs Hooks', () => {
 
       expect(result.current.error).toBeInstanceOf(Error)
     })
+
+    describe('optimistic update', () => {
+      const listKey = ['jobs', { status: 'running' }]
+      const running = {
+        id: 'job1',
+        type: 'backup' as const,
+        target: 'db1',
+        status: 'running' as const,
+        created_at: '2025-12-09T10:00:00Z',
+        manual: false,
+      }
+
+      const seed = () => {
+        queryClient.setQueryData(listKey, { jobs: [running], total: 1 })
+        queryClient.setQueryData(['jobs', 'job1'], running)
+      }
+
+      // The daemon sets `cancelling` the moment it accepts the request, so
+      // showing it straight away is the truth arriving early — not a spinner.
+      it('marks the job cancelling before the request resolves', async () => {
+        let release: (_value: { message: string }) => void = () => {}
+        vi.spyOn(apiClient.apiClient, 'cancelJob').mockReturnValueOnce(
+          new Promise((resolve) => {
+            release = resolve
+          })
+        )
+
+        const wrapper = createWrapper()
+        seed()
+        const { result } = renderHook(() => useCancelJob(), { wrapper })
+
+        result.current.mutate('job1')
+
+        await waitFor(() => {
+          const cached = queryClient.getQueryData(listKey) as { jobs: { status: string }[] }
+          expect(cached.jobs[0].status).toBe('cancelling')
+        })
+        expect((queryClient.getQueryData(['jobs', 'job1']) as { status: string }).status).toBe(
+          'cancelling'
+        )
+
+        release({ message: 'ok' })
+        await waitFor(() => expect(result.current.isSuccess).toBe(true))
+      })
+
+      it('rolls the row back when the cancel is refused', async () => {
+        vi.spyOn(apiClient.apiClient, 'cancelJob').mockRejectedValueOnce(new Error('Nope'))
+
+        const wrapper = createWrapper()
+        seed()
+        const { result } = renderHook(() => useCancelJob(), { wrapper })
+
+        result.current.mutate('job1')
+
+        await waitFor(() => expect(result.current.isError).toBe(true))
+
+        const cached = queryClient.getQueryData(listKey) as { jobs: { status: string }[] }
+        expect(cached.jobs[0].status).toBe('running')
+        expect((queryClient.getQueryData(['jobs', 'job1']) as { status: string }).status).toBe(
+          'running'
+        )
+      })
+    })
   })
 })

@@ -28,6 +28,7 @@ const field = {
   storage: () => screen.getByRole('combobox', { name: /^storage backend/i }),
   frequency: () => screen.getByRole('combobox', { name: /^frequency$/i }),
   compressEnabled: () => screen.getByRole('checkbox', { name: /enable compression/i }),
+  advancedToggle: () => screen.getByRole('button', { name: /advanced options/i }),
 }
 
 const pgTarget: TargetConfig = {
@@ -158,8 +159,8 @@ describe('TargetForm', () => {
     expect(field.compressEnabled()).not.toBeChecked()
   })
 
-  it('opens a clean form when create follows an edit', () => {
-    const { reopenWith } = renderForm(pgTarget)
+  it('opens a clean form when create follows an edit', async () => {
+    const { reopenWith, user } = renderForm(pgTarget)
 
     reopenWith(undefined)
 
@@ -169,10 +170,16 @@ describe('TargetForm', () => {
     expect(field.port()).toHaveValue(3306)
     expect(field.user()).toHaveValue('')
     expect(field.database()).toHaveValue('')
-    expect(field.excludeTables()).toHaveValue('')
-    expect(field.additionalArgs()).toHaveValue('')
     expect(field.type()).toHaveTextContent('MySQL')
     expect(field.storage()).toHaveTextContent('Use default storage')
+
+    // Creating starts with Advanced folded away — which also has to reset when
+    // the previous open was an edit, where it starts expanded.
+    expect(field.advancedToggle()).toHaveAttribute('aria-expanded', 'false')
+    await user.click(field.advancedToggle())
+
+    expect(field.excludeTables()).toHaveValue('')
+    expect(field.additionalArgs()).toHaveValue('')
     expect(field.compressEnabled()).not.toBeChecked()
   })
 
@@ -202,5 +209,115 @@ describe('TargetForm', () => {
     })
     // Blank means "keep the stored password", so it must not be sent at all.
     expect(payload.connection).not.toHaveProperty('password')
+  })
+
+  describe('sectioning', () => {
+    it('groups the fields under named headings', () => {
+      renderForm()
+
+      for (const heading of ['Identity', 'Connection', 'Scheduling', 'Storage']) {
+        expect(screen.getByRole('heading', { level: 3, name: heading })).toBeInTheDocument()
+      }
+    })
+
+    it('folds the advanced options away for a new target', () => {
+      renderForm()
+
+      expect(field.advancedToggle()).toHaveAttribute('aria-expanded', 'false')
+      // `hidden`, not a CSS class: collapsed fields leave the accessibility
+      // tree, so a role query — which is what assistive tech sees — misses them.
+      expect(screen.queryByRole('textbox', { name: /^exclude tables/i })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('checkbox', { name: /enable compression/i })
+      ).not.toBeInTheDocument()
+    })
+
+    it('opens the advanced options when editing, so Edit shows the whole target', () => {
+      renderForm(pgTarget)
+
+      expect(field.advancedToggle()).toHaveAttribute('aria-expanded', 'true')
+      expect(field.excludeTables()).toHaveValue('audit_log, sessions')
+    })
+
+    it('keeps the buttons out of the scrolling region', () => {
+      renderForm()
+
+      const scroller = field.name().closest('.overflow-y-auto')
+      expect(scroller).not.toBeNull()
+      expect(scroller).not.toContainElement(screen.getByRole('button', { name: /^create$/i }))
+    })
+  })
+
+  describe('validation', () => {
+    it('reports every missing field instead of submitting', async () => {
+      const { onSubmit, user } = renderForm()
+
+      await user.click(screen.getByRole('button', { name: /^create$/i }))
+
+      expect(onSubmit).not.toHaveBeenCalled()
+      expect(await screen.findByText('A name is required.')).toBeInTheDocument()
+      expect(screen.getByText('A host is required.')).toBeInTheDocument()
+      expect(screen.getByText('A user is required.')).toBeInTheDocument()
+      expect(screen.getByText('A database is required.')).toBeInTheDocument()
+      expect(screen.getByText('A password is required.')).toBeInTheDocument()
+    })
+
+    it('points the field at its message and moves focus to the first one', async () => {
+      const { user } = renderForm()
+
+      await user.click(screen.getByRole('button', { name: /^create$/i }))
+
+      expect(field.name()).toHaveFocus()
+      expect(field.name()).toHaveAttribute('aria-invalid', 'true')
+      expect(field.name()).toHaveAccessibleDescription('A name is required.')
+    })
+
+    it('rejects a port outside the valid range', async () => {
+      const { onSubmit, user } = renderForm()
+
+      await user.clear(field.port())
+      await user.type(field.port(), '70000')
+      await user.click(screen.getByRole('button', { name: /^create$/i }))
+
+      expect(onSubmit).not.toHaveBeenCalled()
+      expect(screen.getByText('Enter a port between 1 and 65535.')).toBeInTheDocument()
+    })
+
+    it('clears a message as soon as the field is corrected', async () => {
+      const { user } = renderForm()
+
+      await user.click(screen.getByRole('button', { name: /^create$/i }))
+      expect(screen.getByText('A host is required.')).toBeInTheDocument()
+
+      await user.type(field.host(), 'db.internal')
+
+      expect(screen.queryByText('A host is required.')).not.toBeInTheDocument()
+    })
+
+    it('still accepts a blank password when editing', async () => {
+      const { onSubmit, user } = renderForm(pgTarget)
+
+      await user.click(screen.getByRole('button', { name: /^update$/i }))
+
+      expect(onSubmit).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('A password is required.')).not.toBeInTheDocument()
+    })
+
+    it('does not demand a user or database for redis', async () => {
+      const { onSubmit, user } = renderForm()
+
+      await user.type(field.name(), 'cache')
+      await user.click(field.type())
+      await user.click(screen.getByRole('option', { name: 'Redis' }))
+      await user.type(field.host(), 'localhost')
+      await user.click(screen.getByRole('button', { name: /^create$/i }))
+
+      expect(onSubmit).toHaveBeenCalledTimes(1)
+      expect(submitted(onSubmit).connection).toMatchObject({
+        type: 'redis',
+        host: 'localhost',
+        port: 6379,
+      })
+    })
   })
 })

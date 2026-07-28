@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../api/client'
+import type { Job } from '../types'
 
 interface UseJobsFilters {
   status?: string
@@ -81,13 +82,42 @@ export function useTriggerRestore() {
   })
 }
 
+/** Every cached shape that can hold a job, so one helper can rewrite them all. */
+type CachedJobs = { jobs: Job[] } | Job | undefined
+
+function withStatus(cached: CachedJobs, id: string, status: Job['status']): CachedJobs {
+  if (!cached) return cached
+  if ('jobs' in cached) {
+    return { ...cached, jobs: cached.jobs.map((j) => (j.id === id ? { ...j, status } : j)) }
+  }
+  return cached.id === id ? { ...cached, status } : cached
+}
+
 // Cancel job mutation
 export function useCancelJob() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => apiClient.cancelJob(id),
-    onSuccess: (_, id) => {
+
+    // `cancelling` is a real server state, not a spinner: the daemon sets it
+    // the moment it accepts the request. Showing it straight away means the
+    // row stops looking runnable without waiting up to three seconds for the
+    // next poll. If the request is refused, the snapshot goes back.
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ['jobs'] })
+      const previous = queryClient.getQueriesData<CachedJobs>({ queryKey: ['jobs'] })
+      queryClient.setQueriesData<CachedJobs>({ queryKey: ['jobs'] }, (cached) =>
+        withStatus(cached, id, 'cancelling')
+      )
+      return { previous }
+    },
+
+    onError: (_error, _id, context) => {
+      context?.previous.forEach(([key, cached]) => queryClient.setQueryData(key, cached))
+    },
+
+    onSettled: (_data, _error, id) => {
       // Invalidate specific job and job list
       queryClient.invalidateQueries({ queryKey: ['jobs', id] })
       queryClient.invalidateQueries({ queryKey: ['jobs'] })

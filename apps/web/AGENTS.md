@@ -756,6 +756,50 @@ the eager file owns `validateSearch` and exports the `JobsSearch` type, the lazy
 The router in `App.tsx` sets `defaultPendingComponent` so a slow chunk fetch shows a fallback rather
 than a blank outlet.
 
+**Table state lives in the URL, not `useState`.** Every job table — `/jobs`, `/backup`,
+`/backup/jobs`, `/restore`, `/restore/jobs` — renders
+[`components/JobHistoryTable.tsx`](./src/components/JobHistoryTable.tsx) and takes its filter, page,
+page size, sort and density from search params validated by `validateJobSearch` in
+[`lib/job-search.ts`](./src/lib/job-search.ts). A filtered view is then a link somebody can paste
+into an incident channel, and it survives a reload. `validateJobSearch` **whitelists** every value:
+the daemon answers an unknown `status` with an empty list and HTTP 200, which would read as "no
+jobs" rather than "bad link". Declare every field optional — TanStack derives what a
+`<Link to="/backup">` must supply from that type, and a required `page` would force every
+breadcrumb in the app to spell out a page number.
+
+Filtering and paging happen **server-side**; sorting cannot, because `GET /api/jobs` has no sort
+parameter (#141). The table sorts the page it already holds and says so in a caption — do not
+present that as a global sort. The `target` filter is a `Select` of known names rather than a text
+box because the API matches `target` exactly; a partial name would silently return nothing.
+
+`components/ui/table.tsx` carries the primitives: `SortableTableHead` (writes `aria-sort` on the
+`<th>` and puts a real `<button>` inside it), `TableDensityToggle`, and a `priority` prop on
+`TableHead`/`TableCell` that hides a column below a breakpoint. A hidden column must never be the
+only place a value appears — `JobList` folds the hidden `Created` value into the row's first cell.
+
+**Never run a name-based role query against the whole document.** `getByRole(role, { name })`
+computes an accessible name for *every* element of that role, calling `getComputedStyle` on each
+for the visibility check. On the jobs page — sidebar nav, theme toggle, logout, density,
+pagination, one overflow menu per row — that single synchronous pass ran long enough on a loaded
+CI runner to block the event loop, so the query's own `{ timeout }` could not fire: the test
+stalled past a 30s ceiling instead of failing at 5s. Scope to a container first, then query by
+role alone — find the `columnheader` by name (~8 candidates), then `within(header).getByRole('button')`
+with no name at all.
+
+**Route-level tests also need a raised timeout.** A test that mounts the real `routeTree` runs the
+router's loaders and renders the whole app shell, which does not fit the 5s default on a two-core
+runner. Raise it for that file with `vi.setConfig({ testTimeout: 30_000 })` and say why — never
+globally, which would blunt the feedback on genuinely-hung unit tests. See
+`routes/jobs/search-params.test.tsx`.
+
+Two earlier explanations here were wrong and are recorded so they are not retried. The first
+blamed `react-remove-scroll` — an opened Radix `Select` supposedly leaving a stylesheet that RTL
+cleanup cannot remove — and prescribed keeping Select-driven tests last. Measured false:
+`document.head` holds the same number of `<style>` elements before and after (0 either way), and a
+repeated name query gets *faster*, not slower. The second blamed the mount cost alone; raising the
+timeout to 30s fixed the Select test but the sort test still stalled, because a blocked event loop
+ignores any ceiling. Only the query scope explained it.
+
 **Confirming a destructive action**: call `useConfirm()` from
 [`src/contexts/ConfirmContext.tsx`](./src/contexts/ConfirmContext.tsx). It returns a single
 function; there is nothing to render.

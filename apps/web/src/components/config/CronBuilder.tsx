@@ -87,7 +87,7 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
       {label && (
         <Label>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-danger ml-1">*</span>}
         </Label>
       )}
 
@@ -129,7 +129,9 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
                 value={simpleMode.minute}
                 onChange={(e) => handleTimeChange('minute', e.target.value)}
               />
-              <p className="text-xs text-gray-500">Run every hour at minute {simpleMode.minute}</p>
+              <p className="text-xs text-muted-foreground">
+                Run every hour at minute {simpleMode.minute}
+              </p>
             </div>
           )}
 
@@ -182,7 +184,7 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
                 </div>
               )}
 
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {simpleMode.preset === 'daily' &&
                   `Run daily at ${simpleMode.hour.padStart(2, '0')}:${simpleMode.minute.padStart(2, '0')}`}
                 {simpleMode.preset === 'weekly' &&
@@ -211,12 +213,11 @@ export function CronBuilder({ value, onChange, label, required = false }: CronBu
               required={required}
               className="font-mono"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Format: minute hour day-of-month month day-of-week
             </p>
-            <p className="text-xs text-gray-500">
-              Example: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">0 2 * * *</code>{' '}
-              = Daily at 2:00 AM
+            <p className="text-xs text-muted-foreground">
+              Example: <code className="rounded bg-muted px-1">0 2 * * *</code> = Daily at 2:00 AM
             </p>
           </div>
         </TabsContent>

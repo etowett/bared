@@ -18,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useNavigate } from '@tanstack/react-router'
 import { AlertTriangle, Info } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTriggerRestore } from '../hooks/useJobs'
 import { useRestoreTargets } from '../hooks/useRestoreTargets'
@@ -67,7 +68,10 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
   const [pathHistory, setPathHistory] = useState<string[]>(loadBackupPathHistory)
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const inputRef = useRef<HTMLInputElement>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
+  const suggestionsRef = useRef<React.ElementRef<'ul'>>(null)
+  const listboxId = useId()
+  const optionId = (index: number) => `${listboxId}-option-${index}`
+  const navigate = useNavigate()
 
   const { data: restoreTargets, isLoading } = useRestoreTargets()
   const triggerRestore = useTriggerRestore()
@@ -158,15 +162,30 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
   const executeRestore = async () => {
     try {
-      await triggerRestore.mutateAsync({
+      const queued = await triggerRestore.mutateAsync({
         target: selectedTarget,
         backup_path: backupPath,
         dry_run: dryRun,
       })
 
-      toast.success(
-        dryRun ? 'Restore validation job queued successfully!' : 'Restore job queued successfully!'
-      )
+      const message = dryRun
+        ? 'Restore validation job queued successfully!'
+        : 'Restore job queued successfully!'
+
+      // A queued job the user cannot get to is a dead end — this toast is the
+      // only place its id is ever shown, so it carries the way there.
+      if (queued?.job_id) {
+        const id = queued.job_id
+        toast.success(message, {
+          description: `Job ${id.slice(0, 8)}`,
+          action: {
+            label: 'View job',
+            onClick: () => navigate({ to: '/jobs/$id', params: { id } }),
+          },
+        })
+      } else {
+        toast.success(message)
+      }
 
       saveBackupPath(backupPath)
       setPathHistory(loadBackupPathHistory())
@@ -233,11 +252,25 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="backup-path">Backup Path</Label>
+          {/*
+            The ARIA 1.2 combobox pattern, not a text box with a list of divs
+            under it. The input owns `aria-expanded`/`aria-activedescendant`,
+            the popup is a real listbox of options, and the active option is
+            named by id rather than by focus — focus must stay in the input so
+            typing keeps working.
+          */}
           <div className="relative">
             <Input
               ref={inputRef}
               id="backup-path"
               type="text"
+              role="combobox"
+              aria-expanded={showSuggestions}
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                showSuggestions && selectedIndex >= 0 ? optionId(selectedIndex) : undefined
+              }
               value={backupPath}
               onChange={(e) => {
                 setBackupPath(e.target.value)
@@ -250,25 +283,39 @@ export function RestoreForm({ onSuccess }: RestoreFormProps) {
               required
               autoComplete="off"
             />
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                ref={suggestionsRef}
-                className="absolute top-full left-0 right-0 mt-1 z-50 border border-input bg-popover rounded-md shadow-md max-h-[200px] overflow-y-auto"
-              >
-                {suggestions.map((suggestion, index) => (
-                  <div
-                    key={suggestion}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    className={`px-3 py-2 cursor-pointer transition-colors border-b last:border-b-0 ${
-                      index === selectedIndex ? 'bg-accent' : 'hover:bg-accent/50'
-                    }`}
-                  >
-                    {suggestion}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/*
+              Rendered even when closed, with the `hidden` attribute, so
+              `aria-controls` always points at an element that exists.
+            */}
+            <ul
+              ref={suggestionsRef}
+              id={listboxId}
+              role="listbox"
+              aria-label="Recently used paths"
+              hidden={!showSuggestions}
+              className="absolute top-full left-0 right-0 mt-1 z-50 max-h-[200px] overflow-y-auto rounded-md border border-input bg-popover shadow-md"
+            >
+              {suggestions.map((suggestion, index) => (
+                <li
+                  key={suggestion}
+                  id={optionId(index)}
+                  role="option"
+                  aria-selected={index === selectedIndex}
+                  // `mousedown` with the default prevented: a plain click would
+                  // blur the input first, close the list, and drop the pick.
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    handleSuggestionClick(suggestion)
+                  }}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={`cursor-pointer border-b px-3 py-2 transition-colors last:border-b-0 ${
+                    index === selectedIndex ? 'bg-accent' : 'hover:bg-accent/50'
+                  }`}
+                >
+                  {suggestion}
+                </li>
+              ))}
+            </ul>
           </div>
           <p className="text-sm text-muted-foreground">
             Enter the backup file path or 'latest' to restore the most recent backup

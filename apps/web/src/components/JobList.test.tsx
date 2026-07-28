@@ -48,6 +48,15 @@ vi.mock('@/contexts/ConfirmContext', async (importOriginal) => ({
 // Import after mocks
 import { JobList } from './JobList'
 
+/** The row's one visible control for everything that is not "open the job". */
+const actionsTrigger = (job: Job) =>
+  screen.getByRole('button', { name: `Actions for job ${job.id}` })
+
+async function openMenu(user: ReturnType<typeof userEvent.setup>, job: Job) {
+  await user.click(actionsTrigger(job))
+  return screen.findByRole('menu')
+}
+
 describe('JobList Component', () => {
   const mockOnSelectJob = vi.fn()
   const mockCancelJob = {
@@ -146,8 +155,10 @@ describe('JobList Component', () => {
     const jobs = [createMockJob({ created_at: '2025-12-09T13:00:00Z' })]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    // formatDate should format the date
-    expect(screen.getByText(/12\/9\/2025/)).toBeInTheDocument()
+    // Twice: the Created column, plus the copy folded into the id cell for the
+    // widths where that column is hidden. jsdom applies no media queries, so
+    // both are in the DOM here.
+    expect(screen.getAllByText(/12\/9\/2025/)).toHaveLength(2)
   })
 
   it('formats duration correctly for different time ranges', () => {
@@ -221,20 +232,150 @@ describe('JobList Component', () => {
       expect(link).toHaveAttribute('href', `/jobs/${job.id}`)
     })
 
-    it('keeps the cancel button out of the row control', async () => {
+    it('keeps the actions trigger out of the row control', async () => {
       const user = userEvent.setup()
       const job = createMockJob({ status: 'running' })
 
       render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-      const cancelButton = screen.getByRole('button', { name: /^cancel$/i })
+      const trigger = actionsTrigger(job)
       // A button nested inside the row's link/button would be invalid HTML and
       // would swallow the row's own activation.
-      expect(cancelButton.closest('a')).toBeNull()
-      expect(cancelButton.closest('button')).toBe(cancelButton)
+      expect(trigger.closest('a')).toBeNull()
+      expect(trigger.closest('button')).toBe(trigger)
 
-      await user.click(cancelButton)
+      await user.click(trigger)
       expect(mockOnSelectJob).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('row overflow menu', () => {
+    it('hides the destructive action behind one neutral trigger', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob({ status: 'running' })
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      // Nothing destructive is visible until the menu is opened.
+      expect(screen.queryByRole('menuitem', { name: /cancel job/i })).not.toBeInTheDocument()
+
+      await openMenu(user, job)
+      expect(await screen.findByRole('menuitem', { name: /cancel job/i })).toBeInTheDocument()
+    })
+
+    it('is keyboard operable end to end', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob({ status: 'running' })
+      mockCancelJob.mutateAsync.mockResolvedValueOnce(undefined)
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      actionsTrigger(job).focus()
+      await user.keyboard('{Enter}')
+
+      const menu = await screen.findByRole('menu')
+      expect(menu).toBeInTheDocument()
+
+      // Arrow down past "View details" and "Copy job ID" to the cancel item.
+      await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}')
+
+      await waitFor(() => {
+        expect(mockConfirm).toHaveBeenCalled()
+        expect(mockCancelJob.mutateAsync).toHaveBeenCalledWith(job.id)
+      })
+    })
+
+    it('offers no cancel item for a finished job', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob({ status: 'completed' })
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      await openMenu(user, job)
+
+      expect(screen.queryByRole('menuitem', { name: /cancel job/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /view details/i })).toBeInTheDocument()
+    })
+
+    it('opens the job from the menu', async () => {
+      const user = userEvent.setup()
+      const job = createMockJob()
+
+      render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
+
+      await openMenu(user, job)
+      await user.click(screen.getByRole('menuitem', { name: /view details/i }))
+
+      expect(mockOnSelectJob).toHaveBeenCalledWith(job)
+    })
+  })
+
+  describe('sorting', () => {
+    const jobs = [
+      createMockJob({ id: 'a', target: 'zeta', duration_seconds: 10 }),
+      createMockJob({ id: 'b', target: 'alpha', duration_seconds: 90 }),
+    ]
+
+    it('leaves the headers plain when the caller does not handle sorting', () => {
+      render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
+
+      expect(screen.queryByRole('button', { name: /target/i })).not.toBeInTheDocument()
+    })
+
+    it('reports the active column through aria-sort', () => {
+      render(
+        <JobList
+          jobs={jobs}
+          onSelectJob={mockOnSelectJob}
+          sort="target"
+          order="asc"
+          onSortChange={vi.fn()}
+        />
+      )
+
+      expect(screen.getByRole('columnheader', { name: /target/i })).toHaveAttribute(
+        'aria-sort',
+        'ascending'
+      )
+      expect(screen.getByRole('columnheader', { name: /^status$/i })).toHaveAttribute(
+        'aria-sort',
+        'none'
+      )
+    })
+
+    it('reorders the rows it was given', () => {
+      const { container } = render(
+        <JobList
+          jobs={jobs}
+          onSelectJob={mockOnSelectJob}
+          sort="target"
+          order="asc"
+          onSortChange={vi.fn()}
+        />
+      )
+
+      const targets = Array.from(container.querySelectorAll('tbody tr td:nth-child(3)')).map(
+        (cell) => cell.textContent
+      )
+      expect(targets).toEqual(['alpha', 'zeta'])
+    })
+
+    it('asks for the opposite direction when the active column is clicked again', async () => {
+      const user = userEvent.setup()
+      const onSortChange = vi.fn()
+
+      render(
+        <JobList
+          jobs={jobs}
+          onSelectJob={mockOnSelectJob}
+          sort="target"
+          order="asc"
+          onSortChange={onSortChange}
+        />
+      )
+
+      await user.click(screen.getByRole('button', { name: /target/i }))
+      expect(onSortChange).toHaveBeenCalledWith('target', 'desc')
     })
   })
 
@@ -248,7 +389,8 @@ describe('JobList Component', () => {
     expect(row).toBeInTheDocument()
   })
 
-  it('shows cancel button for running, queued, and cancelling jobs', () => {
+  it('offers cancel for running, queued, and cancelling jobs only', async () => {
+    const user = userEvent.setup()
     const jobs = [
       createMockJob({ id: '1', status: 'running' }),
       createMockJob({ id: '2', status: 'queued' }),
@@ -258,8 +400,16 @@ describe('JobList Component', () => {
     ]
     render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButtons = screen.getAllByRole('button', { name: /cancel/i })
-    expect(cancelButtons).toHaveLength(3)
+    const cancellable: string[] = []
+    for (const job of jobs) {
+      await openMenu(user, job)
+      if (screen.queryByRole('menuitem', { name: /cancel job/i })) {
+        cancellable.push(job.id)
+      }
+      await user.keyboard('{Escape}')
+    }
+
+    expect(cancellable).toEqual(['1', '2', '3'])
   })
 
   it('handles job cancellation with confirmation', async () => {
@@ -269,8 +419,8 @@ describe('JobList Component', () => {
 
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    await user.click(cancelButton)
+    await openMenu(user, job)
+    await user.click(screen.getByRole('menuitem', { name: /cancel job/i }))
 
     expect(mockConfirm).toHaveBeenCalledWith({
       title: 'Cancel Job',
@@ -292,9 +442,10 @@ describe('JobList Component', () => {
 
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    await user.click(cancelButton)
+    await openMenu(user, job)
+    await user.click(screen.getByRole('menuitem', { name: /cancel job/i }))
 
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalled())
     expect(mockCancelJob.mutateAsync).not.toHaveBeenCalled()
   })
 
@@ -305,8 +456,8 @@ describe('JobList Component', () => {
 
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    await user.click(cancelButton)
+    await openMenu(user, job)
+    await user.click(screen.getByRole('menuitem', { name: /cancel job/i }))
 
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith('Failed to cancel job', {
@@ -315,33 +466,42 @@ describe('JobList Component', () => {
     })
   })
 
-  it('prevents row selection when cancel button is clicked', async () => {
+  it('prevents row selection when the menu is opened', async () => {
     const user = userEvent.setup()
     const job = createMockJob({ status: 'running' })
 
     render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    await user.click(cancelButton)
+    await openMenu(user, job)
 
     // onSelectJob should not be called because stopPropagation prevents it
     expect(mockOnSelectJob).not.toHaveBeenCalled()
   })
 
-  it('disables cancel button when job is cancelling', () => {
-    const jobs = [createMockJob({ status: 'cancelling' })]
-    render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
+  it('disables the cancel item when the job is already cancelling', async () => {
+    const user = userEvent.setup()
+    const job = createMockJob({ status: 'cancelling' })
+    render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    expect(cancelButton).toBeDisabled()
+    await openMenu(user, job)
+
+    expect(screen.getByRole('menuitem', { name: /cancel job/i })).toHaveAttribute(
+      'data-disabled',
+      ''
+    )
   })
 
-  it('disables cancel button when cancel mutation is pending', () => {
-    const jobs = [createMockJob({ status: 'running' })]
+  it('disables the cancel item while a cancel is in flight', async () => {
+    const user = userEvent.setup()
+    const job = createMockJob({ status: 'running' })
     mockCancelJob.isPending = true
-    render(<JobList jobs={jobs} onSelectJob={mockOnSelectJob} />)
+    render(<JobList jobs={[job]} onSelectJob={mockOnSelectJob} />)
 
-    const cancelButton = screen.getByRole('button', { name: /cancel/i })
-    expect(cancelButton).toBeDisabled()
+    await openMenu(user, job)
+
+    expect(screen.getByRole('menuitem', { name: /cancel job/i })).toHaveAttribute(
+      'data-disabled',
+      ''
+    )
   })
 })

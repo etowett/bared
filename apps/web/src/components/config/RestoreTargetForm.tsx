@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { Dialog, DialogDescription, DialogTitle } from '../ui/dialog'
+import { FormDialogBody, FormDialogContent, FormDialogFooter, FormDialogHeader } from './FormLayout'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -87,7 +81,7 @@ export function RestoreTargetForm({
 }: RestoreTargetFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <FormDialogContent className="max-w-3xl">
         {/*
           The page keeps this dialog mounted and swaps `target` underneath it, so
           the fields live in a child that is mounted fresh on every open. A
@@ -103,7 +97,7 @@ export function RestoreTargetForm({
             onSubmit={onSubmit}
           />
         )}
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   )
 }
@@ -170,189 +164,198 @@ function RestoreTargetFormFields({
 
   return (
     <>
-      <DialogHeader>
+      <FormDialogHeader>
         <DialogTitle>{isEdit ? 'Edit Restore Target' : 'Create Restore Target'}</DialogTitle>
         <DialogDescription>
           {isEdit
             ? 'Update restore target configuration'
             : 'Configure a new restore target for restoring backups'}
         </DialogDescription>
-      </DialogHeader>
+      </FormDialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
-            {error}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <FormDialogBody className="space-y-4">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-danger/25 bg-danger-subtle p-3 text-sm text-danger"
+            >
+              {error}
+            </div>
+          )}
 
-        <div className="space-y-2">
-          <Label htmlFor="name">
-            Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="my-restore-target"
-            required
-            disabled={isEdit}
-          />
-          {isEdit && <p className="text-xs text-gray-500">Restore target name cannot be changed</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="description">Description (optional)</Label>
-          <Textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Development environment for testing restores"
-            rows={2}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="source_target">Source Target (optional)</Label>
-          <Select
-            value={formData.source_target || '__none__'}
-            onValueChange={(value) =>
-              setFormData({ ...formData, source_target: value === '__none__' ? '' : value })
-            }
-          >
-            <SelectTrigger id="source_target">
-              <SelectValue placeholder="Select source target" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">No specific source</SelectItem>
-              {targets.map((t) => (
-                <SelectItem key={t.name} value={t.name}>
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access for display */}
-                  {t.name} ({(t.connection as any).type})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">
-            Link to the backup target this restore target is associated with
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="type">
-            Database Type <span className="text-red-500">*</span>
-          </Label>
-          <Select value={formData.type} onValueChange={handleTypeChange} disabled={isEdit}>
-            <SelectTrigger id="type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="mysql">MySQL</SelectItem>
-              <SelectItem value="postgres">PostgreSQL</SelectItem>
-              <SelectItem value="redis">Redis</SelectItem>
-            </SelectContent>
-          </Select>
-          {isEdit && <p className="text-xs text-gray-500">Database type cannot be changed</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="host">
-              Host <span className="text-red-500">*</span>
+            <Label htmlFor="name">
+              Name <span className="text-danger">*</span>
             </Label>
             <Input
-              id="host"
-              value={formData.host}
-              onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-              placeholder="localhost"
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="my-restore-target"
               required
+              disabled={isEdit}
+            />
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Restore target name cannot be changed</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (optional)</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Development environment for testing restores"
+              rows={2}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="port">
-              Port <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="port"
-              type="number"
-              value={formData.port}
-              onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
-              required
-            />
+            <Label htmlFor="source_target">Source Target (optional)</Label>
+            <Select
+              value={formData.source_target || '__none__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, source_target: value === '__none__' ? '' : value })
+              }
+            >
+              <SelectTrigger id="source_target">
+                <SelectValue placeholder="Select source target" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">No specific source</SelectItem>
+                {targets.map((t) => (
+                  <SelectItem key={t.name} value={t.name}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- Union type access for display */}
+                    {t.name} ({(t.connection as any).type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Link to the backup target this restore target is associated with
+            </p>
           </div>
-        </div>
 
-        {formData.type !== 'redis' && (
-          <>
+          <div className="space-y-2">
+            <Label htmlFor="type">
+              Database Type <span className="text-danger">*</span>
+            </Label>
+            <Select value={formData.type} onValueChange={handleTypeChange} disabled={isEdit}>
+              <SelectTrigger id="type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mysql">MySQL</SelectItem>
+                <SelectItem value="postgres">PostgreSQL</SelectItem>
+                <SelectItem value="redis">Redis</SelectItem>
+              </SelectContent>
+            </Select>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Database type cannot be changed</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="user">
-                User <span className="text-red-500">*</span>
+              <Label htmlFor="host">
+                Host <span className="text-danger">*</span>
               </Label>
               <Input
-                id="user"
-                value={formData.user}
-                onChange={(e) => setFormData({ ...formData, user: e.target.value })}
-                placeholder="root"
+                id="host"
+                value={formData.host}
+                onChange={(e) => setFormData({ ...formData, host: e.target.value })}
+                placeholder="localhost"
                 required
               />
             </div>
 
-            <PasswordInput
-              label="Password"
-              value={formData.password}
-              onChange={(value) => setFormData({ ...formData, password: value })}
-              placeholder="••••••••"
-              required={!isEdit}
-              isEdit={isEdit}
-            />
-
             <div className="space-y-2">
-              <Label htmlFor="database">
-                Database <span className="text-red-500">*</span>
+              <Label htmlFor="port">
+                Port <span className="text-danger">*</span>
               </Label>
               <Input
-                id="database"
-                value={formData.database}
-                onChange={(e) => setFormData({ ...formData, database: e.target.value })}
-                placeholder="myapp_restore"
+                id="port"
+                type="number"
+                value={formData.port}
+                onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) })}
                 required
               />
             </div>
-          </>
-        )}
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="storage_name">Storage Backend (optional)</Label>
-          <Select
-            value={formData.storage_name || '__default__'}
-            onValueChange={(value) =>
-              setFormData({ ...formData, storage_name: value === '__default__' ? '' : value })
-            }
-          >
-            <SelectTrigger id="storage_name">
-              <SelectValue placeholder="Use default storage" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__default__">Use default storage</SelectItem>
-              {storages.map((storage) => (
-                <SelectItem key={storage.name} value={storage.name}>
-                  {storage.name} ({storage.type})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">Where to find backups for restoration</p>
-        </div>
+          {formData.type !== 'redis' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="user">
+                  User <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="user"
+                  value={formData.user}
+                  onChange={(e) => setFormData({ ...formData, user: e.target.value })}
+                  placeholder="root"
+                  required
+                />
+              </div>
 
-        <DialogFooter>
+              <PasswordInput
+                label="Password"
+                value={formData.password}
+                onChange={(value) => setFormData({ ...formData, password: value })}
+                placeholder="••••••••"
+                required={!isEdit}
+                isEdit={isEdit}
+              />
+
+              <div className="space-y-2">
+                <Label htmlFor="database">
+                  Database <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="database"
+                  value={formData.database}
+                  onChange={(e) => setFormData({ ...formData, database: e.target.value })}
+                  placeholder="myapp_restore"
+                  required
+                />
+              </div>
+            </>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="storage_name">Storage Backend (optional)</Label>
+            <Select
+              value={formData.storage_name || '__default__'}
+              onValueChange={(value) =>
+                setFormData({ ...formData, storage_name: value === '__default__' ? '' : value })
+              }
+            >
+              <SelectTrigger id="storage_name">
+                <SelectValue placeholder="Use default storage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__default__">Use default storage</SelectItem>
+                {storages.map((storage) => (
+                  <SelectItem key={storage.name} value={storage.name}>
+                    {storage.name} ({storage.type})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Where to find backups for restoration</p>
+          </div>
+        </FormDialogBody>
+
+        <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </Button>
-        </DialogFooter>
+        </FormDialogFooter>
       </form>
     </>
   )

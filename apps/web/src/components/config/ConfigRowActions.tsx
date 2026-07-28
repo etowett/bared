@@ -62,7 +62,7 @@ export function ConfigRowActions({
               disabled={readOnly || deletePending}
               aria-label={`Delete ${resource} ${name}`}
             >
-              <Trash2 className="h-4 w-4 text-red-500" />
+              <Trash2 className="h-4 w-4 text-danger" />
             </Button>
           </span>
         </TooltipTrigger>

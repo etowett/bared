@@ -1,13 +1,7 @@
 import { useState } from 'react'
 import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { Dialog, DialogDescription, DialogTitle } from '../ui/dialog'
+import { FormDialogBody, FormDialogContent, FormDialogFooter, FormDialogHeader } from './FormLayout'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -190,7 +184,7 @@ function buildPayload(state: NotifierFormState): NotifierRequest {
 export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: NotifierFormProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <FormDialogContent className="max-w-2xl">
         {/*
           The page keeps this dialog mounted and swaps `notifier` underneath it,
           so the fields live in a child that is mounted fresh on every open.
@@ -204,7 +198,7 @@ export function NotifierForm({ open, onOpenChange, notifier, onSubmit }: Notifie
             onSubmit={onSubmit}
           />
         )}
-      </DialogContent>
+      </FormDialogContent>
     </Dialog>
   )
 }
@@ -236,310 +230,321 @@ function NotifierFormFields({ notifier, onOpenChange, onSubmit }: Omit<NotifierF
 
   return (
     <>
-      <DialogHeader>
+      <FormDialogHeader>
         <DialogTitle>{isEdit ? 'Edit Notifier' : 'Create Notifier'}</DialogTitle>
         <DialogDescription>
           {isEdit
             ? 'Update notification channel configuration'
             : 'Configure a new notification channel for backup alerts'}
         </DialogDescription>
-      </DialogHeader>
+      </FormDialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="name">
-            Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => update('name', e.target.value)}
-            placeholder="my-notifier"
-            required
-            disabled={isEdit}
-          />
-          {isEdit && <p className="text-xs text-gray-500">Notifier name cannot be changed</p>}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="type">
-            Type <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={formData.type}
-            onValueChange={(value) => update('type', value as NotifierType)}
-            disabled={isEdit}
-          >
-            <SelectTrigger id="type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="slack">Slack</SelectItem>
-              <SelectItem value="email">Email</SelectItem>
-              <SelectItem value="webhook">Webhook</SelectItem>
-            </SelectContent>
-          </Select>
-          {isEdit && <p className="text-xs text-gray-500">Notifier type cannot be changed</p>}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="on_success"
-            checked={formData.onSuccess}
-            onCheckedChange={(checked) => update('onSuccess', checked === true)}
-          />
-          <Label htmlFor="on_success" className="cursor-pointer">
-            Notify on success (default is failures only)
-          </Label>
-        </div>
-
-        {formData.type === 'slack' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="slack_url">
-                Webhook URL <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="slack_url"
-                type="url"
-                value={formData.slackUrl}
-                onChange={(e) => update('slackUrl', e.target.value)}
-                placeholder="https://hooks.slack.com/services/..."
-                required
-              />
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <FormDialogBody className="space-y-4">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-danger/25 bg-danger-subtle p-3 text-sm text-danger"
+            >
+              {error}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="slack_channel">Channel (optional)</Label>
-              <Input
-                id="slack_channel"
-                value={formData.channel}
-                onChange={(e) => update('channel', e.target.value)}
-                placeholder="#backups"
-              />
-            </div>
-          </>
-        )}
-
-        {formData.type === 'email' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="smtp_host">
-                SMTP Host <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="smtp_host"
-                value={formData.smtpHost}
-                onChange={(e) => update('smtpHost', e.target.value)}
-                placeholder="smtp.gmail.com"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="smtp_port">
-                SMTP Port <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="smtp_port"
-                type="number"
-                min="1"
-                value={formData.smtpPort}
-                onChange={(e) => update('smtpPort', e.target.value)}
-                placeholder="587"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="smtp_username">
-                SMTP Username <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="smtp_username"
-                value={formData.smtpUsername}
-                onChange={(e) => update('smtpUsername', e.target.value)}
-                placeholder="user@example.com"
-                required
-              />
-            </div>
-
-            <PasswordInput
-              label="SMTP Password"
-              value={formData.smtpPassword}
-              onChange={(value) => update('smtpPassword', value)}
-              placeholder="••••••••"
-              required={!isEdit}
-              isEdit={isEdit}
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Name <span className="text-danger">*</span>
+            </Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => update('name', e.target.value)}
+              placeholder="my-notifier"
+              required
+              disabled={isEdit}
             />
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="smtp_use_tls"
-                checked={formData.smtpUseTLS}
-                onCheckedChange={(checked) => update('smtpUseTLS', checked === true)}
-              />
-              <Label htmlFor="smtp_use_tls" className="cursor-pointer">
-                Use implicit TLS (SMTPS, usually port 465)
-              </Label>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="smtp_from">
-                From Email <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="smtp_from"
-                type="email"
-                value={formData.smtpFrom}
-                onChange={(e) => update('smtpFrom', e.target.value)}
-                placeholder="backups@example.com"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="smtp_to">
-                To Emails <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="smtp_to"
-                value={formData.smtpTo}
-                onChange={(e) => update('smtpTo', e.target.value)}
-                placeholder="admin@example.com, oncall@example.com"
-                required
-              />
-              <p className="text-xs text-gray-500">Comma-separated for multiple recipients</p>
-            </div>
-          </>
-        )}
-
-        {formData.type === 'webhook' && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="webhook_url">
-                URL <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="webhook_url"
-                type="url"
-                value={formData.webhookUrl}
-                onChange={(e) => update('webhookUrl', e.target.value)}
-                placeholder="https://api.example.com/webhook"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="webhook_method">
-                Method <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="webhook_method"
-                value={formData.webhookMethod}
-                onChange={(e) => update('webhookMethod', e.target.value)}
-                placeholder="POST"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="webhook_auth_type">Authentication</Label>
-              <Select
-                value={formData.authType}
-                onValueChange={(value) => update('authType', value as AuthTypeChoice)}
-              >
-                <SelectTrigger id="webhook_auth_type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="basic">Basic Auth</SelectItem>
-                  <SelectItem value="bearer">Bearer Token</SelectItem>
-                  <SelectItem value="header">Custom Header</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.authType === 'basic' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook_auth_username">
-                    Username <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="webhook_auth_username"
-                    value={formData.authUsername}
-                    onChange={(e) => update('authUsername', e.target.value)}
-                    placeholder="backup-bot"
-                    required
-                  />
-                </div>
-
-                <PasswordInput
-                  label="Password"
-                  value={formData.authPassword}
-                  onChange={(value) => update('authPassword', value)}
-                  placeholder="••••••••"
-                  required={!isEdit}
-                  isEdit={isEdit}
-                />
-              </>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Notifier name cannot be changed</p>
             )}
+          </div>
 
-            {formData.authType === 'bearer' && (
+          <div className="space-y-2">
+            <Label htmlFor="type">
+              Type <span className="text-danger">*</span>
+            </Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value) => update('type', value as NotifierType)}
+              disabled={isEdit}
+            >
+              <SelectTrigger id="type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="slack">Slack</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="webhook">Webhook</SelectItem>
+              </SelectContent>
+            </Select>
+            {isEdit && (
+              <p className="text-xs text-muted-foreground">Notifier type cannot be changed</p>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="on_success"
+              checked={formData.onSuccess}
+              onCheckedChange={(checked) => update('onSuccess', checked === true)}
+            />
+            <Label htmlFor="on_success" className="cursor-pointer">
+              Notify on success (default is failures only)
+            </Label>
+          </div>
+
+          {formData.type === 'slack' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="slack_url">
+                  Webhook URL <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="slack_url"
+                  type="url"
+                  value={formData.slackUrl}
+                  onChange={(e) => update('slackUrl', e.target.value)}
+                  placeholder="https://hooks.slack.com/services/..."
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slack_channel">Channel (optional)</Label>
+                <Input
+                  id="slack_channel"
+                  value={formData.channel}
+                  onChange={(e) => update('channel', e.target.value)}
+                  placeholder="#backups"
+                />
+              </div>
+            </>
+          )}
+
+          {formData.type === 'email' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="smtp_host">
+                  SMTP Host <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="smtp_host"
+                  value={formData.smtpHost}
+                  onChange={(e) => update('smtpHost', e.target.value)}
+                  placeholder="smtp.gmail.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtp_port">
+                  SMTP Port <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="smtp_port"
+                  type="number"
+                  min="1"
+                  value={formData.smtpPort}
+                  onChange={(e) => update('smtpPort', e.target.value)}
+                  placeholder="587"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtp_username">
+                  SMTP Username <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="smtp_username"
+                  value={formData.smtpUsername}
+                  onChange={(e) => update('smtpUsername', e.target.value)}
+                  placeholder="user@example.com"
+                  required
+                />
+              </div>
+
               <PasswordInput
-                label="Bearer Token"
-                value={formData.authToken}
-                onChange={(value) => update('authToken', value)}
+                label="SMTP Password"
+                value={formData.smtpPassword}
+                onChange={(value) => update('smtpPassword', value)}
                 placeholder="••••••••"
                 required={!isEdit}
                 isEdit={isEdit}
               />
-            )}
 
-            {formData.authType === 'header' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook_auth_header_name">
-                    Header Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="webhook_auth_header_name"
-                    value={formData.authHeaderName}
-                    onChange={(e) => update('authHeaderName', e.target.value)}
-                    placeholder="X-API-Key"
-                    required
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="smtp_use_tls"
+                  checked={formData.smtpUseTLS}
+                  onCheckedChange={(checked) => update('smtpUseTLS', checked === true)}
+                />
+                <Label htmlFor="smtp_use_tls" className="cursor-pointer">
+                  Use implicit TLS (SMTPS, usually port 465)
+                </Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtp_from">
+                  From Email <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="smtp_from"
+                  type="email"
+                  value={formData.smtpFrom}
+                  onChange={(e) => update('smtpFrom', e.target.value)}
+                  placeholder="backups@example.com"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtp_to">
+                  To Emails <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="smtp_to"
+                  value={formData.smtpTo}
+                  onChange={(e) => update('smtpTo', e.target.value)}
+                  placeholder="admin@example.com, oncall@example.com"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated for multiple recipients
+                </p>
+              </div>
+            </>
+          )}
+
+          {formData.type === 'webhook' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="webhook_url">
+                  URL <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="webhook_url"
+                  type="url"
+                  value={formData.webhookUrl}
+                  onChange={(e) => update('webhookUrl', e.target.value)}
+                  placeholder="https://api.example.com/webhook"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="webhook_method">
+                  Method <span className="text-danger">*</span>
+                </Label>
+                <Input
+                  id="webhook_method"
+                  value={formData.webhookMethod}
+                  onChange={(e) => update('webhookMethod', e.target.value)}
+                  placeholder="POST"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="webhook_auth_type">Authentication</Label>
+                <Select
+                  value={formData.authType}
+                  onValueChange={(value) => update('authType', value as AuthTypeChoice)}
+                >
+                  <SelectTrigger id="webhook_auth_type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="basic">Basic Auth</SelectItem>
+                    <SelectItem value="bearer">Bearer Token</SelectItem>
+                    <SelectItem value="header">Custom Header</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.authType === 'basic' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook_auth_username">
+                      Username <span className="text-danger">*</span>
+                    </Label>
+                    <Input
+                      id="webhook_auth_username"
+                      value={formData.authUsername}
+                      onChange={(e) => update('authUsername', e.target.value)}
+                      placeholder="backup-bot"
+                      required
+                    />
+                  </div>
+
+                  <PasswordInput
+                    label="Password"
+                    value={formData.authPassword}
+                    onChange={(value) => update('authPassword', value)}
+                    placeholder="••••••••"
+                    required={!isEdit}
+                    isEdit={isEdit}
                   />
-                </div>
+                </>
+              )}
 
+              {formData.authType === 'bearer' && (
                 <PasswordInput
-                  label="Header Value"
-                  value={formData.authHeaderValue}
-                  onChange={(value) => update('authHeaderValue', value)}
+                  label="Bearer Token"
+                  value={formData.authToken}
+                  onChange={(value) => update('authToken', value)}
                   placeholder="••••••••"
                   required={!isEdit}
                   isEdit={isEdit}
                 />
-              </>
-            )}
-          </>
-        )}
+              )}
 
-        <DialogFooter>
+              {formData.authType === 'header' && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook_auth_header_name">
+                      Header Name <span className="text-danger">*</span>
+                    </Label>
+                    <Input
+                      id="webhook_auth_header_name"
+                      value={formData.authHeaderName}
+                      onChange={(e) => update('authHeaderName', e.target.value)}
+                      placeholder="X-API-Key"
+                      required
+                    />
+                  </div>
+
+                  <PasswordInput
+                    label="Header Value"
+                    value={formData.authHeaderValue}
+                    onChange={(value) => update('authHeaderValue', value)}
+                    placeholder="••••••••"
+                    required={!isEdit}
+                    isEdit={isEdit}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </FormDialogBody>
+
+        <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : isEdit ? 'Update' : 'Create'}
           </Button>
-        </DialogFooter>
+        </FormDialogFooter>
       </form>
     </>
   )

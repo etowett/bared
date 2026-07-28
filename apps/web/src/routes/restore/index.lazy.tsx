@@ -1,47 +1,25 @@
 import { JobDetail } from '@/components/JobDetail'
-import { JobList } from '@/components/JobList'
+import { JobHistoryTable } from '@/components/JobHistoryTable'
 import { RestoreForm } from '@/components/RestoreForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { PageHeader } from '@/components/ui/page-header'
-import { TableSkeleton } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useJobs } from '@/hooks/useJobs'
+import { useRestoreTargets } from '@/hooks/useRestoreTargets'
+import type { JobSearch } from '@/lib/job-search'
 import type { Job } from '@/types'
-import { createLazyFileRoute, Link } from '@tanstack/react-router'
+import { createLazyFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { History } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 export const Route = createLazyFileRoute('/restore/')({
   component: RestorePage,
 })
 
 export function RestorePage() {
+  const navigate = useNavigate()
+  const search = Route.useSearch() as JobSearch
+  const { data: restoreTargets } = useRestoreTargets()
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [targetFilter, setTargetFilter] = useState<string>('')
-
-  const { data: jobsData, isPending } = useJobs(
-    statusFilter !== 'all' ? { status: statusFilter } : undefined
-  )
-
-  // Filter for restore jobs only and by target name
-  const restoreJobs = useMemo(() => {
-    let jobs = (jobsData?.jobs || []).filter((job) => job.type === 'restore')
-
-    if (targetFilter) {
-      jobs = jobs.filter((job) => job.target.toLowerCase().includes(targetFilter.toLowerCase()))
-    }
-
-    return jobs
-  }, [jobsData?.jobs, targetFilter])
 
   return (
     <div className="space-y-6">
@@ -67,50 +45,16 @@ export function RestorePage() {
         </CardContent>
       </Card>
 
-      {/* Job History Section */}
-      <Card>
-        <CardHeader className="flex flex-col gap-4 space-y-0 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>
-            Restore Job History ({restoreJobs.length} Job{restoreJobs.length !== 1 ? 's' : ''})
-          </CardTitle>
-          <div className="flex flex-wrap gap-3">
-            <Input
-              placeholder="Filter by target..."
-              value={targetFilter}
-              onChange={(e) => setTargetFilter(e.target.value)}
-              className="w-full sm:w-[200px]"
-            />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="queued">Queued</SelectItem>
-                <SelectItem value="running">Running</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isPending ? (
-            <TableSkeleton rows={4} columns={7} />
-          ) : restoreJobs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              No restore jobs found. {targetFilter && 'Try adjusting your filters.'}
-            </div>
-          ) : (
-            <JobList
-              jobs={restoreJobs}
-              onSelectJob={setSelectedJob}
-              selectedJobId={selectedJob?.id}
-            />
-          )}
-        </CardContent>
-      </Card>
+      <JobHistoryTable
+        title="Restore Job History"
+        type="restore"
+        search={search}
+        onSearchChange={(next) => navigate({ to: '.', search: { ...search, ...next } })}
+        targetOptions={(restoreTargets?.restore_targets ?? []).map((target) => target.name)}
+        onSelectJob={setSelectedJob}
+        selectedJobId={selectedJob?.id}
+        emptyMessage="No restore jobs found."
+      />
 
       {selectedJob && <JobDetail job={selectedJob} onClose={() => setSelectedJob(null)} />}
     </div>
