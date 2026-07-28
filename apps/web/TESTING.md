@@ -105,6 +105,72 @@ make build-with-web
 make validate-all
 ```
 
+## Test Conventions
+
+### Time-dependent tests: pass the clock in, or pin it
+
+**Never hardcode an absolute instant and compare it against the real clock.** A test written that
+way passes until the hardcoded moment arrives, then fails on every branch at once — with no code
+change to blame it on. That is exactly what happened in
+[#145](https://github.com/etowett/bared/issues/145): `utils/cron.test.ts` asserted on
+`new Date('2026-07-28T02:00:00Z')`, `formatNextRun` measures against the real `new Date()` and
+short-circuits to `'Overdue'` for any past instant, and at 02:00 UTC on 2026-07-28 the frontend gate
+went red across the whole repo.
+
+Two ways to stay out of that trap, in order of preference:
+
+**1. Inject the clock (preferred).** Take `now` as a defaulted parameter so the test controls it and
+production code stays unchanged. `utils/age.ts` is the pattern to copy:
+
+```ts
+// src/utils/age.ts
+export function formatAge(timestamp?: string | null, now: Date = new Date()): string | null
+```
+
+```ts
+// src/utils/age.test.ts — the test owns the clock, so nothing can rot.
+const now = new Date('2026-07-28T12:00:00Z')
+const ago = (ms: number) => new Date(now.getTime() - ms).toISOString()
+
+expect(formatAge(ago(2 * 3600_000), now)).toBe('2 hours ago')
+```
+
+An injectable `now` also makes the boundaries (just now / minutes / hours / days) directly testable
+instead of approximable.
+
+**2. Pin the clock with fake timers.** When the function reads the clock internally and changing its
+signature isn't worth it, pin the system time — and always restore it in a `finally` so a failing
+assertion cannot leak fake timers into the rest of the file:
+
+```ts
+import { describe, expect, it, vi } from 'vitest'
+
+it('renders the absolute instant in the viewer zone', () => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-07-28T01:00:00Z'))
+
+  try {
+    expect(formatNextRun('2026-07-28T02:00:00Z')).toContain('5:00 AM')
+  } finally {
+    vi.useRealTimers()
+  }
+})
+```
+
+**Relative offsets are fine.** Building instants as offsets from `Date.now()` never rots, because
+the relationship under test is the offset, not the absolute date —
+`components/JobProgress.test.tsx` does this:
+
+```ts
+// src/components/JobProgress.test.tsx
+eta: new Date(Date.now() + 60000).toISOString(), // 1 minute from now
+```
+
+**Rule of thumb:** a date literal in a test is only safe if nothing in the code path calls
+`new Date()` / `Date.now()` on its own. Pure parsing and formatting assertions (`serverZoneLabel`,
+`describeSchedule`) can use literals freely — they never consult the clock. The moment a comparison
+against "now" enters the path, inject or pin.
+
 ## Code Quality Tools
 
 ### ESLint
