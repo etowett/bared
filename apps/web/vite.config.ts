@@ -4,7 +4,17 @@ import path from 'path'
 import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 
 export default defineConfig({
-  plugins: [react(), TanStackRouterVite()],
+  plugins: [
+    react(),
+    TanStackRouterVite({
+      // `src/routes/routes.test.tsx` asserts on the generated tree itself, so it
+      // has to sit next to the routes it exercises — but it exports no `Route`,
+      // and the generator warns about every such file on startup. Exclude test
+      // files by pattern rather than renaming, so future colocated tests are
+      // covered too.
+      routeFileIgnorePattern: '\\.(test|spec)\\.(ts|tsx)$',
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
