@@ -44,7 +44,7 @@ func TestParseLogLevel(t *testing.T) {
 
 func TestLogLevelFiltering(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -95,7 +95,7 @@ func TestLogLevelFiltering(t *testing.T) {
 
 func TestConcurrentLogging(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -132,7 +132,7 @@ func TestConcurrentLogging(t *testing.T) {
 
 func TestSetGetLevel(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	levelVar := new(slog.LevelVar)
@@ -164,7 +164,7 @@ func TestSetGetLevel(t *testing.T) {
 
 func TestGlobalLoggerInit(t *testing.T) {
 	// Reset global logger for test isolation
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	// First call initializes
@@ -187,9 +187,49 @@ func TestGlobalLoggerInit(t *testing.T) {
 	}
 }
 
+// GetLogger initializes the global logger lazily, and callers are goroutines all
+// over the daemon, so first use has to be safe concurrently. It was not: the nil
+// check read the global outside the sync.Once that wrote it, and -race caught the
+// pair (#117). Every caller must also observe the same instance, or the log hook
+// and level changes only reach some of them.
+func TestGlobalLoggerInit_ConcurrentFirstUse(t *testing.T) {
+	globalLogger.Store(nil)
+	once = sync.Once{}
+
+	const goroutines = 50
+
+	var (
+		wg      sync.WaitGroup
+		start   = make(chan struct{})
+		loggers = make([]*Logger, goroutines)
+	)
+
+	for i := range goroutines {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			<-start // Maximize the overlap on the uninitialized global.
+			loggers[i] = GetLogger()
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+
+	for i, logger := range loggers {
+		if logger == nil {
+			t.Fatalf("goroutine %d got a nil logger", i)
+		}
+		if logger != loggers[0] {
+			t.Fatalf("goroutine %d got a different logger instance", i)
+		}
+	}
+}
+
 func TestGlobalConvenienceFunctions(t *testing.T) {
 	// Reset global logger
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -198,10 +238,10 @@ func TestGlobalConvenienceFunctions(t *testing.T) {
 	levelVar := new(slog.LevelVar)
 	levelVar.Set(slog.LevelDebug)
 	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: levelVar})
-	globalLogger = &Logger{
+	globalLogger.Store(&Logger{
 		slog:  slog.New(handler),
 		level: levelVar,
-	}
+	})
 
 	// Test global Debug
 	Debug("global debug")
@@ -233,7 +273,7 @@ func TestGlobalConvenienceFunctions(t *testing.T) {
 
 func TestStructuredLogging(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -264,7 +304,7 @@ func TestStructuredLogging(t *testing.T) {
 
 func TestStructuredLoggingWithContext(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -291,7 +331,7 @@ func TestStructuredLoggingWithContext(t *testing.T) {
 
 func TestLogHooksWithSlog(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	globalHook = nil
 	once = sync.Once{}
 
@@ -315,10 +355,10 @@ func TestLogHooksWithSlog(t *testing.T) {
 		},
 	}
 
-	globalLogger = &Logger{
+	globalLogger.Store(&Logger{
 		slog:  slog.New(hooked),
 		level: levelVar,
-	}
+	})
 
 	// Test printf-style logging with hook
 	Info("test message %d", 42)
@@ -350,7 +390,7 @@ func TestLogHooksWithSlog(t *testing.T) {
 
 func TestJSONvsTextOutput(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	// Test JSON output
@@ -454,7 +494,7 @@ func TestEnvironmentDetection(t *testing.T) {
 
 func TestSensitiveDataRedaction(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -495,7 +535,7 @@ func TestSensitiveDataRedaction(t *testing.T) {
 
 func TestWithMethods(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer
@@ -534,7 +574,7 @@ func TestWithMethods(t *testing.T) {
 
 func TestDynamicLevelChange(t *testing.T) {
 	// Reset global state
-	globalLogger = nil
+	globalLogger.Store(nil)
 	once = sync.Once{}
 
 	var buf bytes.Buffer

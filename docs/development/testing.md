@@ -36,6 +36,26 @@ below: table-driven cases, the shared assertion helpers, and the file/package la
 described there. Prefer tests that exercise the real pipeline over mock theater, and
 add a regression test that fails before your fix and passes after.
 
+**A test must not outlive its goroutines.** Join every goroutine you start —
+`sync.WaitGroup`, not "the result arrived on a channel, so it must be done." A straggler
+that touches package-level state (the `util` logger is the obvious one) lands in whatever
+test is running next, and the failure surfaces somewhere else entirely.
+
+## Chasing a flaky test
+
+A test that failed once and passes on re-run is a bug, not noise. `make coverage-check`
+prints the failing test names and the log path when the suite fails; from there:
+
+```bash
+go -C apps/api test -run '<TestName>' -count=10 -race ./internal/<pkg>/
+go -C apps/api test -shuffle=on -count=10 -race ./internal/<pkg>/   # order dependence
+go -C apps/api test -cpu=1,4 -count=5 -race ./internal/<pkg>/       # scheduling
+```
+
+`-shuffle=on` prints the seed it used; quote it when you report a failure so it replays.
+Fix the test — make it deterministic by injecting a clock, waiting on the condition rather
+than a duration, or synchronising on the real signal. Never add a retry.
+
 ---
 
 > **The rest of this page is a historical work log.** It records the phased push that
