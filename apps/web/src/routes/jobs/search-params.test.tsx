@@ -146,20 +146,33 @@ describe('job table state in the URL', () => {
     expect(header).toHaveAttribute('aria-sort', 'ascending')
   })
 
+  // Races a step against its own deadline so a stall reports which step stalled
+  // rather than surfacing as a bare test-level timeout pointing at the `it`.
+  const step = <T,>(label: string, work: Promise<T>, ms = 8000): Promise<T> =>
+    Promise.race([
+      work,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`step stalled: ${label}`)), ms)
+      ),
+    ])
+
   it('writes a changed sort back to the URL', async () => {
     const user = userEvent.setup()
-    const router = await renderAt('/jobs')
+    const router = await step('renderAt(/jobs)', renderAt('/jobs'))
 
     // Every await here carries an explicit timeout well under the file's
     // ceiling. Without them a failure in this test presents as "timed out in
     // 30000ms" with no indication of which step stalled or what the router
     // actually held — which is exactly how it wasted two CI rounds. Bounded
     // steps turn that into an assertion message naming the stage.
-    const button = await screen.findByRole('button', { name: /duration/i }, { timeout: 5000 })
+    const button = await step(
+      'findByRole(button, /duration/i)',
+      screen.findByRole('button', { name: /duration/i }, { timeout: 5000 })
+    )
 
     // `userEvent`, not `fireEvent`: the click starts a router navigation, and
     // `fireEvent` returns without flushing the React work that queues.
-    await user.click(button)
+    await step('user.click(sort button)', user.click(button))
 
     try {
       await waitFor(
