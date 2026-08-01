@@ -17,9 +17,11 @@ equivalents.
 
 ## Coverage is a ratchet
 
-`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **34%**
-today, against roughly **36%** measured, with `internal/testutil/...` excluded because
-test helpers are not production statements. CI enforces the same number.
+`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **44.9%**
+today, against **45.0%** measured on CI, with `internal/testutil/...` excluded because
+test helpers are not production statements. CI enforces the same number. The ratchet is
+calibrated to CI's measurement (ubuntu) rather than a local one: coverage shifts a few tenths
+of a point between platforms, and the gate has to be green on the machine that enforces it.
 
 The threshold only ever moves **up**. If the gate goes red, add tests for what you
 changed; do not lower the threshold. When a change lifts coverage meaningfully, raise
@@ -40,6 +42,13 @@ add a regression test that fails before your fix and passes after.
 `sync.WaitGroup`, not "the result arrived on a channel, so it must be done." A straggler
 that touches package-level state (the `util` logger is the obvious one) lands in whatever
 test is running next, and the failure surfaces somewhere else entirely.
+
+**Config-backed tests use `internal/testutil/configdb`.** `configdb.New(t)` opens a
+throwaway SQLite database with the config tables applied, so `configservice` and the API
+config handlers can run against a real database instead of a mock. Its schema is a
+hand-copy of the config half of `persistence.initSchema` — the import graph rules out
+sharing the real one — and `TestSchema_MatchesPersistence` fails if the two ever diverge,
+so the copy cannot drift silently.
 
 ## Chasing a flaky test
 

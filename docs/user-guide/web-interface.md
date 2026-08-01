@@ -442,15 +442,15 @@ If you're currently using YAML configuration and want to switch to database-back
 
 ### Hot Reload
 
-After making configuration changes via the web UI, click **"Reload Configuration"** to apply changes immediately without restarting the daemon.
+Adding, editing, deleting or importing a target reloads the daemon's scheduler on
+its own — a new schedule is live as soon as the form is saved, with no restart and
+no button to press. **"Reload Configuration"** is the manual equivalent, for when
+the database was changed out of band.
 
-**What Gets Reloaded**:
-
-- Storage backends
-- Notification channels
-- Backup targets (new/updated/deleted)
-- Restore targets
-- Cron schedules (jobs are automatically rescheduled)
+**What Gets Reloaded**: the cron scheduler, rebuilt from the targets currently in
+the database. Storage backends, notification channels, restore targets and global
+settings are read from the database when a job runs, so edits to those apply to
+the next job whether or not anything reloads.
 
 **Reload Process**:
 

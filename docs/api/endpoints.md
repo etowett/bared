@@ -1735,7 +1735,7 @@ curl -u admin:password -X POST \
   -d '{"yaml_path": "/etc/bared/bared.yml"}'
 ```
 
-**Note**: After successful migration, restart the daemon or use the reload endpoint to apply changes.
+**Note**: If the migrated YAML defines any targets, the daemon reloads its scheduler automatically.
 
 ---
 
@@ -1765,14 +1765,15 @@ Hot reload configuration without restarting the daemon.
 }
 ```
 
-**What Gets Reloaded**:
+**What Gets Reloaded**: the cron scheduler, rebuilt from the targets currently in
+the database. This is the only daemon state a reload touches — storages,
+notifiers, restore targets and global settings are read from the database when a
+job runs, so changes to them take effect on the next job without a reload.
 
-- Storage backends
-- Notification channels
-- Backup targets
-- Restore targets
-- Global settings
-- Cron schedules (jobs are rescheduled automatically)
+The rebuilt scheduler is started before the outgoing one is stopped, so a reload
+never leaves a window with no scheduler armed. Backups already running are
+unaffected: a cron tick only submits a job to the job manager, so stopping the
+outgoing scheduler does not wait on in-flight backups.
 
 **Status Codes**:
 
@@ -1787,7 +1788,10 @@ curl -u admin:password -X POST \
   http://localhost:8080/api/config/reload
 ```
 
-**Use Case**: After updating configuration through the UI or API, trigger a reload to apply changes immediately without restarting the daemon.
+**Use Case**: a manual escape hatch. Creating, updating, deleting or importing a
+target already triggers a reload on its own, so the scheduler is in step with the
+database without calling this endpoint. Reach for it after editing the database
+out of band, or to re-arm the scheduler without a restart.
 
 ---
 

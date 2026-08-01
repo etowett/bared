@@ -328,6 +328,11 @@ func (s *Server) handleCreateTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A new target's schedule only exists in the database until the daemon
+	// reloads. Without this the target never runs — and on a daemon that booted
+	// against an empty database the scheduler is not even started yet.
+	s.triggerReload()
+
 	respondJSON(w, http.StatusCreated, map[string]string{
 		"message": "Target created successfully",
 		"name":    target.Name,
@@ -364,6 +369,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// The update may have changed the cron expression, so the scheduler has to
+	// be rebuilt even though PATCH /schedule is the dedicated route for it.
+	s.triggerReload()
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "Target updated successfully",
@@ -417,6 +426,10 @@ func (s *Server) handleDeleteTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Otherwise the cron entry outlives the target and keeps firing backups for
+	// a target that no longer exists.
+	s.triggerReload()
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"message": "Target deleted successfully",
@@ -605,6 +618,10 @@ func (s *Server) handleMigrateConfig(w http.ResponseWriter, r *http.Request) {
 	if err := s.configService.ImportFromYAML(r.Context(), s.cfg); err != nil {
 		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Migration failed: %v", err))
 		return
+	}
+
+	if len(s.cfg.Targets) > 0 {
+		s.triggerReload()
 	}
 
 	respondJSON(w, http.StatusOK, MigrateConfigResponse{
@@ -862,6 +879,15 @@ func (s *Server) handleImportConfig(w http.ResponseWriter, r *http.Request) {
 	resp.TotalSkipped = len(resp.Storages.Skipped) + len(resp.Notifiers.Skipped) + len(resp.Targets.Skipped) + len(resp.RestoreTargets.Skipped) + len(resp.GlobalConfig.Skipped)
 	resp.TotalFailed = len(resp.Storages.Failed) + len(resp.Notifiers.Failed) + len(resp.Targets.Failed) + len(resp.RestoreTargets.Failed) + len(resp.GlobalConfig.Failed)
 	resp.HasErrors = resp.TotalFailed > 0
+
+	// `brd config import` is how a fleet of targets first reaches a daemon, so
+	// this is the path that most needs the scheduler rebuilt. Storage, notifier
+	// and restore-target changes are deliberately not counted: reloading only
+	// rebuilds the scheduler, and jobs.Manager resolves those from the database
+	// when a job runs.
+	if !req.DryRun && len(resp.Targets.Created)+len(resp.Targets.Updated) > 0 {
+		s.triggerReload()
+	}
 
 	respondJSON(w, http.StatusOK, resp)
 }
