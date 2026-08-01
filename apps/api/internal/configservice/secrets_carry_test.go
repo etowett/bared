@@ -2,8 +2,6 @@ package configservice
 
 import (
 	"context"
-	"database/sql"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,72 +9,8 @@ import (
 
 	"github.com/etowett/bared/apps/api/internal/config"
 	"github.com/etowett/bared/apps/api/internal/encryption"
-
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/etowett/bared/apps/api/internal/testutil/configdb"
 )
-
-// The subset of the schema in persistence.initSchema that config rows live in.
-// It is duplicated rather than imported because internal/persistence imports
-// internal/jobs, which imports this package — importing it here is a cycle.
-const testSchema = `
-CREATE TABLE storages (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT UNIQUE NOT NULL,
-	type TEXT NOT NULL,
-	config_json TEXT NOT NULL,
-	keep INTEGER NOT NULL DEFAULT 7,
-	enabled BOOLEAN NOT NULL DEFAULT true,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE notifiers (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT UNIQUE NOT NULL,
-	type TEXT NOT NULL,
-	config_json TEXT NOT NULL,
-	on_success BOOLEAN NOT NULL DEFAULT false,
-	enabled BOOLEAN NOT NULL DEFAULT true,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE targets (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT UNIQUE NOT NULL,
-	type TEXT NOT NULL,
-	conn_type TEXT NOT NULL,
-	conn_json TEXT NOT NULL,
-	storage_name TEXT,
-	schedule TEXT,
-	compress_enabled BOOLEAN NOT NULL DEFAULT false,
-	compress_type TEXT,
-	exclude_tables TEXT,
-	additional_args TEXT,
-	enabled BOOLEAN NOT NULL DEFAULT true,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE restore_targets (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	name TEXT UNIQUE NOT NULL,
-	conn_type TEXT NOT NULL,
-	conn_json TEXT NOT NULL,
-	storage_name TEXT,
-	source_target TEXT,
-	description TEXT,
-	enabled BOOLEAN NOT NULL DEFAULT true,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE TABLE secrets (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	ref_type TEXT NOT NULL,
-	ref_id INTEGER NOT NULL,
-	field_name TEXT NOT NULL,
-	encrypted_value TEXT NOT NULL,
-	created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	UNIQUE(ref_type, ref_id, field_name)
-);`
 
 // newTestService builds a Service over a real, throwaway SQLite database so the
 // secret round-trip is exercised end to end rather than mocked — a mocked
@@ -85,17 +19,10 @@ CREATE TABLE secrets (
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 
-	db, err := sql.Open("sqlite3", filepath.Join(t.TempDir(), "test.db"))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-
-	_, err = db.Exec(testSchema)
+	enc, err := encryption.NewService(configdb.TestKey)
 	require.NoError(t, err)
 
-	enc, err := encryption.NewService([]byte("0123456789abcdef0123456789abcdef"))
-	require.NoError(t, err)
-
-	return NewService(db, enc)
+	return NewService(configdb.New(t), enc)
 }
 
 // The dashboard never gets a secret back — the API replaces it with

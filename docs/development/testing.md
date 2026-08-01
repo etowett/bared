@@ -17,8 +17,8 @@ equivalents.
 
 ## Coverage is a ratchet
 
-`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **34%**
-today, against roughly **36%** measured, with `internal/testutil/...` excluded because
+`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **44.8%**
+today, against roughly **45%** measured, with `internal/testutil/...` excluded because
 test helpers are not production statements. CI enforces the same number.
 
 The threshold only ever moves **up**. If the gate goes red, add tests for what you
