@@ -1770,6 +1770,11 @@ the database. This is the only daemon state a reload touches — storages,
 notifiers, restore targets and global settings are read from the database when a
 job runs, so changes to them take effect on the next job without a reload.
 
+The rebuilt scheduler is started before the outgoing one is stopped, so a reload
+never leaves a window with no scheduler armed. Backups already running are
+unaffected: a cron tick only submits a job to the job manager, so stopping the
+outgoing scheduler does not wait on in-flight backups.
+
 **Status Codes**:
 
 - `200` - Reload successful

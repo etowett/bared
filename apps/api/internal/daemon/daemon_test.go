@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -492,3 +493,57 @@ func TestStop_ShutdownSequence(t *testing.T) {
 // - Testing HTTP server startup
 // - Testing graceful shutdown with running jobs
 // These should be implemented as separate integration tests.
+
+// TestReload_ConcurrentWithSchedulerRead guards the scheduler swap. Reloading
+// replaces d.scheduler on the hot-reload goroutine while Stop reads it on the
+// signal goroutine; before schedulerMu that pairing was an unsynchronised
+// read/write on the field. Reloads used to be rare (PATCH /schedule only), but
+// every target create, update, delete and import now signals one, so the two
+// goroutines genuinely overlap in production. Run under -race.
+func TestReload_ConcurrentWithSchedulerRead(t *testing.T) {
+	target := fixtures.MySQLTarget()
+	target.Schedule = "0 2 * * *"
+
+	d := New(&config.Config{Targets: []*config.Target{target}})
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for range 50 {
+			require.NoError(t, d.Reload())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		// The same read Stop performs on shutdown.
+		for range 50 {
+			<-d.currentScheduler().Stop().Done()
+		}
+	}()
+
+	wg.Wait()
+}
+
+// A reload must leave a scheduler that still holds the configured targets, not
+// the half-built one the old stop-then-repopulate ordering briefly published.
+func TestReload_PublishesFullyPopulatedScheduler(t *testing.T) {
+	first := fixtures.MySQLTarget()
+	first.Name = "mysql-prod"
+	first.Schedule = "0 2 * * *"
+
+	second := fixtures.PostgresTarget()
+	second.Name = "postgres-dev"
+	second.Schedule = "0 3 * * *"
+
+	d := New(&config.Config{Targets: []*config.Target{first, second}})
+	before := d.currentScheduler()
+
+	require.NoError(t, d.Reload())
+
+	after := d.currentScheduler()
+	assert.NotSame(t, before, after, "reload installs a fresh scheduler")
+	assert.Len(t, after.Entries(), 2, "both scheduled targets survive the swap")
+}

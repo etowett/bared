@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,8 +26,16 @@ import (
 
 // Daemon represents the backup daemon
 type Daemon struct {
-	cfg           *config.Config
-	scheduler     *cron.Cron
+	cfg *config.Config
+
+	// scheduler is replaced wholesale on every reload. reloadConfiguration runs
+	// on the hot-reload goroutine while Stop reads the field on the signal
+	// goroutine, so every access goes through schedulerMu. Reloads used to be a
+	// rare admin action (PATCH /schedule only); now that every target change
+	// signals one, the unsynchronised swap is reachable in normal operation.
+	schedulerMu sync.RWMutex
+	scheduler   *cron.Cron
+
 	jobManager    *jobs.Manager
 	store         jobs.JobStore
 	ctx           context.Context
@@ -374,7 +383,8 @@ func (d *Daemon) Start() error {
 		"source", source)
 
 	// Schedule all targets that have a schedule configured
-	scheduledCount := d.scheduleAllTargets(runtimeCfg)
+	startupScheduler := d.currentScheduler()
+	scheduledCount := d.scheduleAllTargets(startupScheduler, runtimeCfg)
 
 	// Require at least one schedule OR HTTP server to be configured
 	if scheduledCount == 0 && d.httpAddr == "" {
@@ -385,7 +395,7 @@ func (d *Daemon) Start() error {
 
 	// Start the scheduler only if there are scheduled targets
 	if scheduledCount > 0 {
-		d.scheduler.Start()
+		startupScheduler.Start()
 		logger.InfoS("Scheduler started",
 			"component", "daemon",
 			"scheduled_targets", scheduledCount)
@@ -497,7 +507,7 @@ func (d *Daemon) Stop() error {
 
 	// 1. Stop scheduler (wait for running cron jobs to complete)
 	logger.InfoS("Stopping scheduler", "component", "daemon")
-	ctx := d.scheduler.Stop()
+	ctx := d.currentScheduler().Stop()
 	<-ctx.Done()
 	logger.InfoS("Scheduler stopped", "component", "daemon")
 
@@ -553,8 +563,32 @@ func (d *Daemon) Reload() error {
 	return d.reloadConfiguration()
 }
 
-// scheduleTarget adds a target to the scheduler
+// currentScheduler returns the live scheduler. Callers must not hold the
+// returned pointer across a reload — take it, use it, drop it.
+func (d *Daemon) currentScheduler() *cron.Cron {
+	d.schedulerMu.RLock()
+	defer d.schedulerMu.RUnlock()
+	return d.scheduler
+}
+
+// swapScheduler installs next as the live scheduler and returns the outgoing
+// one so the caller can stop it.
+func (d *Daemon) swapScheduler(next *cron.Cron) *cron.Cron {
+	d.schedulerMu.Lock()
+	defer d.schedulerMu.Unlock()
+	previous := d.scheduler
+	d.scheduler = next
+	return previous
+}
+
+// scheduleTarget adds a target to the daemon's live scheduler.
 func (d *Daemon) scheduleTarget(target *config.Target) error {
+	return d.scheduleTargetOn(d.currentScheduler(), target)
+}
+
+// scheduleTargetOn adds a target to the given scheduler. reloadConfiguration
+// populates a replacement scheduler this way, before it is visible to anyone.
+func (d *Daemon) scheduleTargetOn(scheduler *cron.Cron, target *config.Target) error {
 	// Create a closure that captures the target
 	targetCopy := target
 	job := func() {
@@ -613,7 +647,7 @@ func (d *Daemon) scheduleTarget(target *config.Target) error {
 	}
 
 	// Add job to scheduler
-	_, err := d.scheduler.AddFunc(target.Schedule, job)
+	_, err := scheduler.AddFunc(target.Schedule, job)
 	if err != nil {
 		return fmt.Errorf("invalid cron schedule '%s': %w", target.Schedule, err)
 	}
@@ -700,13 +734,14 @@ func (d *Daemon) loadRuntimeConfig() (*config.Config, configservice.ConfigSource
 	return d.cfg, configservice.SourceYAML, nil
 }
 
-// scheduleAllTargets schedules all targets with cron expressions
-func (d *Daemon) scheduleAllTargets(cfg *config.Config) int {
+// scheduleAllTargets schedules all targets with cron expressions onto the given
+// scheduler and reports how many were added.
+func (d *Daemon) scheduleAllTargets(scheduler *cron.Cron, cfg *config.Config) int {
 	logger := util.GetLogger()
 	scheduledCount := 0
 	for _, target := range cfg.Targets {
 		if target.Schedule != "" {
-			if err := d.scheduleTarget(target); err != nil {
+			if err := d.scheduleTargetOn(scheduler, target); err != nil {
 				logger.ErrorS("Failed to schedule target",
 					"component", "daemon",
 					"target", target.Name,
@@ -757,23 +792,27 @@ func (d *Daemon) reloadConfiguration() error {
 		"component", "daemon",
 		"source", source)
 
-	// Stop existing scheduler
-	logger.InfoS("Stopping existing scheduler", "component", "daemon")
-	ctx := d.scheduler.Stop()
-	<-ctx.Done()
-
-	// Create new scheduler
-	d.scheduler = cron.New()
-
-	// Reschedule all targets
-	scheduledCount := d.scheduleAllTargets(newCfg)
+	// Build the replacement off to the side and only publish it once it is fully
+	// populated and running, so a concurrent Stop never observes a half-built
+	// scheduler — and so no cron tick is dropped in the gap between the two.
+	replacement := cron.New()
+	scheduledCount := d.scheduleAllTargets(replacement, newCfg)
 	logger.InfoS("Rescheduled targets",
 		"component", "daemon",
 		"count", scheduledCount)
 
 	// Start scheduler if there are scheduled targets
 	if scheduledCount > 0 {
-		d.scheduler.Start()
+		replacement.Start()
+	}
+
+	outgoing := d.swapScheduler(replacement)
+
+	logger.InfoS("Stopping outgoing scheduler", "component", "daemon")
+	stopCtx := outgoing.Stop()
+	<-stopCtx.Done()
+
+	if scheduledCount > 0 {
 		logger.InfoS("Scheduler restarted",
 			"component", "daemon",
 			"scheduled_targets", scheduledCount)
