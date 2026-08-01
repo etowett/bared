@@ -43,6 +43,13 @@ add a regression test that fails before your fix and passes after.
 that touches package-level state (the `util` logger is the obvious one) lands in whatever
 test is running next, and the failure surfaces somewhere else entirely.
 
+**Config-backed tests use `internal/testutil/configdb`.** `configdb.New(t)` opens a
+throwaway SQLite database with the config tables applied, so `configservice` and the API
+config handlers can run against a real database instead of a mock. Its schema is a
+hand-copy of the config half of `persistence.initSchema` — the import graph rules out
+sharing the real one — and `TestSchema_MatchesPersistence` fails if the two ever diverge,
+so the copy cannot drift silently.
+
 ## Chasing a flaky test
 
 A test that failed once and passes on re-run is a bug, not noise. `make coverage-check`

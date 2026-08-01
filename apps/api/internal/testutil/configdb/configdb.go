@@ -5,7 +5,9 @@
 // The schema is a copy of the config half of persistence.initSchema rather than
 // an import of it: internal/persistence imports internal/jobs, which imports
 // internal/configservice, so a test helper that both packages can use has to
-// stand on its own. Keep it in step with persistence.initSchema.
+// stand on its own. It must stay in step with persistence.initSchema —
+// TestSchema_MatchesPersistence fails if it does not, so the copy cannot drift
+// silently.
 package configdb
 
 import (

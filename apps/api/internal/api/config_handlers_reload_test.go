@@ -12,9 +12,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
+	"github.com/etowett/bared/apps/api/internal/config"
 	"github.com/etowett/bared/apps/api/internal/configservice"
 	"github.com/etowett/bared/apps/api/internal/encryption"
 	"github.com/etowett/bared/apps/api/internal/testutil/configdb"
+	"github.com/etowett/bared/apps/api/internal/testutil/fixtures"
 )
 
 // Regression for #153: only PATCH /targets/{name}/schedule signalled the daemon,
@@ -246,4 +248,72 @@ func TestTriggerReload_DoesNotBlockWhenReloadPending(t *testing.T) {
 	}
 
 	require.Len(t, reloadChan, 1, "the pending signal coalesces rather than queueing or blocking")
+}
+
+// migrateTestServer is newReloadTestServer plus the YAML config that
+// handleMigrateConfig copies into the database.
+func migrateTestServer(t *testing.T, cfg *config.Config) (*Server, chan struct{}) {
+	t.Helper()
+
+	s, reloadChan := newReloadTestServer(t)
+	s.cfg = cfg
+	return s, reloadChan
+}
+
+// Migration is the other way a daemon that booted on YAML ends up serving
+// targets from the database, and it flips the config source underneath the
+// running scheduler.
+func TestHandleMigrateConfig_TriggersReload(t *testing.T) {
+	target := fixtures.PostgresTarget()
+	target.Schedule = "29 21 * * *"
+
+	s, reloadChan := migrateTestServer(t, &config.Config{
+		Storages: map[string]*config.Storage{"local": fixtures.LocalStorage()},
+		Targets:  []*config.Target{target},
+	})
+
+	w := httptest.NewRecorder()
+	s.handleMigrateConfig(w, httptest.NewRequest(http.MethodPost, "/api/config/migrate", nil))
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.True(t, reloadSignalled(reloadChan),
+		"migrated targets stay unscheduled until the daemon rebuilds its cron")
+}
+
+// Same reasoning as the storage-only import: there is no scheduler state to
+// rebuild when the migration carried no targets.
+func TestHandleMigrateConfig_NoReloadWithoutTargets(t *testing.T) {
+	s, reloadChan := migrateTestServer(t, &config.Config{
+		Storages: map[string]*config.Storage{"local": fixtures.LocalStorage()},
+	})
+
+	w := httptest.NewRecorder()
+	s.handleMigrateConfig(w, httptest.NewRequest(http.MethodPost, "/api/config/migrate", nil))
+
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.False(t, reloadSignalled(reloadChan))
+}
+
+// A migration that aborts must not signal: ImportFromYAML refuses to run once
+// the database holds config, and nothing changed.
+func TestHandleMigrateConfig_NoReloadWhenMigrationFails(t *testing.T) {
+	target := fixtures.PostgresTarget()
+	target.Schedule = "29 21 * * *"
+
+	s, reloadChan := migrateTestServer(t, &config.Config{
+		Storages: map[string]*config.Storage{"local": fixtures.LocalStorage()},
+		Targets:  []*config.Target{target},
+	})
+
+	w := httptest.NewRecorder()
+	s.handleCreateTarget(w, httptest.NewRequest(http.MethodPost, "/api/config/targets",
+		targetRequestBody(t, "already_there", "5 3 * * *")))
+	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
+	require.True(t, reloadSignalled(reloadChan))
+
+	w = httptest.NewRecorder()
+	s.handleMigrateConfig(w, httptest.NewRequest(http.MethodPost, "/api/config/migrate", nil))
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	require.False(t, reloadSignalled(reloadChan))
 }
