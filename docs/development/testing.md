@@ -17,8 +17,8 @@ equivalents.
 
 ## Coverage is a ratchet
 
-`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **44.6%**
-today, against roughly **44.7%** measured on CI, with `internal/testutil/...` excluded because
+`make coverage-check` compares against `COVERAGE_THRESHOLD` in the `Makefile` — **44.9%**
+today, against **45.0%** measured on CI, with `internal/testutil/...` excluded because
 test helpers are not production statements. CI enforces the same number. The ratchet is
 calibrated to CI's measurement (ubuntu) rather than a local one: coverage shifts a few tenths
 of a point between platforms, and the gate has to be green on the machine that enforces it.
